@@ -6,6 +6,7 @@
 mod analysis;
 mod camelot;
 mod cue;
+mod eq;
 mod loudness;
 mod render;
 
@@ -14,6 +15,10 @@ pub use camelot::{camelot_distance, CamelotKey};
 pub use cue::{
     align_crossfade_to_downbeat, bar_secs, bars_per_phrase_for_genre, beat_secs, plan_segment_cues,
     snap_to_phrase, CuePoints,
+};
+pub use eq::{
+    apply_echo_out_crossfade, apply_eq_swap_crossfade, apply_filter_sweep_crossfade, band_rms,
+    eq_swap_gains, BandGains, ThreeBandSplitter,
 };
 pub use loudness::{
     measure_loudness, normalize_loudness, within_lufs_tolerance, LoudnessError, LoudnessReport,

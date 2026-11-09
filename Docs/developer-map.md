@@ -15,12 +15,17 @@ Thin index for humans and agents. Prefer linking one Doc at a time.
 | `testdata/gold/` | Royalty-free synthetic WAV fixtures |
 | `Docs/` | Specs, legal, rubrics |
 
+## Platform
+
+Primary runtime: **macOS Apple Silicon**. Offline path uses pure Rust (`eq.rs`, `loudness.rs`, `render.rs`) — no Core Audio / cpal required for export. GitHub Actions runs Rust on `macos-14` and `ubuntu-latest`.
+
 ## Tests
 
 ```bash
 cargo test --workspace
 cargo clippy --workspace -- -D warnings
 cargo run -p autodj-cli -- mix --golden smoke --out /tmp/autodj-smoke.wav
+afplay /tmp/autodj-smoke.wav   # macOS listen check
 cd python && pip install -e ".[dev]" && pytest autodj_train
 ```
 
@@ -30,6 +35,7 @@ cd python && pip install -e ".[dev]" && pytest autodj_train
 - Never commit copyrighted commercial audio or scraped full DJ sets.
 - Master prompt `Docs/autoDJ-master-prompt.md` is local-only (`.git/info/exclude`).
 - Prefer issue → branch → PR.
+- Keep offline DSP portable (Mac-first, Linux CI); do not introduce Linux-only audio backends.
 
 ## Docs pointers
 

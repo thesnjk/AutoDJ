@@ -3,6 +3,9 @@
 use autodj_io::AudioBuffer;
 
 use crate::analysis::TransitionClass;
+use crate::eq::{
+    apply_echo_out_crossfade, apply_eq_swap_crossfade, apply_filter_sweep_crossfade,
+};
 
 /// One segment in a rendered mix.
 #[derive(Debug, Clone)]
@@ -82,17 +85,15 @@ pub fn mix_buffers(plan: &MixPlan, params: CrossfadeParams) -> AudioBuffer {
             let next_mono = &monos[idx + 1];
             let a_tail = &mono[mono.len() - xfade..];
             let b_head = &next_mono[..xfade];
-            for i in 0..xfade {
-                let t = if xfade <= 1 {
-                    1.0
-                } else {
-                    i as f32 / (xfade - 1) as f32
-                };
-                let (ga, gb) = gains_for(seg.transition, t, params.equal_power);
-                let s = a_tail[i] * ga + b_head[i] * gb;
-                out.push(s);
-                out.push(s);
-            }
+            let wet = crossfade_mono(
+                a_tail,
+                b_head,
+                sr,
+                seg.transition,
+                params.equal_power,
+                seg.bpm,
+            );
+            append_mono_as_stereo(&mut out, &wet);
             let next_xfade = if idx + 2 < plan.segments.len() {
                 clamp_xfade_samples(
                     next_seg.crossfade_secs,
@@ -133,6 +134,43 @@ fn clamp_xfade_samples(
         .min(len_b.saturating_sub(1))
 }
 
+/// Render a mono crossfade region according to transition class.
+fn crossfade_mono(
+    a_tail: &[f32],
+    b_head: &[f32],
+    sample_rate: u32,
+    class: TransitionClass,
+    equal_power: bool,
+    bpm: f32,
+) -> Vec<f32> {
+    match class {
+        TransitionClass::EqSwap => {
+            apply_eq_swap_crossfade(a_tail, b_head, sample_rate, equal_power)
+        }
+        TransitionClass::FilterSweep => {
+            apply_filter_sweep_crossfade(a_tail, b_head, sample_rate, equal_power)
+        }
+        TransitionClass::EchoOut => {
+            let delay_secs = (60.0 / bpm.max(1.0) * 1.5).clamp(0.12, 0.5);
+            apply_echo_out_crossfade(a_tail, b_head, sample_rate, equal_power, delay_secs)
+        }
+        TransitionClass::HardCut | TransitionClass::LinearCrossfade => {
+            let n = a_tail.len().min(b_head.len());
+            let mut out = Vec::with_capacity(n);
+            for i in 0..n {
+                let t = if n <= 1 {
+                    1.0
+                } else {
+                    i as f32 / (n - 1) as f32
+                };
+                let (ga, gb) = gains_for(class, t, equal_power);
+                out.push(a_tail[i] * ga + b_head[i] * gb);
+            }
+            out
+        }
+    }
+}
+
 fn gains_for(class: TransitionClass, t: f32, equal_power: bool) -> (f32, f32) {
     match class {
         TransitionClass::HardCut => {
@@ -146,7 +184,6 @@ fn gains_for(class: TransitionClass, t: f32, equal_power: bool) -> (f32, f32) {
         | TransitionClass::EqSwap
         | TransitionClass::FilterSweep
         | TransitionClass::EchoOut => {
-            // Dedicated EQ / filter / echo DSP lands in v1; equal-power is the MVP stand-in.
             if equal_power {
                 ((1.0 - t).sqrt(), t.sqrt())
             } else {
@@ -240,6 +277,32 @@ mod tests {
         let out = mix_buffers(&plan, CrossfadeParams::default());
         assert_eq!(out.channels, 2);
         assert!(out.frames() > sr as usize);
+        let peak = out.samples.iter().copied().map(f32::abs).fold(0.0, f32::max);
+        assert!(peak <= 1.0);
+    }
+
+    #[test]
+    fn eq_swap_mix_stays_finite() {
+        let sr = 44100;
+        let plan = MixPlan {
+            sample_rate: sr,
+            segments: vec![
+                MixSegment {
+                    buffer: tone(sr, 2.5, 60.0),
+                    bpm: 128.0,
+                    crossfade_secs: 0.8,
+                    transition: TransitionClass::EqSwap,
+                },
+                MixSegment {
+                    buffer: tone(sr, 2.5, 440.0),
+                    bpm: 128.0,
+                    crossfade_secs: 0.0,
+                    transition: TransitionClass::HardCut,
+                },
+            ],
+        };
+        let out = mix_buffers(&plan, CrossfadeParams::default());
+        assert!(out.samples.iter().all(|s| s.is_finite()));
         let peak = out.samples.iter().copied().map(f32::abs).fold(0.0, f32::max);
         assert!(peak <= 1.0);
     }

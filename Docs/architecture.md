@@ -22,7 +22,7 @@ autodj_train (optional): synthetic pairs → transition classifier weights
 ## Crates
 
 - **autodj-io** — PCM containers + `slice_secs`.
-- **autodj-core** — feature extraction, Camelot helpers, phrase cue planner (`cue.rs`), offline mix renderer, R128 loudness.
+- **autodj-core** — feature extraction, Camelot helpers, phrase cue planner (`cue.rs`), 3-band EQ transitions (`eq.rs`), offline mix renderer, R128 loudness. Pure Rust; primary target macOS Apple Silicon.
 - **autodj-graph** — greedy nearest-neighbor solver (TSP upgrade later) + genre policy.
 - **autodj-cli** — user-facing analyze/mix; golden smoke for CI.
 

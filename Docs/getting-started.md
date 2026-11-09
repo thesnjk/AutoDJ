@@ -47,6 +47,7 @@ cargo run -p autodj-cli -- mix --playlist party.json --db features.sqlite --out 
 #   + max_bass_overlap / bass_conflict_gate_pass / transitions[{class,crossfade_secs}]
 #   + max_stretch_clamp_excess / tempo_stretch_gate_pass
 # --deterministic (default true): fixed −14 LUFS + hard-fail beat-phase/peak/join/bass/stretch gates
+# --no-deterministic: relax hard gates (desktop QA checkbox off)
 
 # Rekordbox DJ_PLAYLISTS XML (user export). Keeps setlist order with --preserve-order.
 cargo run -p autodj-cli -- mix --playlist testdata/rekordbox/gold_playlist.xml \
@@ -77,4 +78,4 @@ npm install
 npm run tauri dev
 ```
 
-Use **Browse…** to pick a playlist JSON or Rekordbox XML (e.g. `testdata/rekordbox/gold_playlist.xml`), set an output WAV, optionally enable **Preserve playlist order** and a Rekordbox playlist NODE name. CLI resolution: `AUTODJ_BIN` → `autodj` on `PATH` → `cargo run -p autodj-cli` from the repo root.
+Use **Browse…** to pick a playlist JSON or Rekordbox XML (e.g. `testdata/rekordbox/gold_playlist.xml`), set an output WAV, optionally enable **Preserve playlist order**, a Rekordbox playlist NODE name, and **Strict QA gates (deterministic)** (default on). After Mix, the report panel shows a gate strip (loudness/join/bass/stretch/…) plus per-edge transitions. CLI resolution: `AUTODJ_BIN` → `autodj` on `PATH` → `cargo run -p autodj-cli` from the repo root.

@@ -67,6 +67,9 @@ enum Commands {
         /// Strict gates + fixed defaults (beat-phase / peak hard-fail; default LUFS path).
         #[arg(long, default_value_t = true)]
         deterministic: bool,
+        /// Relax MixReport hard gates (overrides `--deterministic`).
+        #[arg(long, default_value_t = false)]
+        no_deterministic: bool,
         /// Target integrated loudness in LUFS (EBU R 128 / BS.1770). Use -23 for broadcast.
         #[arg(long, default_value_t = DEFAULT_TARGET_LUFS)]
         lufs: f64,
@@ -186,12 +189,14 @@ fn main() -> Result<()> {
             genre,
             golden,
             db,
-            deterministic,
+            deterministic: deterministic_flag,
+            no_deterministic,
             lufs,
             no_loudness_norm,
             policy_hints,
             transition_model,
         } => {
+            let deterministic = deterministic_flag && !no_deterministic;
             // Deterministic: fixed default LUFS (ignore --lufs) + hard beat/peak gates.
             let target = if no_loudness_norm {
                 None

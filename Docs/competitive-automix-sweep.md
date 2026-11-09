@@ -16,7 +16,7 @@ Living gap matrix. Updated 2026-11-09 after Firecrawl research (raw notes in loc
 | Stems-aware transitions | Serato Stems (vocal / melody / bass / drums pads) | Gap | no stem DSP; deferred v2 |
 | Phrase sync | Rekordbox phrase analysis / djay BPM+Beats sync | Parity-path | `beat_offset_secs` + grid-aware cue snap; MixReport `beat_phase_gate_pass`; full phrase ML later |
 | Learning from setcraft | Mixonset / tracklist research tools | Parity-path | tracklist aggregates + SoftmaxLogReg; `autodj-train eval` ≥ 0.90; CI `--golden transition_model` |
-| Live / controller | VirtualDJ / Serato dual-deck | Parity-path (desktop shell) | Tauri 2 dialog picker for JSON/XML + `--preserve-order` / `--playlist-name`; live dual-deck still Later |
+| Live / controller | VirtualDJ / Serato dual-deck | Parity-path (desktop shell) | Tauri 2 MixReport QA panel (gate strip + transitions) + deterministic checkbox; live dual-deck still Later |
 | Loudness / broadcast | EBU R 128 (−23 LUFS integrated; true-peak limits); radio-style continuous sets | Parity-path (measure+norm shipped) | `loudness.rs` + CLI `--lufs`; golden gate ±2 LU (`Docs/mix-quality-rubric.md`) |
 | Tempo blend | djay Sync + Tempo Blend | Parity-path | `stretch.rs` WSOLA + `tempo_blend_head`; MixReport `tempo_blend_applied` + `tempo_stretch_gate_pass`; solver `stretch_clamp_excess` cost |
 | Spectral continuity eval | Mix-quality rubric adjacent flux | Parity-path | `eval.rs` hop-RMS ratio; MixReport `spectral_continuity_pass` + `join_continuity_pass` |
@@ -63,9 +63,10 @@ Formula note: `(competitor best − AutoDJ) × persona weight × mix_impact`. Be
 | **P16** | Transition-model E2E mix CI golden | **Shipped** — `--golden transition_model` + Softmax class pin |
 | **P17** | Warble-aware stretch costs + gate | **Shipped** — `stretch_clamp_excess` in solver + MixReport gate |
 | **P18** | uk_garage / open_format transition golden | **Shipped** — `--golden transitions` covers all six builtins |
-| Next | Tauri MixReport / QA panel polish | else stems / live dual-deck (gated) |
+| **P19** | Tauri MixReport / QA panel | **Shipped** — gate strip + transitions + `--deterministic` bridge |
+| Next | Stems / live dual-deck | gated (rights-cleared stems path required) |
 | Later | Listening-rubric polish on real libraries | user-owned audio only |
 
 ## Re-rank bias
 
-Prefer agent-doable product code that closes remaining mix-quality gaps before brochure fluff. P0–P18 are in place; stems remain gated.
+Prefer agent-doable product code that closes remaining mix-quality gaps before brochure fluff. P0–P19 are in place; stems remain gated.

@@ -37,6 +37,13 @@
           </span>
           <span class="hint">Keep Rekordbox setlist order (skip energy-arc reorder)</span>
         </label>
+        <label class="check">
+          <span class="check-row">
+            <input id="deterministic" type="checkbox" checked />
+            <span>Strict QA gates (deterministic)</span>
+          </span>
+          <span class="hint">Hard-fail beat-phase, peak, join, bass, stretch (matches CLI default)</span>
+        </label>
         <label class="optional">
           Rekordbox playlist name (optional)
           <input id="playlist-name" type="text" spellcheck="false" placeholder="Gold Set" />
@@ -78,6 +85,7 @@
 
       <section class="status" aria-live="polite">
         <p id="bin-path" class="meta">Resolving autodj…</p>
+        <div id="report-panel" class="report-panel" hidden></div>
         <pre id="report" class="report" hidden></pre>
       </section>
 

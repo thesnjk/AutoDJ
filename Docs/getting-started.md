@@ -39,6 +39,10 @@ cargo run -p autodj-cli -- mix --playlist party.json --db features.sqlite --out 
 # MixReport includes beat_phase_mean_ms / beat_phase_gate_pass / true_peak / peak_gate_pass
 # --deterministic (default true): fixed −14 LUFS target + hard-fail beat-phase/peak gates
 
+# Rekordbox DJ_PLAYLISTS XML (user export). Keeps setlist order with --preserve-order.
+cargo run -p autodj-cli -- mix --playlist testdata/rekordbox/gold_playlist.xml \
+  --preserve-order --playlist-name "Gold Set" --out mix.wav --genre house
+
 # Optional setcraft / classifier overrides
 cargo run -p autodj-cli -- mix --playlist party.json --out mix.wav \
   --policy-hints python/autodj_train/datasets/aggregates/demo_policy_hints.json
@@ -46,7 +50,7 @@ cargo run -p autodj-cli -- mix --playlist party.json --out mix.wav \
   --transition-model python/autodj_train/models/artifacts/transition_model.json
 ```
 
-Keys/BPM in the playlist override analyzer estimates when present.
+Keys/BPM/`beat_offset_secs`/`intro_end`/`outro_start` in JSON (or Rekordbox TEMPO/Tonality/POSITION_MARK) override analyzer estimates when present. Without `--preserve-order`, the solver may reorder for harmonic/energy-arc.
 
 Train gate (CI):
 

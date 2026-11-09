@@ -7,12 +7,14 @@ use anyhow::{bail, Context, Result};
 use autodj_core::{
     adjacent_flux_ratio, analyze_path, bars_per_phrase_for_genre, beat_phase_gate_pass,
     mean_beat_phase_offset_ms, measure_loudness, mix_buffers_with_meta, normalize_loudness,
-    peak_gate_pass, plan_segment_cues, spectral_continuity_pass, within_lufs_tolerance,
-    BeatPhaseCue, CamelotKey, CrossfadeParams, MixPlan, MixSegment, TrackFeatures, TransitionClass,
-    DEFAULT_BEAT_PHASE_LIMIT_MS, DEFAULT_MAX_FLUX_RATIO, DEFAULT_TARGET_LUFS,
-    DEFAULT_TRUE_PEAK_LIMIT, LUFS_TOLERANCE_LU,
+    parse_rekordbox_xml, peak_gate_pass, plan_segment_cues, spectral_continuity_pass,
+    within_lufs_tolerance, BeatPhaseCue, CamelotKey, CrossfadeParams, MixPlan, MixSegment,
+    TrackFeatures, TransitionClass, DEFAULT_BEAT_PHASE_LIMIT_MS, DEFAULT_MAX_FLUX_RATIO,
+    DEFAULT_TARGET_LUFS, DEFAULT_TRUE_PEAK_LIMIT, LUFS_TOLERANCE_LU,
 };
-use autodj_graph::{load_policy_hints_map, solve_order, GenrePolicy, TransitionModel};
+use autodj_graph::{
+    load_policy_hints_map, preserve_order, solve_order, GenrePolicy, TransitionModel,
+};
 use autodj_io::{read_wav, write_wav};
 use clap::{Parser, Subcommand};
 use rusqlite::{params, Connection};
@@ -36,11 +38,17 @@ enum Commands {
         #[arg(long, default_value = "features.sqlite")]
         db: PathBuf,
     },
-    /// Mix a playlist JSON (or golden smoke) to WAV.
+    /// Mix a playlist JSON or Rekordbox XML (or golden smoke) to WAV.
     Mix {
-        /// Playlist JSON path.
+        /// Playlist JSON or Rekordbox DJ_PLAYLISTS XML path.
         #[arg(long)]
         playlist: Option<PathBuf>,
+        /// When XML has multiple playlists, select by NODE name.
+        #[arg(long)]
+        playlist_name: Option<String>,
+        /// Keep playlist order (skip energy-arc / harmonic reorder). Useful for Rekordbox exports.
+        #[arg(long, default_value_t = false)]
+        preserve_order: bool,
         /// Output WAV path.
         #[arg(long, default_value = "mix.wav")]
         out: PathBuf,
@@ -85,6 +93,12 @@ struct PlaylistTrack {
     key: Option<String>,
     #[serde(default)]
     bpm: Option<f32>,
+    #[serde(default)]
+    beat_offset_secs: Option<f64>,
+    #[serde(default)]
+    intro_end: Option<f64>,
+    #[serde(default)]
+    outro_start: Option<f64>,
 }
 
 #[derive(Debug, Serialize)]
@@ -136,6 +150,8 @@ fn main() -> Result<()> {
         Commands::Analyze { input, db } => cmd_analyze(&input, &db),
         Commands::Mix {
             playlist,
+            playlist_name,
+            preserve_order: keep_order,
             out,
             genre,
             golden,
@@ -178,12 +194,14 @@ fn main() -> Result<()> {
             let playlist = playlist.context("--playlist is required unless --golden is set")?;
             cmd_mix(
                 &playlist,
+                playlist_name.as_deref(),
                 &out,
                 policy,
                 db.as_deref(),
                 target,
                 model.as_ref(),
                 deterministic,
+                keep_order,
             )
         }
     }
@@ -239,17 +257,79 @@ fn cmd_analyze(input: &Path, db: &Path) -> Result<()> {
     Ok(())
 }
 
+fn load_playlist_file(
+    playlist: &Path,
+    playlist_name: Option<&str>,
+) -> Result<PlaylistFile> {
+    let ext = playlist
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("")
+        .to_ascii_lowercase();
+    if ext == "xml" {
+        let rb = parse_rekordbox_xml(playlist, playlist_name)
+            .with_context(|| format!("parse Rekordbox XML {}", playlist.display()))?;
+        Ok(PlaylistFile {
+            genre: None,
+            tracks: rb
+                .tracks
+                .into_iter()
+                .map(|t| PlaylistTrack {
+                    path: t.path,
+                    key: t.key,
+                    bpm: t.bpm,
+                    beat_offset_secs: t.beat_offset_secs,
+                    intro_end: t.intro_end,
+                    outro_start: t.outro_start,
+                })
+                .collect(),
+        })
+    } else {
+        let raw = fs::read_to_string(playlist)?;
+        serde_json::from_str(&raw).with_context(|| format!("parse playlist JSON {}", playlist.display()))
+    }
+}
+
+fn apply_track_overrides(feats: &mut TrackFeatures, t: &PlaylistTrack) {
+    if let Some(k) = t.key.as_deref() {
+        if let Some(ck) = CamelotKey::parse_flexible(k) {
+            feats.key = ck;
+        }
+    }
+    if let Some(bpm) = t.bpm {
+        feats.bpm = bpm;
+    }
+    if let Some(off) = t.beat_offset_secs {
+        feats.beat_offset_secs = off;
+    }
+    if let Some(intro) = t.intro_end {
+        feats.sections.intro_end = intro;
+    }
+    if let Some(outro) = t.outro_start {
+        feats.sections.outro_start = outro;
+    }
+    // Keep drop between intro and outro when marks rearrange sections.
+    if feats.sections.drop_start < feats.sections.intro_end
+        || feats.sections.drop_start > feats.sections.outro_start
+    {
+        feats.sections.drop_start =
+            (feats.sections.intro_end + feats.sections.outro_start) * 0.5;
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
 fn cmd_mix(
     playlist: &Path,
+    playlist_name: Option<&str>,
     out: &Path,
     mut policy: GenrePolicy,
     db: Option<&Path>,
     target_lufs: Option<f64>,
     model: Option<&TransitionModel>,
     deterministic: bool,
+    keep_order: bool,
 ) -> Result<()> {
-    let raw = fs::read_to_string(playlist)?;
-    let pl: PlaylistFile = serde_json::from_str(&raw)?;
+    let pl = load_playlist_file(playlist, playlist_name)?;
     if let Some(g) = pl.genre.as_deref() {
         // Playlist genre wins identity; keep any bpm/xfade overrides already applied
         // only when the playlist genre matches the resolved policy id.
@@ -270,20 +350,17 @@ fn cmd_mix(
         } else {
             analyze_path(&track_path)?
         };
-        if let Some(k) = t.key.as_deref() {
-            if let Some(ck) = CamelotKey::parse(k) {
-                feats.key = ck;
-            }
-        }
-        if let Some(bpm) = t.bpm {
-            feats.bpm = bpm;
-        }
+        apply_track_overrides(&mut feats, t);
         feats.path = Some(track_path);
         features.push(feats);
     }
 
-    // Free start → quiet opener within BPM band (energy-arc setcraft).
-    let solution = solve_order(&features, &policy, None, model);
+    let solution = if keep_order {
+        preserve_order(&features, &policy, model)
+    } else {
+        // Free start → quiet opener within BPM band (energy-arc setcraft).
+        solve_order(&features, &policy, None, model)
+    };
     let phrase_bars = bars_per_phrase_for_genre(&policy.id);
     let mut segments = Vec::new();
     let mut cue_reports = Vec::new();
@@ -470,12 +547,14 @@ fn cmd_golden_smoke(
     }
     cmd_mix(
         &playlist,
+        None,
         out,
         policy,
         None,
         target_lufs,
         model,
         deterministic,
+        false,
     )
 }
 

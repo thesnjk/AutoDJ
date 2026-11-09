@@ -9,6 +9,7 @@ mod cue;
 mod eq;
 mod eval;
 mod loudness;
+mod rekordbox;
 mod render;
 mod stretch;
 
@@ -32,6 +33,9 @@ pub use eval::{
 pub use loudness::{
     measure_loudness, normalize_loudness, within_lufs_tolerance, LoudnessError, LoudnessReport,
     BROADCAST_TARGET_LUFS, DEFAULT_TARGET_LUFS, LUFS_TOLERANCE_LU,
+};
+pub use rekordbox::{
+    parse_rekordbox_bytes, parse_rekordbox_xml, resolve_location, RekordboxPlaylist, RekordboxTrack,
 };
 pub use render::{mix_buffers, mix_buffers_with_meta, CrossfadeParams, MixPlan, MixRenderResult, MixSegment};
 pub use stretch::{

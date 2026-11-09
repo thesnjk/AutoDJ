@@ -274,6 +274,59 @@ pub fn select_opener(tracks: &[TrackFeatures], policy: &GenrePolicy) -> usize {
         .unwrap_or(0)
 }
 
+/// Keep playlist input order (no energy-arc / harmonic reordering).
+///
+/// Used for Rekordbox exports and `--preserve-order`. Transitions use the genre
+/// preferred class (or `model` when provided).
+pub fn preserve_order(
+    tracks: &[TrackFeatures],
+    policy: &GenrePolicy,
+    model: Option<&TransitionModel>,
+) -> MixSolution {
+    let n = tracks.len();
+    if n == 0 {
+        return MixSolution {
+            order: vec![],
+            transitions: vec![],
+            total_cost: 0.0,
+        };
+    }
+    let order: Vec<usize> = (0..n).collect();
+    let mut transitions = Vec::new();
+    let mut total = 0.0f32;
+    for w in order.windows(2) {
+        let (from, to) = (w[0], w[1]);
+        let class = if let Some(m) = model {
+            let a = &tracks[from];
+            let b = &tracks[to];
+            predict_transition_class(
+                m,
+                a.bpm,
+                b.bpm,
+                camelot_distance(a.key, b.key),
+                b.loudness_db - a.loudness_db,
+                &policy.id,
+            )
+        } else {
+            policy.preferred_transition
+        };
+        let cost = pair_cost(&tracks[from], &tracks[to], policy);
+        total += cost;
+        transitions.push(TransitionDecision {
+            from,
+            to,
+            class,
+            crossfade_secs: policy.default_crossfade_secs,
+            cost,
+        });
+    }
+    MixSolution {
+        order,
+        transitions,
+        total_cost: total,
+    }
+}
+
 /// Greedy nearest-neighbor solver with optional fixed start index.
 ///
 /// When `start` is `None`, picks a quiet opener via [`select_opener`].
@@ -410,6 +463,20 @@ mod tests {
         let sol = solve_order(&tracks, &policy, Some(0), None);
         assert_eq!(sol.order[0], 0);
         assert_eq!(sol.order[1], 2, "order={:?}", sol.order);
+    }
+
+    #[test]
+    fn preserve_order_keeps_input_indices() {
+        let tracks = vec![
+            feat(124.0, "8A", -10.0),
+            feat(174.0, "1A", -9.0),
+            feat(125.0, "9A", -9.5),
+        ];
+        let policy = GenrePolicy::builtin("house");
+        let sol = preserve_order(&tracks, &policy, None);
+        assert_eq!(sol.order, vec![0, 1, 2]);
+        assert_eq!(sol.transitions.len(), 2);
+        assert_eq!(sol.transitions[0].class, policy.preferred_transition);
     }
 
     #[test]

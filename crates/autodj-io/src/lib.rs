@@ -55,6 +55,23 @@ impl AudioBuffer {
         }
         mono
     }
+
+    /// Return a copy of frames in `[start_secs, end_secs)` (clamped to the buffer).
+    pub fn slice_secs(&self, start_secs: f64, end_secs: f64) -> AudioBuffer {
+        let ch = self.channels.max(1) as usize;
+        let total = self.frames();
+        let start = ((start_secs.max(0.0) * self.sample_rate as f64) as usize).min(total);
+        let end = ((end_secs.max(0.0) * self.sample_rate as f64) as usize)
+            .max(start)
+            .min(total);
+        let byte_start = start * ch;
+        let byte_end = end * ch;
+        AudioBuffer {
+            sample_rate: self.sample_rate,
+            channels: self.channels,
+            samples: self.samples[byte_start..byte_end].to_vec(),
+        }
+    }
 }
 
 /// Read a WAV file into an [`AudioBuffer`].
@@ -128,5 +145,16 @@ mod tests {
         assert_eq!(got.sample_rate, 44100);
         assert_eq!(got.channels, 1);
         assert_eq!(got.samples.len(), 4);
+    }
+
+    #[test]
+    fn slice_secs_extracts_frames() {
+        let buf = AudioBuffer {
+            sample_rate: 10,
+            channels: 1,
+            samples: (0..20).map(|i| i as f32).collect(),
+        };
+        let sliced = buf.slice_secs(0.5, 1.2);
+        assert_eq!(sliced.samples, vec![5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0]);
     }
 }

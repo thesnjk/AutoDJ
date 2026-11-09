@@ -79,11 +79,7 @@ pub fn analyze_mono(samples: &[f32], sample_rate: u32) -> anyhow::Result<TrackFe
     let key = from_pitch_class(pc, minor);
     let loudness_db = rms_db(samples);
     let spectral_centroid_hz = spectral_centroid(samples, sample_rate);
-    let sections = SectionMarks {
-        intro_end: (duration_secs * 0.15).clamp(0.0, duration_secs),
-        drop_start: (duration_secs * 0.35).clamp(0.0, duration_secs),
-        outro_start: (duration_secs * 0.75).clamp(0.0, duration_secs),
-    };
+    let sections = estimate_sections(samples, sample_rate, duration_secs);
     Ok(TrackFeatures {
         path: None,
         bpm,
@@ -94,6 +90,87 @@ pub fn analyze_mono(samples: &[f32], sample_rate: u32) -> anyhow::Result<TrackFe
         sections,
         spectral_centroid_hz,
     })
+}
+
+/// Estimate coarse intro / drop / outro marks from a windowed RMS envelope.
+fn estimate_sections(samples: &[f32], sample_rate: u32, duration_secs: f64) -> SectionMarks {
+    let fallback = SectionMarks {
+        intro_end: (duration_secs * 0.15).clamp(0.0, duration_secs),
+        drop_start: (duration_secs * 0.35).clamp(0.0, duration_secs),
+        outro_start: (duration_secs * 0.75).clamp(0.0, duration_secs),
+    };
+
+    let hop = ((sample_rate as f64) * 0.5).round().max(1.0) as usize;
+    if samples.len() < hop * 4 {
+        return fallback;
+    }
+
+    let mut env: Vec<f32> = Vec::new();
+    for chunk in samples.chunks(hop) {
+        let sum: f64 = chunk.iter().map(|s| (*s as f64).powi(2)).sum();
+        env.push((sum / chunk.len() as f64).sqrt() as f32);
+    }
+    if env.is_empty() {
+        return fallback;
+    }
+
+    let mut sorted = env.clone();
+    sorted.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+    let median = sorted[sorted.len() / 2];
+    let threshold = (median * 1.15).max(1e-6);
+    let hop_secs = hop as f64 / sample_rate as f64;
+
+    // Intro end: first window past median energy that holds for 2 hops.
+    let mut intro_end = fallback.intro_end;
+    for i in 0..env.len().saturating_sub(1) {
+        if env[i] >= threshold && env[i + 1] >= threshold {
+            intro_end = ((i + 1) as f64 * hop_secs).clamp(0.0, duration_secs);
+            break;
+        }
+    }
+
+    // Outro start: last sustained drop below median in the final third.
+    let final_third = (env.len() * 2) / 3;
+    let mut outro_start = fallback.outro_start;
+    let low = median * 0.85;
+    for i in (final_third..env.len().saturating_sub(1)).rev() {
+        if env[i] <= low && env[i + 1] <= low {
+            outro_start = (i as f64 * hop_secs).clamp(0.0, duration_secs);
+            break;
+        }
+    }
+
+    // Drop: peak energy between intro and outro.
+    let start_i = ((intro_end / hop_secs).floor() as usize).min(env.len().saturating_sub(1));
+    let end_i = ((outro_start / hop_secs).floor() as usize)
+        .max(start_i)
+        .min(env.len().saturating_sub(1));
+    let mut peak_i = start_i;
+    let mut peak_v = env[start_i];
+    for (i, &v) in env.iter().enumerate().take(end_i + 1).skip(start_i) {
+        if v > peak_v {
+            peak_v = v;
+            peak_i = i;
+        }
+    }
+    let mut drop_start = (peak_i as f64 * hop_secs).clamp(0.0, duration_secs);
+
+    // Keep ordering sensible.
+    if intro_end > outro_start {
+        return fallback;
+    }
+    if drop_start < intro_end {
+        drop_start = intro_end;
+    }
+    if drop_start > outro_start {
+        drop_start = (intro_end + outro_start) * 0.5;
+    }
+
+    SectionMarks {
+        intro_end,
+        drop_start,
+        outro_start,
+    }
 }
 
 fn rms_db(samples: &[f32]) -> f32 {
@@ -210,5 +287,43 @@ mod tests {
         let feats = analyze_mono(&samples, sr).unwrap();
         assert!(feats.bpm > 100.0 && feats.bpm < 160.0, "bpm={}", feats.bpm);
         assert!(feats.duration_secs > 3.5);
+    }
+
+    #[test]
+    fn sections_follow_energy_ramp_and_decay() {
+        let sr = 44100u32;
+        let seconds = 10.0f64;
+        let n = (sr as f64 * seconds) as usize;
+        let mut samples = vec![0.0f32; n];
+        for i in 0..n {
+            let t = i as f64 / sr as f64;
+            let amp = if t < 2.0 {
+                0.05
+            } else if t < 7.0 {
+                0.4
+            } else {
+                0.05
+            };
+            let tone = (2.0 * std::f32::consts::PI * 220.0 * (i as f32 / sr as f32)).sin();
+            samples[i] = tone * amp as f32;
+        }
+        let feats = analyze_mono(&samples, sr).unwrap();
+        assert!(
+            feats.sections.intro_end < feats.sections.drop_start,
+            "intro={} drop={}",
+            feats.sections.intro_end,
+            feats.sections.drop_start
+        );
+        assert!(
+            feats.sections.drop_start < feats.sections.outro_start,
+            "drop={} outro={}",
+            feats.sections.drop_start,
+            feats.sections.outro_start
+        );
+        assert!(
+            feats.sections.outro_start >= 6.0,
+            "outro_start={}",
+            feats.sections.outro_start
+        );
     }
 }

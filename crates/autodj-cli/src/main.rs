@@ -8,7 +8,8 @@ use autodj_core::{
     adjacent_flux_ratio, analyze_path, bars_per_phrase_for_genre, bass_conflict_pass,
     beat_phase_gate_pass, camelot_distance, join_continuity_pass, max_join_flux_ratio,
     mean_beat_phase_offset_ms, measure_loudness, mix_buffers_with_meta, normalize_loudness,
-    parse_rekordbox_xml, peak_gate_pass, plan_segment_cues, spectral_continuity_pass,
+    parse_rekordbox_xml, peak_gate_pass, plan_segment_cues, sections_drop_ordered,
+    spectral_continuity_pass,
     stretch_clamp_excess, tempo_stretch_gate_pass, within_lufs_tolerance, BeatPhaseCue,
     CamelotKey, CrossfadeParams, MixPlan, MixSegment, TrackFeatures, TransitionClass,
     DEFAULT_BASS_OVERLAP_LIMIT, DEFAULT_BEAT_PHASE_LIMIT_MS, DEFAULT_JOIN_FLUX_RATIO,
@@ -126,6 +127,8 @@ struct MixReport {
     cues: Vec<CueReport>,
     /// True when cue planner ran (phrase-aligned mix-in/out).
     cue_phrase_aligned: bool,
+    /// True when every edge used ordered section marks (`intro ≤ drop ≤ outro`).
+    cue_drop_aware: bool,
     /// True when any adjacent pair used WSOLA tempo blend (|ΔBPM| ≥ 0.5).
     tempo_blend_applied: bool,
     /// Adjacent spectral-flux ratio (max/median); lower is smoother.
@@ -435,6 +438,8 @@ fn cmd_mix(
     let phrase_bars = bars_per_phrase_for_genre(&policy.id);
     let mut segments = Vec::new();
     let mut cue_reports = Vec::new();
+    let mut cue_drop_aware = true;
+    let mut saw_edge = false;
     let n = solution.order.len();
     for (i, &idx) in solution.order.iter().enumerate() {
         let feats = &features[idx];
@@ -452,6 +457,12 @@ fn cmd_mix(
             .get(i)
             .map(|t| t.crossfade_secs)
             .unwrap_or(policy.default_crossfade_secs);
+        if let Some(next) = next_feats {
+            saw_edge = true;
+            if !sections_drop_ordered(&feats.sections) || !sections_drop_ordered(&next.sections) {
+                cue_drop_aware = false;
+            }
+        }
         let cues = plan_segment_cues(
             feats,
             next_feats,
@@ -635,6 +646,7 @@ fn cmd_mix(
         loudness_gate_pass,
         cues: cue_reports,
         cue_phrase_aligned: true,
+        cue_drop_aware: cue_drop_aware && saw_edge,
         tempo_blend_applied,
         spectral_flux_ratio,
         spectral_continuity_pass: spectral_ok,
@@ -685,6 +697,12 @@ fn cmd_golden_smoke(
         deterministic,
         false,
     )?;
+    if !report.cue_phrase_aligned {
+        bail!("smoke golden: expected cue_phrase_aligned");
+    }
+    if !report.cue_drop_aware {
+        bail!("smoke golden: expected cue_drop_aware");
+    }
     println!("{}", serde_json::to_string_pretty(&report)?);
     Ok(())
 }
@@ -712,6 +730,12 @@ fn cmd_golden_rekordbox(
         deterministic,
         true,
     )?;
+    if !report.preserve_order {
+        bail!("rekordbox golden: expected preserve_order");
+    }
+    if !report.cue_drop_aware {
+        bail!("rekordbox golden: expected cue_drop_aware");
+    }
     println!("{}", serde_json::to_string_pretty(&report)?);
     Ok(())
 }
@@ -769,6 +793,9 @@ fn cmd_golden_transitions(
         if report.transitions.is_empty() {
             bail!("transitions golden ({genre_id}): no edges in MixReport");
         }
+        if !report.cue_drop_aware {
+            bail!("transitions golden ({genre_id}): expected cue_drop_aware");
+        }
         for edge in &report.transitions {
             if edge.class != expected {
                 bail!(
@@ -785,6 +812,7 @@ fn cmd_golden_transitions(
             "preferred_transition": expected,
             "transitions": report.transitions,
             "preserve_order": report.preserve_order,
+            "cue_drop_aware": report.cue_drop_aware,
             "bass_conflict_gate_pass": report.bass_conflict_gate_pass,
             "join_continuity_pass": report.join_continuity_pass,
             "loudness_gate_pass": report.loudness_gate_pass,

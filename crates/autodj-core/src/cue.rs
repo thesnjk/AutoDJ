@@ -2,7 +2,16 @@
 //!
 //! Offline planner — allocates freely; do not call from a real-time audio thread.
 
-use crate::analysis::TrackFeatures;
+use crate::analysis::{SectionMarks, TrackFeatures};
+
+/// True when section marks are finite and ordered (`intro_end ≤ drop_start ≤ outro_start`).
+pub fn sections_drop_ordered(sections: &SectionMarks) -> bool {
+    sections.intro_end.is_finite()
+        && sections.drop_start.is_finite()
+        && sections.outro_start.is_finite()
+        && sections.intro_end <= sections.drop_start
+        && sections.drop_start <= sections.outro_start
+}
 
 /// Planned play window and outgoing crossfade for one mix segment.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -94,9 +103,12 @@ pub fn bars_per_phrase_for_genre(genre_id: &str) -> u32 {
 
 /// Plan mix-in / mix-out cues for one track in a solved order.
 ///
-/// - Non-first tracks start near a phrase boundary inside the intro region.
+/// - Non-first tracks start near a phrase boundary inside the intro region,
+///   clamped at/before `drop_start` when section marks are ordered.
 /// - Tracks with a successor end near a phrase-snapped outro so the fade covers
-///   into the next track's intro head.
+///   into the next track's intro head (xfade capped by next `drop_start`).
+/// - On long tracks, `play_end` stays at/after `drop_start` so mixes don't cut
+///   before the drop; short gold loops keep the existing collapse rescue.
 /// - Crossfade length is policy-driven, capped by available outro/intro, then
 ///   snapped to whole beats.
 pub fn plan_segment_cues(
@@ -109,20 +121,27 @@ pub fn plan_segment_cues(
 ) -> CuePoints {
     let dur = feats.duration_secs.max(0.0);
     let bpm = feats.bpm.max(1.0);
+    let drop_ordered = sections_drop_ordered(&feats.sections);
+    let phrase = bar_secs(bpm) * bars_per_phrase.max(1) as f64;
+    let long_enough = dur >= phrase * 0.9;
 
     let offset = feats.beat_offset_secs;
     let play_start = if is_first {
         // Keep the head of the first track (short gold loops need the full buffer).
         0.0
     } else {
-        // Prefer early intro, snapped to phrase/beat grid.
+        // Prefer early intro, snapped to phrase/beat grid; never start after the drop.
         let raw = feats.sections.intro_end.min(dur * 0.25).max(0.0);
         let candidate = if raw < bar_secs(bpm) {
             0.0
         } else {
             snap_cue_time(raw, bpm, bars_per_phrase, offset, dur)
         };
-        candidate.clamp(0.0, (dur * 0.5).max(0.0))
+        let mut capped = candidate.clamp(0.0, (dur * 0.5).max(0.0));
+        if drop_ordered {
+            capped = capped.min(feats.sections.drop_start.max(0.0));
+        }
+        capped
     };
 
     let (play_end, crossfade_secs) = match (is_last, next) {
@@ -130,7 +149,11 @@ pub fn plan_segment_cues(
         (false, Some(next)) => {
             let next_intro = next.sections.intro_end.max(beat_secs(next.bpm));
             let available_outro = (dur - feats.sections.outro_start).max(0.0);
-            let available_intro = next_intro.min(next.duration_secs * 0.35).max(0.0);
+            let mut available_intro = next_intro.min(next.duration_secs * 0.35).max(0.0);
+            // Fade must finish before the next drop when marks are ordered.
+            if sections_drop_ordered(&next.sections) {
+                available_intro = available_intro.min(next.sections.drop_start.max(0.0));
+            }
 
             let mut xfade = policy_xfade
                 .max(0.0)
@@ -140,10 +163,17 @@ pub fn plan_segment_cues(
 
             // Keep a usable fade on short gold loops.
             if xfade < 0.05 && policy_xfade > 0.0 {
-                xfade = policy_xfade
+                let mut rescued = policy_xfade
                     .min((dur * 0.35) as f32)
                     .min((next.duration_secs * 0.35) as f32)
                     .max(0.05);
+                if sections_drop_ordered(&next.sections) {
+                    let drop_cap = next.sections.drop_start.max(0.0) as f32;
+                    if drop_cap > 0.0 {
+                        rescued = rescued.min(drop_cap);
+                    }
+                }
+                xfade = rescued;
             }
 
             xfade = align_crossfade_to_downbeat(xfade, bpm);
@@ -158,6 +188,19 @@ pub fn plan_segment_cues(
             }
             if play_end > dur {
                 play_end = dur;
+            }
+            // Long tracks: do not cut the play window before the drop.
+            if long_enough && drop_ordered && play_end < feats.sections.drop_start {
+                let floored = snap_cue_time(
+                    feats.sections.drop_start,
+                    bpm,
+                    bars_per_phrase,
+                    offset,
+                    dur,
+                )
+                .max(feats.sections.drop_start)
+                .min(dur);
+                play_end = floored.max(play_end);
             }
             // Ensure we still have room for the crossfade inside the window.
             if play_end - play_start < xfade as f64 {
@@ -182,6 +225,10 @@ mod tests {
     use crate::camelot::CamelotKey;
 
     fn feats(bpm: f32, dur: f64, intro: f64, outro: f64) -> TrackFeatures {
+        feats_with_drop(bpm, dur, intro, dur * 0.4, outro)
+    }
+
+    fn feats_with_drop(bpm: f32, dur: f64, intro: f64, drop: f64, outro: f64) -> TrackFeatures {
         TrackFeatures {
             path: None,
             bpm,
@@ -191,13 +238,59 @@ mod tests {
             sample_rate: 44_100,
             sections: SectionMarks {
                 intro_end: intro,
-                drop_start: dur * 0.4,
+                drop_start: drop,
                 outro_start: outro,
             },
             spectral_centroid_hz: 1000.0,
             beat_offset_secs: 0.0,
             quality: crate::analysis::AnalysisQuality::default(),
         }
+    }
+
+    #[test]
+    fn mix_in_clamped_at_or_before_drop() {
+        // 4-bar phrases @ 120 BPM = 8s; snap(7.5) → 8.0 which would pass drop 7.8 without clamp.
+        let a = feats_with_drop(120.0, 64.0, 7.5, 7.8, 48.0);
+        let b = feats_with_drop(120.0, 64.0, 4.0, 16.0, 48.0);
+        assert!(sections_drop_ordered(&a.sections));
+        let cues = plan_segment_cues(&a, Some(&b), 8.0, 4, false, false);
+        assert!(
+            cues.play_start_secs <= a.sections.drop_start + 1e-9,
+            "play_start {} > drop {}",
+            cues.play_start_secs,
+            a.sections.drop_start
+        );
+    }
+
+    #[test]
+    fn xfade_head_capped_by_next_drop() {
+        let a = feats_with_drop(120.0, 64.0, 4.0, 16.0, 48.0);
+        // Intro longer than drop window would be unordered; keep intro ≤ drop and
+        // make drop the binding cap vs a large policy xfade.
+        let b = feats_with_drop(120.0, 64.0, 2.0, 3.0, 48.0);
+        assert!(sections_drop_ordered(&b.sections));
+        let cues = plan_segment_cues(&a, Some(&b), 16.0, 8, true, false);
+        assert!(
+            cues.crossfade_secs as f64 <= b.sections.drop_start + beat_secs(120.0) + 1e-3,
+            "xfade {} exceeds next drop {}",
+            cues.crossfade_secs,
+            b.sections.drop_start
+        );
+    }
+
+    #[test]
+    fn long_track_play_end_reaches_drop() {
+        // Outro before drop is repaired by analysis in CLI; here force a late drop
+        // with an early outro-like end by placing outro just after drop on a long track.
+        let a = feats_with_drop(120.0, 64.0, 4.0, 32.0, 33.0);
+        let b = feats_with_drop(120.0, 64.0, 4.0, 16.0, 48.0);
+        let cues = plan_segment_cues(&a, Some(&b), 1.0, 8, true, false);
+        assert!(
+            cues.play_end_secs + 1e-6 >= a.sections.drop_start,
+            "play_end {} < drop {}",
+            cues.play_end_secs,
+            a.sections.drop_start
+        );
     }
 
     #[test]

@@ -5,9 +5,9 @@ use std::path::{Path, PathBuf};
 
 use anyhow::{bail, Context, Result};
 use autodj_core::{
-    analyze_path, bars_per_phrase_for_genre, measure_loudness, mix_buffers, normalize_loudness,
-    plan_segment_cues, within_lufs_tolerance, CamelotKey, CrossfadeParams, MixPlan, MixSegment,
-    TrackFeatures, TransitionClass, DEFAULT_TARGET_LUFS, LUFS_TOLERANCE_LU,
+    analyze_path, bars_per_phrase_for_genre, measure_loudness, mix_buffers_with_meta,
+    normalize_loudness, plan_segment_cues, within_lufs_tolerance, CamelotKey, CrossfadeParams,
+    MixPlan, MixSegment, TrackFeatures, TransitionClass, DEFAULT_TARGET_LUFS, LUFS_TOLERANCE_LU,
 };
 use autodj_graph::{solve_order, GenrePolicy};
 use autodj_io::{read_wav, write_wav};
@@ -94,6 +94,8 @@ struct MixReport {
     cues: Vec<CueReport>,
     /// True when cue planner ran (phrase-aligned mix-in/out).
     cue_phrase_aligned: bool,
+    /// True when any adjacent pair used WSOLA tempo blend (|ΔBPM| ≥ 0.5).
+    tempo_blend_applied: bool,
 }
 
 #[derive(Debug, Serialize)]
@@ -102,6 +104,9 @@ struct CueReport {
     play_start_secs: f64,
     play_end_secs: f64,
     crossfade_secs: f32,
+    bpm: f32,
+    /// BPM of the next track when a transition follows; else null.
+    bpm_to: Option<f32>,
 }
 
 fn main() -> Result<()> {
@@ -229,11 +234,14 @@ fn cmd_mix(
             .get(i)
             .map(|t| t.class)
             .unwrap_or(TransitionClass::LinearCrossfade);
+        let bpm_to = next_feats.map(|f| f.bpm);
         cue_reports.push(CueReport {
             track: path.display().to_string(),
             play_start_secs: cues.play_start_secs,
             play_end_secs: cues.play_end_secs,
             crossfade_secs: cues.crossfade_secs,
+            bpm: feats.bpm,
+            bpm_to,
         });
         segments.push(MixSegment {
             buffer,
@@ -251,7 +259,9 @@ fn cmd_mix(
         segments,
         sample_rate: sr,
     };
-    let mut mixed = mix_buffers(&plan, CrossfadeParams::default());
+    let rendered = mix_buffers_with_meta(&plan, CrossfadeParams::default());
+    let mut mixed = rendered.buffer;
+    let tempo_blend_applied = rendered.tempo_blend_applied;
 
     let (integrated_lufs, loudness_gate_pass) = if let Some(target) = target_lufs {
         let report = normalize_loudness(&mut mixed, target)
@@ -295,6 +305,7 @@ fn cmd_mix(
         loudness_gate_pass,
         cues: cue_reports,
         cue_phrase_aligned: true,
+        tempo_blend_applied,
     };
     println!("{}", serde_json::to_string_pretty(&report)?);
     Ok(())

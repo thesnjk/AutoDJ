@@ -15,7 +15,7 @@ Living gap matrix. Updated 2026-11-09 after Firecrawl research (raw notes in loc
 | Learning from setcraft | Mixonset / tracklist research tools | Gap→stub | `python/autodj_train` synthetic + `tracklist_stats.py` |
 | Live / controller | VirtualDJ / Serato dual-deck | Gap | `apps/autodj-app` README stub only |
 | Loudness / broadcast | EBU R 128 (−23 LUFS integrated; true-peak limits); radio-style continuous sets | Parity-path (measure+norm shipped) | `loudness.rs` + CLI `--lufs`; golden gate ±2 LU (`Docs/mix-quality-rubric.md`) |
-| Tempo blend | djay Sync + Tempo Blend | Partial | solver tempo cost; no time-stretch blend in renderer |
+| Tempo blend | djay Sync + Tempo Blend | Parity-path | `stretch.rs` WSOLA + `tempo_blend_head`; MixReport `tempo_blend_applied` (gold 128→140) |
 
 ## Citations (paraphrase + link only)
 
@@ -41,9 +41,9 @@ Formula note: `(competitor best − AutoDJ) × persona weight × mix_impact`. Be
 | **P0** | EBU R128 normalize + CI loudness gate | **Shipped** — keep regression via golden `loudness_gate_pass` |
 | **P1** | Phrase / section-aware cue points | **Shipped** — `cue.rs` + energy section marks; keep `cue_phrase_aligned` in golden JSON |
 | **P2** | 3-band EQ / bass-swap transition classes | **Shipped** — `eq.rs` + renderer wiring; `macos-latest` CI + local Apple Silicon verify |
-| **P3** | Tempo blend / stretch | djay Sync+Tempo Blend; higher DSP risk |
-| Later | Stems, live controller, setcraft learning | v2 / gated |
+| **P3** | Tempo blend / stretch | **Shipped** — WSOLA tempo blend on xfade heads; keep `tempo_blend_applied` on golden |
+| Later | Stems, live controller, setcraft learning, spectral continuity CI | v2 / gated |
 
 ## Re-rank bias
 
-Prefer agent-doable product code that closes **mix_impact** gaps (tempo blend next) before UI chrome. R128 + phrase cues + EQ swap are in place.
+Prefer agent-doable product code that closes remaining **mix_impact** gaps (spectral continuity metric, solver energy arc) before UI chrome. R128 + phrase cues + EQ swap + tempo blend are in place.

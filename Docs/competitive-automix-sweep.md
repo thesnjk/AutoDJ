@@ -18,7 +18,7 @@ Living gap matrix. Updated 2026-11-09 after Firecrawl research (raw notes in loc
 | Learning from setcraft | Mixonset / tracklist research tools | Parity-path | tracklist aggregates + SoftmaxLogReg; `autodj-train eval` ≥ 0.90; CI `--golden transition_model` |
 | Live / controller | VirtualDJ / Serato dual-deck | Parity-path (desktop shell) | Tauri 2 dialog picker for JSON/XML + `--preserve-order` / `--playlist-name`; live dual-deck still Later |
 | Loudness / broadcast | EBU R 128 (−23 LUFS integrated; true-peak limits); radio-style continuous sets | Parity-path (measure+norm shipped) | `loudness.rs` + CLI `--lufs`; golden gate ±2 LU (`Docs/mix-quality-rubric.md`) |
-| Tempo blend | djay Sync + Tempo Blend | Parity-path | `stretch.rs` WSOLA + `tempo_blend_head`; MixReport `tempo_blend_applied` (gold 128→140) |
+| Tempo blend | djay Sync + Tempo Blend | Parity-path | `stretch.rs` WSOLA + `tempo_blend_head`; MixReport `tempo_blend_applied` + `tempo_stretch_gate_pass`; solver `stretch_clamp_excess` cost |
 | Spectral continuity eval | Mix-quality rubric adjacent flux | Parity-path | `eval.rs` hop-RMS ratio; MixReport `spectral_continuity_pass` + `join_continuity_pass` |
 
 ## Citations (paraphrase + link only)
@@ -61,9 +61,10 @@ Formula note: `(competitor best − AutoDJ) × persona weight × mix_impact`. Be
 | **P14** | EqSwap bass-overlap gate | **Shipped** — `max_bass_overlap` + MixReport `bass_conflict_gate_pass` |
 | **P15** | Multi-genre transition CI golden | **Shipped** — `--golden transitions` + MixReport `transitions` |
 | **P16** | Transition-model E2E mix CI golden | **Shipped** — `--golden transition_model` + Softmax class pin |
-| Next | Stems / live dual-deck | gated (rights-cleared stems path required) |
+| **P17** | Warble-aware stretch costs + gate | **Shipped** — `stretch_clamp_excess` in solver + MixReport gate |
+| Next | uk_garage / open_format transition golden completeness | else stems / live dual-deck (gated) |
 | Later | Listening-rubric polish on real libraries | user-owned audio only |
 
 ## Re-rank bias
 
-Prefer agent-doable product code that closes remaining mix-quality gaps before brochure fluff. P0–P16 are in place; stems remain gated.
+Prefer agent-doable product code that closes remaining mix-quality gaps before brochure fluff. P0–P17 are in place; stems remain gated.

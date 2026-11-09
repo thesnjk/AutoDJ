@@ -9,10 +9,10 @@ use autodj_core::{
     beat_phase_gate_pass, camelot_distance, join_continuity_pass, max_join_flux_ratio,
     mean_beat_phase_offset_ms, measure_loudness, mix_buffers_with_meta, normalize_loudness,
     parse_rekordbox_xml, peak_gate_pass, plan_segment_cues, spectral_continuity_pass,
-    within_lufs_tolerance, BeatPhaseCue, CamelotKey, CrossfadeParams, MixPlan, MixSegment,
-    TrackFeatures, TransitionClass, DEFAULT_BASS_OVERLAP_LIMIT, DEFAULT_BEAT_PHASE_LIMIT_MS,
-    DEFAULT_JOIN_FLUX_RATIO, DEFAULT_MAX_FLUX_RATIO, DEFAULT_TARGET_LUFS, DEFAULT_TRUE_PEAK_LIMIT,
-    LUFS_TOLERANCE_LU,
+    stretch_clamp_excess, tempo_stretch_gate_pass, within_lufs_tolerance, BeatPhaseCue,
+    CamelotKey, CrossfadeParams, MixPlan, MixSegment, TrackFeatures, TransitionClass,
+    DEFAULT_BASS_OVERLAP_LIMIT, DEFAULT_BEAT_PHASE_LIMIT_MS, DEFAULT_JOIN_FLUX_RATIO,
+    DEFAULT_MAX_FLUX_RATIO, DEFAULT_TARGET_LUFS, DEFAULT_TRUE_PEAK_LIMIT, LUFS_TOLERANCE_LU,
 };
 use autodj_graph::{
     load_policy_hints_map, predict_transition_class, preserve_order, solve_order, GenrePolicy,
@@ -146,6 +146,10 @@ struct MixReport {
     bass_conflict_gate_pass: bool,
     /// Per-edge transition decisions (empty for single-track mixes).
     transitions: Vec<TransitionEdgeReport>,
+    /// Worst WSOLA stretch-factor clamp excess across adjacent edges (0 = no clamp).
+    max_stretch_clamp_excess: f32,
+    /// Whether [`max_stretch_clamp_excess`] is zero (no silent ±15% clip).
+    tempo_stretch_gate_pass: bool,
 }
 
 #[derive(Debug, Serialize)]
@@ -533,6 +537,21 @@ fn cmd_mix(
         );
     }
 
+    let mut max_stretch_clamp_excess = 0.0f32;
+    for w in solution.order.windows(2) {
+        let excess = stretch_clamp_excess(features[w[0]].bpm, features[w[1]].bpm);
+        if excess > max_stretch_clamp_excess {
+            max_stretch_clamp_excess = excess;
+        }
+    }
+    let stretch_ok = tempo_stretch_gate_pass(max_stretch_clamp_excess);
+    if deterministic && !stretch_ok {
+        bail!(
+            "tempo stretch gate failed: max clamp excess {:.4} > 0 (WSOLA ±15%)",
+            max_stretch_clamp_excess
+        );
+    }
+
     let phase_cues: Vec<BeatPhaseCue> = cue_reports
         .iter()
         .zip(solution.order.iter())
@@ -616,6 +635,8 @@ fn cmd_mix(
         max_bass_overlap,
         bass_conflict_gate_pass: bass_ok,
         transitions,
+        max_stretch_clamp_excess,
+        tempo_stretch_gate_pass: stretch_ok,
     })
 }
 

@@ -2,7 +2,9 @@
 
 mod transition_model;
 
-use autodj_core::{camelot_distance, CamelotKey, TrackFeatures, TransitionClass};
+use autodj_core::{
+    camelot_distance, stretch_clamp_excess, CamelotKey, TrackFeatures, TransitionClass,
+};
 use serde::{Deserialize, Serialize};
 
 pub use transition_model::{
@@ -166,6 +168,30 @@ pub fn policy_transition_penalty(class: TransitionClass, policy: &GenrePolicy) -
     }
 }
 
+/// Weight for [`stretch_clamp_excess`] in pairwise cost (outside ±15% WSOLA clamp).
+const STRETCH_EXCESS_WEIGHT: f32 = 12.0;
+
+/// Resolve the transition class the solver would use for this edge.
+pub fn resolve_transition_class(
+    a: &TrackFeatures,
+    b: &TrackFeatures,
+    policy: &GenrePolicy,
+    model: Option<&TransitionModel>,
+) -> TransitionClass {
+    if let Some(m) = model {
+        predict_transition_class(
+            m,
+            a.bpm,
+            b.bpm,
+            camelot_distance(a.key, b.key),
+            b.loudness_db - a.loudness_db,
+            &policy.id,
+        )
+    } else {
+        policy.preferred_transition
+    }
+}
+
 /// Edge decision between two consecutive tracks.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TransitionDecision {
@@ -204,6 +230,17 @@ pub fn pair_cost_at(
     policy: &GenrePolicy,
     phase: ArcPhase,
 ) -> f32 {
+    pair_cost_edge(a, b, policy, phase, None)
+}
+
+/// Pairwise cost including stretch-clamp excess and resolved transition-class penalty.
+pub fn pair_cost_edge(
+    a: &TrackFeatures,
+    b: &TrackFeatures,
+    policy: &GenrePolicy,
+    phase: ArcPhase,
+    model: Option<&TransitionModel>,
+) -> f32 {
     let key_cost = camelot_distance(a.key, b.key) as f32;
     let bpm_delta = (a.bpm - b.bpm).abs();
     let bpm_cost = if bpm_delta > policy.max_bpm_delta {
@@ -213,9 +250,11 @@ pub fn pair_cost_at(
     };
     let center_pull = ((a.bpm + b.bpm) * 0.5 - policy.bpm_center).abs() * 0.02;
     let energy = energy_arc_cost(a.loudness_db, b.loudness_db, phase) * policy.energy_arc_weight;
+    let class = resolve_transition_class(a, b, policy, model);
     let style = soft_style_penalty(policy, policy.default_crossfade_secs)
-        + policy_transition_penalty(policy.preferred_transition, policy);
-    key_cost + bpm_cost + energy + center_pull + style
+        + policy_transition_penalty(class, policy);
+    let stretch = STRETCH_EXCESS_WEIGHT * stretch_clamp_excess(a.bpm, b.bpm);
+    key_cost + bpm_cost + energy + center_pull + style + stretch
 }
 
 fn energy_arc_cost(loud_a: f32, loud_b: f32, phase: ArcPhase) -> f32 {
@@ -296,21 +335,14 @@ pub fn preserve_order(
     let mut total = 0.0f32;
     for w in order.windows(2) {
         let (from, to) = (w[0], w[1]);
-        let class = if let Some(m) = model {
-            let a = &tracks[from];
-            let b = &tracks[to];
-            predict_transition_class(
-                m,
-                a.bpm,
-                b.bpm,
-                camelot_distance(a.key, b.key),
-                b.loudness_db - a.loudness_db,
-                &policy.id,
-            )
-        } else {
-            policy.preferred_transition
-        };
-        let cost = pair_cost(&tracks[from], &tracks[to], policy);
+        let class = resolve_transition_class(&tracks[from], &tracks[to], policy, model);
+        let cost = pair_cost_edge(
+            &tracks[from],
+            &tracks[to],
+            policy,
+            ArcPhase::Opening,
+            model,
+        );
         total += cost;
         transitions.push(TransitionDecision {
             from,
@@ -361,27 +393,14 @@ pub fn solve_order(
         let mut best_i = 0usize;
         let mut best_cost = f32::MAX;
         for (ri, &cand) in remaining.iter().enumerate() {
-            let c = pair_cost_at(&tracks[last], &tracks[cand], policy, phase);
+            let c = pair_cost_edge(&tracks[last], &tracks[cand], policy, phase, model);
             if c < best_cost {
                 best_cost = c;
                 best_i = ri;
             }
         }
         let next = remaining.remove(best_i);
-        let class = if let Some(m) = model {
-            let a = &tracks[last];
-            let b = &tracks[next];
-            predict_transition_class(
-                m,
-                a.bpm,
-                b.bpm,
-                camelot_distance(a.key, b.key),
-                b.loudness_db - a.loudness_db,
-                &policy.id,
-            )
-        } else {
-            policy.preferred_transition
-        };
+        let class = resolve_transition_class(&tracks[last], &tracks[next], policy, model);
         transitions.push(TransitionDecision {
             from: last,
             to: next,
@@ -584,5 +603,50 @@ mod tests {
         let sol = solve_order(&tracks, &policy, Some(0), Some(&model));
         assert_eq!(sol.transitions.len(), 1);
         assert_ne!(sol.transitions[0].class, TransitionClass::HardCut);
+    }
+
+    #[test]
+    fn non_preferred_class_raises_policy_penalty() {
+        let house = GenrePolicy::builtin("house");
+        assert_eq!(
+            policy_transition_penalty(TransitionClass::EqSwap, &house),
+            0.0
+        );
+        assert_eq!(
+            policy_transition_penalty(TransitionClass::HardCut, &house),
+            2.0
+        );
+    }
+
+    #[test]
+    fn stretch_excess_raises_pair_cost() {
+        let policy = GenrePolicy::builtin("open_format");
+        let a = feat(128.0, "8A", -12.0);
+        let in_range = feat(140.0, "8A", -11.0);
+        let clamped = feat(155.0, "8A", -11.0);
+        let c_near = pair_cost_edge(&a, &in_range, &policy, ArcPhase::Opening, None);
+        let c_far = pair_cost_edge(&a, &clamped, &policy, ArcPhase::Opening, None);
+        assert!(
+            c_far > c_near,
+            "clamp edge should cost more: near={c_near} far={c_far}"
+        );
+        assert!(stretch_clamp_excess(128.0, 155.0) > stretch_clamp_excess(128.0, 140.0));
+    }
+
+    #[test]
+    fn solve_avoids_immediate_clamp_neighbor() {
+        let policy = GenrePolicy::builtin("open_format");
+        let tracks = vec![
+            feat(128.0, "8A", -14.0), // 0 start
+            feat(155.0, "8A", -10.0), // 1 clamp
+            feat(130.0, "8A", -12.0), // 2 safe
+        ];
+        let sol = solve_order(&tracks, &policy, Some(0), None);
+        assert_eq!(sol.order[0], 0);
+        assert_eq!(
+            sol.order[1], 2,
+            "should pick safe 130 BPM before 155 clamp, order={:?}",
+            sol.order
+        );
     }
 }

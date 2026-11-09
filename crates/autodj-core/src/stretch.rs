@@ -8,8 +8,9 @@
 pub const TEMPO_BLEND_EPSILON_BPM: f32 = 0.5;
 
 /// Soft clamp for stretch factors (~±15% tempo).
-const STRETCH_MIN: f32 = 0.85;
-const STRETCH_MAX: f32 = 1.15;
+pub const STRETCH_MIN: f32 = 0.85;
+/// Soft clamp upper bound (~±15% tempo).
+pub const STRETCH_MAX: f32 = 1.15;
 
 /// Stretch factor to apply to material at `to_bpm` so it matches `from_bpm`.
 ///
@@ -23,6 +24,25 @@ pub fn tempo_ratio(from_bpm: f32, to_bpm: f32) -> f32 {
 
 fn clamp_stretch(factor: f32) -> f32 {
     factor.clamp(STRETCH_MIN, STRETCH_MAX)
+}
+
+/// How far `tempo_ratio(from, to)` sits outside [`STRETCH_MIN`, `STRETCH_MAX`] (0 = no clamp).
+///
+/// Used by the solver to cost warble-prone edges and by MixReport gates.
+pub fn stretch_clamp_excess(from_bpm: f32, to_bpm: f32) -> f32 {
+    let r = tempo_ratio(from_bpm, to_bpm);
+    if r < STRETCH_MIN {
+        STRETCH_MIN - r
+    } else if r > STRETCH_MAX {
+        r - STRETCH_MAX
+    } else {
+        0.0
+    }
+}
+
+/// Whether the worst edge stretch clamp excess is zero (no silent WSOLA clip).
+pub fn tempo_stretch_gate_pass(max_excess: f32) -> bool {
+    max_excess.is_finite() && max_excess <= 0.0
 }
 
 /// Whether adjacent BPMs warrant tempo blend.
@@ -260,5 +280,27 @@ mod tests {
         assert!(out.iter().all(|s| s.is_finite()));
         assert!(should_tempo_blend(128.0, 140.0));
         assert!(!should_tempo_blend(128.0, 128.2));
+    }
+
+    #[test]
+    fn stretch_clamp_excess_in_range_is_zero() {
+        assert_eq!(stretch_clamp_excess(128.0, 128.0), 0.0);
+        assert!(
+            stretch_clamp_excess(128.0, 140.0) < 1e-6,
+            "128→140 (~1.094) must be inside ±15%"
+        );
+        assert!(tempo_stretch_gate_pass(0.0));
+    }
+
+    #[test]
+    fn stretch_clamp_excess_outside_range() {
+        let excess = stretch_clamp_excess(128.0, 150.0);
+        assert!(
+            excess > 0.01,
+            "128→150 (~1.172) should clamp, got {excess}"
+        );
+        assert!(!tempo_stretch_gate_pass(excess));
+        let slow = stretch_clamp_excess(140.0, 100.0);
+        assert!(slow > 0.01, "140→100 should clamp low, got {slow}");
     }
 }

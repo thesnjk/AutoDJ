@@ -16,6 +16,13 @@ pub struct GenrePolicy {
     pub default_crossfade_secs: f32,
     /// Preferred transition class.
     pub preferred_transition: TransitionClass,
+    /// Weight applied to the energy-arc term (higher = stronger open→peak→cool bias).
+    #[serde(default = "default_energy_arc_weight")]
+    pub energy_arc_weight: f32,
+}
+
+fn default_energy_arc_weight() -> f32 {
+    1.0
 }
 
 impl GenrePolicy {
@@ -28,6 +35,7 @@ impl GenrePolicy {
                 max_bpm_delta: 6.0,
                 default_crossfade_secs: 0.25,
                 preferred_transition: TransitionClass::HardCut,
+                energy_arc_weight: 1.0,
             },
             "hip_hop" | "rnb" => Self {
                 id: "hip_hop".into(),
@@ -35,6 +43,7 @@ impl GenrePolicy {
                 max_bpm_delta: 8.0,
                 default_crossfade_secs: 1.0,
                 preferred_transition: TransitionClass::EchoOut,
+                energy_arc_weight: 1.0,
             },
             "trance" => Self {
                 id: "trance".into(),
@@ -42,6 +51,7 @@ impl GenrePolicy {
                 max_bpm_delta: 4.0,
                 default_crossfade_secs: 16.0,
                 preferred_transition: TransitionClass::FilterSweep,
+                energy_arc_weight: 1.25,
             },
             "uk_garage" | "garage" => Self {
                 id: "uk_garage".into(),
@@ -49,6 +59,7 @@ impl GenrePolicy {
                 max_bpm_delta: 5.0,
                 default_crossfade_secs: 8.0,
                 preferred_transition: TransitionClass::EqSwap,
+                energy_arc_weight: 1.0,
             },
             "open_format" => Self {
                 id: "open_format".into(),
@@ -56,6 +67,7 @@ impl GenrePolicy {
                 max_bpm_delta: 20.0,
                 default_crossfade_secs: 4.0,
                 preferred_transition: TransitionClass::LinearCrossfade,
+                energy_arc_weight: 0.5,
             },
             // house / techno / disco / default
             _ => Self {
@@ -64,8 +76,57 @@ impl GenrePolicy {
                 max_bpm_delta: 6.0,
                 default_crossfade_secs: 8.0,
                 preferred_transition: TransitionClass::EqSwap,
+                energy_arc_weight: 1.0,
             },
         }
+    }
+}
+
+/// Position in a setcraft energy arc.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ArcPhase {
+    /// First ~25% of the set — prefer rising energy.
+    Opening,
+    /// Next ~25% — continue building.
+    Build,
+    /// Next ~25% — prefer peak energy arrivals.
+    Peak,
+    /// Final ~25% — prefer cooling down.
+    Cooldown,
+}
+
+/// Map a placement index into an [`ArcPhase`] for a set of `len` tracks.
+pub fn arc_phase(index: usize, len: usize) -> ArcPhase {
+    if len == 0 {
+        return ArcPhase::Opening;
+    }
+    let t = index as f32 / len as f32;
+    if t < 0.25 {
+        ArcPhase::Opening
+    } else if t < 0.5 {
+        ArcPhase::Build
+    } else if t < 0.75 {
+        ArcPhase::Peak
+    } else {
+        ArcPhase::Cooldown
+    }
+}
+
+/// Soft penalty for genre-forbidden style knobs (e.g. long blends in DnB).
+pub fn soft_style_penalty(policy: &GenrePolicy, crossfade_secs: f32) -> f32 {
+    if policy.id == "drum_and_bass" && crossfade_secs > 1.0 {
+        5.0
+    } else {
+        0.0
+    }
+}
+
+/// Soft cost when a candidate transition class mismatches the genre preference.
+pub fn policy_transition_penalty(class: TransitionClass, policy: &GenrePolicy) -> f32 {
+    if class == policy.preferred_transition {
+        0.0
+    } else {
+        2.0
     }
 }
 
@@ -95,8 +156,18 @@ pub struct MixSolution {
     pub total_cost: f32,
 }
 
-/// Pairwise transition cost (lower is better).
+/// Pairwise transition cost without arc context (Opening-equivalent energy term).
 pub fn pair_cost(a: &TrackFeatures, b: &TrackFeatures, policy: &GenrePolicy) -> f32 {
+    pair_cost_at(a, b, policy, ArcPhase::Opening)
+}
+
+/// Pairwise transition cost (lower is better) with setcraft arc phase.
+pub fn pair_cost_at(
+    a: &TrackFeatures,
+    b: &TrackFeatures,
+    policy: &GenrePolicy,
+    phase: ArcPhase,
+) -> f32 {
     let key_cost = camelot_distance(a.key, b.key) as f32;
     let bpm_delta = (a.bpm - b.bpm).abs();
     let bpm_cost = if bpm_delta > policy.max_bpm_delta {
@@ -104,18 +175,77 @@ pub fn pair_cost(a: &TrackFeatures, b: &TrackFeatures, policy: &GenrePolicy) -> 
     } else {
         bpm_delta * 0.35
     };
-    // Prefer rising then falling energy when possible (simple loudness proxy).
-    let energy_cost = if b.loudness_db + 0.5 < a.loudness_db {
-        0.15
-    } else {
-        (b.loudness_db - a.loudness_db).abs() * 0.05
-    };
     let center_pull = ((a.bpm + b.bpm) * 0.5 - policy.bpm_center).abs() * 0.02;
-    key_cost + bpm_cost + energy_cost + center_pull
+    let energy = energy_arc_cost(a.loudness_db, b.loudness_db, phase) * policy.energy_arc_weight;
+    let style = soft_style_penalty(policy, policy.default_crossfade_secs)
+        + policy_transition_penalty(policy.preferred_transition, policy);
+    key_cost + bpm_cost + energy + center_pull + style
+}
+
+fn energy_arc_cost(loud_a: f32, loud_b: f32, phase: ArcPhase) -> f32 {
+    let delta = loud_b - loud_a;
+    match phase {
+        ArcPhase::Opening | ArcPhase::Build => {
+            if delta >= -0.5 {
+                // Rising or flat — small cost.
+                delta.abs() * 0.02
+            } else {
+                // Dropping while building — penalize.
+                0.8 + (-delta) * 0.15
+            }
+        }
+        ArcPhase::Peak => {
+            // Prefer louder arrivals; quiet arrivals cost more.
+            if loud_b >= -12.0 {
+                (loud_b + 8.0).abs() * 0.02
+            } else {
+                0.6 + (-12.0 - loud_b) * 0.1
+            }
+        }
+        ArcPhase::Cooldown => {
+            if delta <= 0.5 {
+                delta.abs() * 0.02
+            } else {
+                0.8 + delta * 0.15
+            }
+        }
+    }
+}
+
+/// Choose a quiet opener within the genre BPM band (fallback: global quietest).
+pub fn select_opener(tracks: &[TrackFeatures], policy: &GenrePolicy) -> usize {
+    if tracks.is_empty() {
+        return 0;
+    }
+    let in_band: Vec<usize> = tracks
+        .iter()
+        .enumerate()
+        .filter(|(_, t)| (t.bpm - policy.bpm_center).abs() <= policy.max_bpm_delta)
+        .map(|(i, _)| i)
+        .collect();
+    let pool = if in_band.is_empty() {
+        (0..tracks.len()).collect::<Vec<_>>()
+    } else {
+        in_band
+    };
+    pool.into_iter()
+        .min_by(|&i, &j| {
+            tracks[i]
+                .loudness_db
+                .partial_cmp(&tracks[j].loudness_db)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        })
+        .unwrap_or(0)
 }
 
 /// Greedy nearest-neighbor solver with optional fixed start index.
-pub fn solve_order(tracks: &[TrackFeatures], policy: &GenrePolicy, start: Option<usize>) -> MixSolution {
+///
+/// When `start` is `None`, picks a quiet opener via [`select_opener`].
+pub fn solve_order(
+    tracks: &[TrackFeatures],
+    policy: &GenrePolicy,
+    start: Option<usize>,
+) -> MixSolution {
     let n = tracks.len();
     if n == 0 {
         return MixSolution {
@@ -129,16 +259,17 @@ pub fn solve_order(tracks: &[TrackFeatures], policy: &GenrePolicy, start: Option
     let mut transitions = Vec::new();
     let mut total = 0.0f32;
 
-    let first = start.unwrap_or(0).min(n - 1);
+    let first = start.unwrap_or_else(|| select_opener(tracks, policy)).min(n - 1);
     order.push(first);
     remaining.retain(|&i| i != first);
 
     while !remaining.is_empty() {
         let last = *order.last().unwrap();
+        let phase = arc_phase(order.len(), n);
         let mut best_i = 0usize;
         let mut best_cost = f32::MAX;
         for (ri, &cand) in remaining.iter().enumerate() {
-            let c = pair_cost(&tracks[last], &tracks[cand], policy);
+            let c = pair_cost_at(&tracks[last], &tracks[cand], policy, phase);
             if c < best_cost {
                 best_cost = c;
                 best_i = ri;
@@ -224,5 +355,59 @@ mod tests {
         let sol = solve_order(&tracks, &policy, Some(0));
         assert_eq!(sol.order[0], 0);
         assert_eq!(sol.order[1], 2, "order={:?}", sol.order);
+    }
+
+    #[test]
+    fn arc_phases_cover_set() {
+        assert_eq!(arc_phase(0, 8), ArcPhase::Opening);
+        assert_eq!(arc_phase(2, 8), ArcPhase::Build);
+        assert_eq!(arc_phase(4, 8), ArcPhase::Peak);
+        assert_eq!(arc_phase(7, 8), ArcPhase::Cooldown);
+    }
+
+    #[test]
+    fn energy_arc_order_rises_then_falls() {
+        // Same key/BPM so loudness arc dominates; free start picks quietest.
+        let tracks = vec![
+            feat(124.0, "8A", -18.0), // quiet opener
+            feat(124.0, "8A", -14.0),
+            feat(124.0, "8A", -8.0),  // peak
+            feat(124.0, "8A", -16.0), // cool
+        ];
+        let policy = GenrePolicy::builtin("house");
+        let sol = solve_order(&tracks, &policy, None);
+        assert_eq!(sol.order[0], 0, "quiet opener, got {:?}", sol.order);
+        // Second should be louder than first (build).
+        assert!(
+            tracks[sol.order[1]].loudness_db >= tracks[sol.order[0]].loudness_db - 0.5,
+            "order={:?}",
+            sol.order
+        );
+        // Peak track (index 2, loudest) should appear before the final cooldown placement.
+        let peak_pos = sol.order.iter().position(|&i| i == 2).unwrap();
+        assert!(peak_pos < 3, "peak should not be last, order={:?}", sol.order);
+    }
+
+    #[test]
+    fn genre_policy_weights() {
+        let trance = GenrePolicy::builtin("trance");
+        let open = GenrePolicy::builtin("open_format");
+        let dnb = GenrePolicy::builtin("drum_and_bass");
+        assert!((trance.energy_arc_weight - 1.25).abs() < 1e-5);
+        assert!((open.energy_arc_weight - 0.5).abs() < 1e-5);
+        assert_eq!(dnb.preferred_transition, TransitionClass::HardCut);
+        assert!(soft_style_penalty(&dnb, 8.0) >= 5.0);
+        assert_eq!(soft_style_penalty(&dnb, 0.25), 0.0);
+    }
+
+    #[test]
+    fn select_opener_picks_quietest_in_band() {
+        let tracks = vec![
+            feat(124.0, "8A", -8.0),
+            feat(124.0, "8A", -20.0),
+            feat(180.0, "8A", -30.0), // out of house band
+        ];
+        let policy = GenrePolicy::builtin("house");
+        assert_eq!(select_opener(&tracks, &policy), 1);
     }
 }

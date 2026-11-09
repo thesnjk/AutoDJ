@@ -7,6 +7,7 @@ mod analysis;
 mod camelot;
 mod cue;
 mod eq;
+mod eval;
 mod loudness;
 mod render;
 mod stretch;
@@ -20,6 +21,9 @@ pub use cue::{
 pub use eq::{
     apply_echo_out_crossfade, apply_eq_swap_crossfade, apply_filter_sweep_crossfade, band_rms,
     eq_swap_gains, BandGains, ThreeBandSplitter,
+};
+pub use eval::{
+    adjacent_flux_ratio, spectral_continuity_pass, spectral_flux_envelope, DEFAULT_MAX_FLUX_RATIO,
 };
 pub use loudness::{
     measure_loudness, normalize_loudness, within_lufs_tolerance, LoudnessError, LoudnessReport,

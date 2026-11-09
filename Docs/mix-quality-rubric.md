@@ -9,6 +9,7 @@ Automated gates (CI) plus listening checklist for v1+.
 | Golden smoke CLI | `autodj mix --golden smoke` exits 0 and writes WAV |
 | Golden rekordbox CLI | `autodj mix --golden rekordbox` exits 0; MixReport `preserve_order: true`; setlist order a→b→c from `testdata/rekordbox/gold_playlist.xml` (hard-fail if `preserve_order` returns non-sequential indices) |
 | Golden transitions CLI | `autodj mix --golden transitions` exits 0; house/trance/hip_hop/drum_and_bass edges match `preferred_transition` (`eq_swap` / `filter_sweep` / `echo_out` / `hard_cut`) via MixReport `transitions` |
+| Golden transition_model CLI | `autodj mix --golden transition_model` exits 0; house preserve-order edges match Softmax `predict_transition_class` on committed `transition_model.json` (pinned `eq_swap` then `hard_cut`); not `preferred_transition` |
 | Peak limit | True-peak ≤ 0.99 full scale; MixReport `true_peak` + `peak_gate_pass` (hard-fail when `--deterministic`, default). Evidence: `loudness.rs`, golden smoke |
 | Integrated loudness (R128 / BS.1770) | After normalize, `integrated_lufs` within ±2 LU of `--lufs` (golden default −14 LUFS; use `--lufs -23` for classic EBU R 128). Evidence: `loudness.rs`, MixReport `loudness_gate_pass` |
 | Phrase / section cues | MixReport `cue_phrase_aligned: true`; cue windows from `plan_segment_cues` (evidence: `cue.rs`, unit snap tests). Crossfade durations snapped to whole beats. |

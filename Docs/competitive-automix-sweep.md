@@ -40,7 +40,7 @@ Formula note: `(competitor best − AutoDJ) × persona weight × mix_impact`. Be
 |----------|-----|-----|
 | **P0** | EBU R128 normalize + CI loudness gate | **Shipped** — keep regression via golden `loudness_gate_pass` |
 | **P1** | Phrase / section-aware cue points | **Shipped** — `cue.rs` + energy section marks; keep `cue_phrase_aligned` in golden JSON |
-| **P2** | 3-band EQ / bass-swap transition classes | **Shipped** — `eq.rs` + renderer wiring; macOS-14 CI verifies Apple Silicon |
+| **P2** | 3-band EQ / bass-swap transition classes | **Shipped** — `eq.rs` + renderer wiring; `macos-latest` CI + local Apple Silicon verify |
 | **P3** | Tempo blend / stretch | djay Sync+Tempo Blend; higher DSP risk |
 | Later | Stems, live controller, setcraft learning | v2 / gated |
 

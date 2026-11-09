@@ -14,7 +14,7 @@ Automated gates (CI) plus listening checklist for v1+.
 | Spectral continuity (v1) | Adjacent-window flux ratio within genre policy bounds |
 | Solver unit tests | Harmonic neighbor preferred over distant key when BPM similar |
 | EQ / bass-swap DSP | `eq_swap_gains` + `apply_eq_swap_crossfade` unit tests; house golden uses `EqSwap` (evidence: `eq.rs`, `render.rs`) |
-| macOS native CI | Rust job on `macos-14` (Apple Silicon) plus `ubuntu-latest` |
+| macOS native CI | Rust job on `macos-latest` (Apple Silicon hosted) plus `ubuntu-latest`; local `aarch64-apple-darwin` verify required when hosted Mac runners are unavailable |
 
 ## Listening checklist (human)
 

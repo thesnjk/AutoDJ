@@ -13,7 +13,7 @@ Living gap matrix. Updated 2026-11-09 after Firecrawl research (raw notes in loc
 | Mix-in / mix-out cueing | VirtualDJ Smart automix (outro→intro ~4–8s); djay start/end points | Parity-path | `cue.rs` `plan_segment_cues`; CLI slices via `AudioBuffer::slice_secs`; MixReport `cue_phrase_aligned` |
 | Stems-aware transitions | Serato Stems (vocal / melody / bass / drums pads) | Gap | no stem DSP; deferred v2 |
 | Phrase sync | Rekordbox phrase analysis | Partial | energy `SectionMarks` + 4/8-bar phrase snap; full phrase ML later |
-| Learning from setcraft | Mixonset / tracklist research tools | Gap→stub | `python/autodj_train` synthetic + `tracklist_stats.py` |
+| Learning from setcraft | Mixonset / tracklist research tools | Parity-path | `tracklist_stats.py` JSON/CSV aggregate → `demo_policy_hints.json`; CLI `--policy-hints` |
 | Live / controller | VirtualDJ / Serato dual-deck | Gap | `apps/autodj-app` README stub only |
 | Loudness / broadcast | EBU R 128 (−23 LUFS integrated; true-peak limits); radio-style continuous sets | Parity-path (measure+norm shipped) | `loudness.rs` + CLI `--lufs`; golden gate ±2 LU (`Docs/mix-quality-rubric.md`) |
 | Tempo blend | djay Sync + Tempo Blend | Parity-path | `stretch.rs` WSOLA + `tempo_blend_head`; MixReport `tempo_blend_applied` (gold 128→140) |
@@ -33,6 +33,7 @@ Living gap matrix. Updated 2026-11-09 after Firecrawl research (raw notes in loc
 - Pacemaker product marketing pages: thin public technical signal; use EBU R 128 / BS.1770 as the broadcast loudness target instead of product ToS scrape.
 - Mixonset: no stable public API docs scraped this pass; keep train path synthetic-only until a lawful ingest path is documented.
 - YouTube full-set scrapes: **forbidden** per `Docs/legal-data-policy.md`.
+- Live 1001Tracklists / Beatport HTTP clients: **gated** (ToS / anti-bot / paid API); use offline JSON/CSV fixtures + curated citations only.
 
 ## Persona re-rank (mix_impact × gap)
 
@@ -45,8 +46,10 @@ Formula note: `(competitor best − AutoDJ) × persona weight × mix_impact`. Be
 | **P2** | 3-band EQ / bass-swap transition classes | **Shipped** — `eq.rs` + renderer wiring; `macos-latest` CI + local Apple Silicon verify |
 | **P3** | Tempo blend / stretch | **Shipped** — WSOLA tempo blend on xfade heads; keep `tempo_blend_applied` on golden |
 | **P4** | Solver energy arc + spectral continuity gate | **Shipped** — `ArcPhase` solver + `eval.rs` golden gate |
-| Later | Stems, live controller, setcraft learning, Tauri shell, tracklist ingest | v2 / gated |
+| **P5** | Tracklist ingest → policy hints | **Shipped** — offline JSON/CSV aggregate + `--policy-hints` |
+| Next | Train stub expansion (#7), then Tauri shell (#8) | agent-doable product surfaces |
+| Later | Stems, live controller | v2 / gated |
 
 ## Re-rank bias
 
-Prefer agent-doable product code that closes remaining product gaps (tracklist stats ingest, train stub, Tauri) before brochure fluff. Core offline mix-quality loop (R128, cues, EQ, tempo, energy arc, spectral gate) is in place.
+Prefer agent-doable product code that closes remaining product gaps (train stub, Tauri) before brochure fluff. Core offline mix-quality loop + setcraft stats→hints path is in place.

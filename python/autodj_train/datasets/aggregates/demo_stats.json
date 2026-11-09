@@ -1,0 +1,112 @@
+{
+  "genre_bpm_hist": {
+    "house": {
+      "120": 5,
+      "125": 5
+    },
+    "drum_and_bass": {
+      "170": 3,
+      "175": 1
+    },
+    "trance": {
+      "135": 5,
+      "140": 2,
+      "130": 1
+    },
+    "hip_hop": {
+      "85": 1,
+      "90": 2,
+      "95": 1
+    },
+    "open_format": {
+      "100": 1,
+      "110": 1,
+      "120": 2,
+      "125": 1,
+      "115": 1
+    },
+    "uk_garage": {
+      "130": 3
+    }
+  },
+  "key_route_counts": {
+    "8A->9A": 4,
+    "9A->10A": 2,
+    "10A->10B": 1,
+    "1A->1A": 1,
+    "1A->2A": 2,
+    "7A->8A": 2,
+    "9A->9B": 1,
+    "4A->4A": 1,
+    "4A->5A": 1,
+    "8A->8B": 1,
+    "5A->6A": 2,
+    "6A->7A": 1,
+    "7A->7B": 1,
+    "11A->12A": 1,
+    "12A->1A": 1
+  },
+  "mean_transition_density": {
+    "house": 0.365,
+    "drum_and_bass": 1.2,
+    "trance": 0.265,
+    "hip_hop": 0.9,
+    "open_format": 0.55,
+    "uk_garage": 0.55
+  },
+  "bpm_center_estimate": {
+    "house": 124.5,
+    "drum_and_bass": 174.0,
+    "trance": 138.0,
+    "hip_hop": 91.0,
+    "open_format": 119.0,
+    "uk_garage": 132.0
+  },
+  "sources": [
+    {
+      "source_url": "https://example.com/charts/house-demo",
+      "retrieved_at": "2026-11-09",
+      "genre": "house"
+    },
+    {
+      "source_url": "https://example.com/charts/dnb-demo",
+      "retrieved_at": "2026-11-09",
+      "genre": "drum_and_bass"
+    },
+    {
+      "source_url": "https://example.com/charts/trance-demo",
+      "retrieved_at": "2026-11-09",
+      "genre": "trance"
+    },
+    {
+      "source_url": "https://example.com/charts/hiphop-demo",
+      "retrieved_at": "2026-11-09",
+      "genre": "hip_hop"
+    },
+    {
+      "source_url": "https://www.setflow.app/blog/dj-transitions-how-to-mix-between-songs",
+      "retrieved_at": "2026-11-09",
+      "genre": "house"
+    },
+    {
+      "source_url": "https://www.setflow.app/blog/dj-transitions-how-to-mix-between-songs",
+      "retrieved_at": "2026-11-09",
+      "genre": "trance"
+    },
+    {
+      "source_url": "https://help.algoriddim.com/user-manual/djay-pro-windows/mixing-basics/using-automix",
+      "retrieved_at": "2026-11-09",
+      "genre": "open_format"
+    },
+    {
+      "source_url": "https://example.com/charts/ukg-export",
+      "retrieved_at": "2026-11-09",
+      "genre": "uk_garage"
+    },
+    {
+      "source_url": "https://example.com/charts/open-export",
+      "retrieved_at": "2026-11-09",
+      "genre": "open_format"
+    }
+  ]
+}

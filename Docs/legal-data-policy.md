@@ -19,9 +19,10 @@ AutoDJ learns setcraft from **lawful, attributable** sources and **user-owned** 
 
 ## Tracklist ingest rule
 
-Parsers may fetch public pages when ToS allows. Committed datasets store only:
+Parsers may fetch public pages when ToS allows. **Current CI path is offline-only:** local JSON fixtures, user-supplied CSV chart exports, and curated attributable setcraft rows under `python/autodj_train/datasets/fixtures/`. Committed datasets store only:
 
-- Genre, BPM band histograms, key-route frequencies, transition-density estimates
+- Genre, BPM band histograms, key-route frequencies, transition-density estimates, BPM-center medians
 - Source URL + retrieval date citations
+- Derived `policy_hints` JSON (`bpm_center`, `default_crossfade_secs`) — no page HTML
 
-If a source forbids automation, skip it and note the gate in `Docs/competitive-automix-sweep.md`.
+**Gated (do not automate in-repo):** live 1001Tracklists scraping (anti-bot / no official public API), paid Beatport chart APIs, Mixonset undocumented endpoints. If a source forbids automation, skip it and note the gate in `Docs/competitive-automix-sweep.md`.

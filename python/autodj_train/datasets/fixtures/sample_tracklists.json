@@ -14,5 +14,21 @@
     "bpm_values": [172, 174, 174, 175],
     "key_routes": ["1A->1A", "1A->2A"],
     "transition_density": 1.2
+  },
+  {
+    "source_url": "https://example.com/charts/trance-demo",
+    "retrieved_at": "2026-11-09",
+    "genre": "trance",
+    "bpm_values": [136, 138, 138, 140],
+    "key_routes": ["7A->8A", "8A->9A", "9A->9B"],
+    "transition_density": 0.25
+  },
+  {
+    "source_url": "https://example.com/charts/hiphop-demo",
+    "retrieved_at": "2026-11-09",
+    "genre": "hip_hop",
+    "bpm_values": [86, 90, 92, 95],
+    "key_routes": ["4A->4A", "4A->5A"],
+    "transition_density": 0.9
   }
 ]

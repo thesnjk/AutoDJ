@@ -11,10 +11,10 @@ Living gap matrix. Updated 2026-11-09 after Firecrawl research (raw notes in loc
 | Harmonic suggestions | Rekordbox / DJ.Studio Camelot ordering | Parity MVP | `camelot.rs`; `autodj-graph` `prefers_harmonic_neighbor` |
 | Energy-arc setcraft | Club open→peak→cool programming | Parity-path | `ArcPhase` + `pair_cost_at` + quiet opener; MixReport order |
 | Transition type palette | djay Filter / Echo / Tremolo / Riser / Neural Mix; SetFlow six-core (EQ, bass swap, cut, blend) | Parity-path | `eq.rs` + Softmax `TransitionModel`; MixReport `bass_conflict_gate_pass`; CI `--golden transitions` (all six builtins) |
-| Mix-in / mix-out cueing | VirtualDJ Smart automix (outro→intro ~4–8s); djay start/end points | Parity-path | `cue.rs` `plan_segment_cues`; CLI slices via `AudioBuffer::slice_secs`; MixReport `cue_phrase_aligned` |
+| Mix-in / mix-out cueing | VirtualDJ Smart automix (outro→intro ~4–8s); djay start/end points | Parity-path | `cue.rs` `plan_segment_cues` + `drop_start`; MixReport `cue_phrase_aligned` + `cue_drop_aware` |
 | Library prep (Rekordbox XML) | Rekordbox playlist export → DJ.Studio | Parity-path | `rekordbox.rs` + `--playlist` `.xml`; BPM/key/grid/cue overrides; `--preserve-order`; CI `--golden rekordbox` |
 | Stems-aware transitions | Serato Stems (vocal / melody / bass / drums pads) | Gap | no stem DSP; deferred v2 |
-| Phrase sync | Rekordbox phrase analysis / djay BPM+Beats sync | Parity-path | `beat_offset_secs` + grid-aware cue snap; MixReport `beat_phase_gate_pass`; full phrase ML later |
+| Phrase sync | Rekordbox phrase analysis / djay BPM+Beats sync | Parity-path | `beat_offset_secs` + grid-aware cue snap + drop-aware windows; MixReport `beat_phase_gate_pass` + `cue_drop_aware`; full phrase ML later |
 | Learning from setcraft | Mixonset / tracklist research tools | Parity-path | tracklist aggregates + SoftmaxLogReg; ordinary mix defaults Softmax; `autodj-train eval` ≥ 0.90; CI `--golden transition_model` (six genres) |
 | Live / controller | VirtualDJ / Serato dual-deck | Parity-path (desktop shell) | Tauri 2 MixReport QA panel (gate strip + transitions) + deterministic checkbox; live dual-deck still Later |
 | Loudness / broadcast | EBU R 128 (−23 LUFS integrated; true-peak limits); radio-style continuous sets | Parity-path (measure+norm shipped) | `loudness.rs` + CLI `--lufs`; golden gate ±2 LU (`Docs/mix-quality-rubric.md`) |
@@ -65,9 +65,10 @@ Formula note: `(competitor best − AutoDJ) × persona weight × mix_impact`. Be
 | **P18** | uk_garage / open_format transition golden | **Shipped** — `--golden transitions` covers all six builtins |
 | **P19** | Tauri MixReport / QA panel | **Shipped** — gate strip + transitions + `--deterministic` bridge |
 | **P20** | Default Softmax per-edge mixes | **Shipped** — ordinary mix auto-loads committed Softmax; `--no-transition-model`; six-genre `--golden transition_model` |
+| **P21** | Drop/section-aware cue planning | **Shipped** — `plan_segment_cues` uses `drop_start`; MixReport `cue_drop_aware` |
 | Next | Stems / live dual-deck | gated (rights-cleared stems path required) |
 | Later | Listening-rubric polish on real libraries | user-owned audio only |
 
 ## Re-rank bias
 
-Prefer agent-doable product code that closes remaining mix-quality gaps before brochure fluff. P0–P20 are in place; stems remain gated.
+Prefer agent-doable product code that closes remaining mix-quality gaps before brochure fluff. P0–P21 are in place; stems remain gated.

@@ -19,7 +19,7 @@ pub use analysis::{
 pub use camelot::{camelot_distance, CamelotKey};
 pub use cue::{
     align_crossfade_to_downbeat, bar_secs, bars_per_phrase_for_genre, beat_secs, plan_segment_cues,
-    snap_to_beat_grid, snap_to_phrase, snap_to_phrase_grid, CuePoints,
+    sections_drop_ordered, snap_to_beat_grid, snap_to_phrase, snap_to_phrase_grid, CuePoints,
 };
 pub use eq::{
     apply_echo_out_crossfade, apply_eq_swap_crossfade, apply_filter_sweep_crossfade, band_rms,

@@ -1,7 +1,13 @@
 //! Mix graph solver: order tracks for harmonic + tempo + energy-arc compatibility.
 
+mod transition_model;
+
 use autodj_core::{camelot_distance, CamelotKey, TrackFeatures, TransitionClass};
 use serde::{Deserialize, Serialize};
+
+pub use transition_model::{
+    feature_vector, predict_transition_class, TransitionModel,
+};
 
 /// Genre policy knobs used by the solver.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -271,10 +277,13 @@ pub fn select_opener(tracks: &[TrackFeatures], policy: &GenrePolicy) -> usize {
 /// Greedy nearest-neighbor solver with optional fixed start index.
 ///
 /// When `start` is `None`, picks a quiet opener via [`select_opener`].
+/// When `model` is `Some`, each edge class comes from [`predict_transition_class`];
+/// otherwise [`GenrePolicy::preferred_transition`] is used.
 pub fn solve_order(
     tracks: &[TrackFeatures],
     policy: &GenrePolicy,
     start: Option<usize>,
+    model: Option<&TransitionModel>,
 ) -> MixSolution {
     let n = tracks.len();
     if n == 0 {
@@ -306,10 +315,24 @@ pub fn solve_order(
             }
         }
         let next = remaining.remove(best_i);
+        let class = if let Some(m) = model {
+            let a = &tracks[last];
+            let b = &tracks[next];
+            predict_transition_class(
+                m,
+                a.bpm,
+                b.bpm,
+                camelot_distance(a.key, b.key),
+                b.loudness_db - a.loudness_db,
+                &policy.id,
+            )
+        } else {
+            policy.preferred_transition
+        };
         transitions.push(TransitionDecision {
             from: last,
             to: next,
-            class: policy.preferred_transition,
+            class,
             crossfade_secs: policy.default_crossfade_secs,
             cost: best_cost,
         });
@@ -382,7 +405,7 @@ mod tests {
             feat(125.0, "9A", -9.5),
         ];
         let policy = GenrePolicy::builtin("house");
-        let sol = solve_order(&tracks, &policy, Some(0));
+        let sol = solve_order(&tracks, &policy, Some(0), None);
         assert_eq!(sol.order[0], 0);
         assert_eq!(sol.order[1], 2, "order={:?}", sol.order);
     }
@@ -405,7 +428,7 @@ mod tests {
             feat(124.0, "8A", -16.0), // cool
         ];
         let policy = GenrePolicy::builtin("house");
-        let sol = solve_order(&tracks, &policy, None);
+        let sol = solve_order(&tracks, &policy, None, None);
         assert_eq!(sol.order[0], 0, "quiet opener, got {:?}", sol.order);
         // Second should be louder than first (build).
         assert!(
@@ -461,5 +484,36 @@ mod tests {
         let h = map.get("house").unwrap();
         assert!((h.bpm_center.unwrap() - 124.5).abs() < 1e-5);
         assert!((h.default_crossfade_secs.unwrap() - 12.0).abs() < 1e-5);
+    }
+
+    #[test]
+    fn committed_transition_model_predicts_sensible_classes() {
+        let path = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../python/autodj_train/models/artifacts/transition_model.json"
+        );
+        let raw = std::fs::read_to_string(path).expect("committed transition_model.json");
+        let model = TransitionModel::from_json(&raw).unwrap();
+        let dnb = predict_transition_class(&model, 174.0, 175.0, 1, 0.0, "drum_and_bass");
+        assert_eq!(dnb, TransitionClass::HardCut);
+        let house = predict_transition_class(&model, 124.0, 125.0, 1, 0.5, "house");
+        assert!(
+            matches!(
+                house,
+                TransitionClass::EqSwap
+                    | TransitionClass::FilterSweep
+                    | TransitionClass::LinearCrossfade
+            ),
+            "unexpected house class {house:?}"
+        );
+        // With model, solve_order should not panic and may differ from preferred_transition.
+        let tracks = vec![
+            feat(124.0, "8A", -12.0),
+            feat(125.0, "9A", -11.0),
+        ];
+        let policy = GenrePolicy::builtin("house");
+        let sol = solve_order(&tracks, &policy, Some(0), Some(&model));
+        assert_eq!(sol.transitions.len(), 1);
+        assert_ne!(sol.transitions[0].class, TransitionClass::HardCut);
     }
 }

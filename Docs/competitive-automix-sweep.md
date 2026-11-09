@@ -9,11 +9,11 @@ Living gap matrix. Updated 2026-11-09 after Firecrawl research (raw notes in loc
 | Offline automix render | djay Automix (playlist → continuous blend; Mix Now / cue points) | Parity-path MVP | `autodj-cli` `mix`; `crates/autodj-core/src/render.rs` |
 | Harmonic suggestions | Rekordbox / DJ.Studio Camelot ordering | Parity MVP | `camelot.rs`; `autodj-graph` `prefers_harmonic_neighbor` |
 | Energy-arc setcraft | Club open→peak→cool programming | Parity-path | `ArcPhase` + `pair_cost_at` + quiet opener; MixReport order |
-| Transition type palette | djay Filter / Echo / Tremolo / Riser / Neural Mix; SetFlow six-core (EQ, bass swap, cut, blend) | Parity-path | `eq.rs` EqSwap / FilterSweep / EchoOut; house policy uses bass-swap |
+| Transition type palette | djay Filter / Echo / Tremolo / Riser / Neural Mix; SetFlow six-core (EQ, bass swap, cut, blend) | Parity-path | `eq.rs` + Softmax `TransitionModel` per-edge via `--transition-model` |
 | Mix-in / mix-out cueing | VirtualDJ Smart automix (outro→intro ~4–8s); djay start/end points | Parity-path | `cue.rs` `plan_segment_cues`; CLI slices via `AudioBuffer::slice_secs`; MixReport `cue_phrase_aligned` |
 | Stems-aware transitions | Serato Stems (vocal / melody / bass / drums pads) | Gap | no stem DSP; deferred v2 |
 | Phrase sync | Rekordbox phrase analysis | Partial | energy `SectionMarks` + 4/8-bar phrase snap; full phrase ML later |
-| Learning from setcraft | Mixonset / tracklist research tools | Parity-path | `tracklist_stats.py` JSON/CSV aggregate → `demo_policy_hints.json`; CLI `--policy-hints` |
+| Learning from setcraft | Mixonset / tracklist research tools | Parity-path | tracklist aggregates + synthetic SoftmaxLogReg (`transition_model.json`); `autodj-train eval` ≥ 0.90 |
 | Live / controller | VirtualDJ / Serato dual-deck | Gap | `apps/autodj-app` README stub only |
 | Loudness / broadcast | EBU R 128 (−23 LUFS integrated; true-peak limits); radio-style continuous sets | Parity-path (measure+norm shipped) | `loudness.rs` + CLI `--lufs`; golden gate ±2 LU (`Docs/mix-quality-rubric.md`) |
 | Tempo blend | djay Sync + Tempo Blend | Parity-path | `stretch.rs` WSOLA + `tempo_blend_head`; MixReport `tempo_blend_applied` (gold 128→140) |
@@ -47,9 +47,10 @@ Formula note: `(competitor best − AutoDJ) × persona weight × mix_impact`. Be
 | **P3** | Tempo blend / stretch | **Shipped** — WSOLA tempo blend on xfade heads; keep `tempo_blend_applied` on golden |
 | **P4** | Solver energy arc + spectral continuity gate | **Shipped** — `ArcPhase` solver + `eval.rs` golden gate |
 | **P5** | Tracklist ingest → policy hints | **Shipped** — offline JSON/CSV aggregate + `--policy-hints` |
-| Next | Train stub expansion (#7), then Tauri shell (#8) | agent-doable product surfaces |
+| **P6** | Train stub / transition classifier | **Shipped** — SoftmaxLogReg + gold holdout + `--transition-model` |
+| Next | Tauri shell (#8) | thin desktop over CLI/core |
 | Later | Stems, live controller | v2 / gated |
 
 ## Re-rank bias
 
-Prefer agent-doable product code that closes remaining product gaps (train stub, Tauri) before brochure fluff. Core offline mix-quality loop + setcraft stats→hints path is in place.
+Prefer agent-doable product code that closes remaining product gaps (Tauri) before brochure fluff. Core offline mix-quality loop + setcraft stats→hints + transition classifier path is in place.

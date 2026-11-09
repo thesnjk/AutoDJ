@@ -42,3 +42,5 @@ jobs:
         run: ruff check .
       - name: Pytest
         run: pytest autodj_train
+      - name: Transition model eval gate
+        run: autodj-train eval --model autodj_train/models/artifacts/transition_model.json --gold autodj_train/eval/gold/synthetic_holdout.jsonl

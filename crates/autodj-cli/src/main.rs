@@ -724,7 +724,14 @@ fn cmd_golden_transitions(
         fs::write(&playlist, serde_json::to_string_pretty(&json)?)?;
     }
 
-    const GENRES: &[&str] = &["house", "trance", "hip_hop", "drum_and_bass"];
+    const GENRES: &[&str] = &[
+        "house",
+        "trance",
+        "hip_hop",
+        "drum_and_bass",
+        "uk_garage",
+        "open_format",
+    ];
     let mut summaries = Vec::new();
     for &genre_id in GENRES {
         let policy = GenrePolicy::builtin(genre_id);

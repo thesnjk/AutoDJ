@@ -1,11 +1,11 @@
-"""Eval harness tests for transition baselines and tracklist aggregate."""
+"""Eval harness tests for transition baselines, classifier, and tracklist aggregate."""
 
 from __future__ import annotations
 
 import json
 from pathlib import Path
 
-from autodj_train.datasets.synthetic import synthesize
+from autodj_train.datasets.synthetic import read_jsonl, synthesize, write_jsonl
 from autodj_train.datasets.tracklist_stats import (
     CsvChartSource,
     JsonFixtureSource,
@@ -15,8 +15,14 @@ from autodj_train.datasets.tracklist_stats import (
     policy_hints_from_stats,
 )
 from autodj_train.models.baseline import FrequencyPrior, RuleBaseline
+from autodj_train.models.softmax import SoftmaxLogReg
+from autodj_train.transitions import ALL_CLASSES
 
 FIXTURES = Path(__file__).resolve().parents[1] / "datasets" / "fixtures"
+GOLD = Path(__file__).resolve().parent / "gold" / "synthetic_holdout.jsonl"
+ARTIFACT = (
+    Path(__file__).resolve().parents[1] / "models" / "artifacts" / "transition_model.json"
+)
 
 
 def test_rule_baseline_perfect_on_synthetic():
@@ -31,6 +37,38 @@ def test_frequency_prior_trains():
     model.fit(examples)
     acc = sum(1 for ex in examples if model.predict_one(ex) == ex.label) / len(examples)
     assert acc >= 0.2
+
+
+def test_balanced_synth_covers_all_classes():
+    examples = synthesize(n=200, seed=3, balance_labels=True)
+    labels = {ex.label for ex in examples}
+    assert labels == {c.value for c in ALL_CLASSES}
+
+
+def test_softmax_recovers_rules_on_holdout():
+    train = synthesize(n=2000, seed=7, balance_labels=True)
+    model = SoftmaxLogReg(lr=0.35, epochs=800, seed=7)
+    model.fit(train)
+    assert GOLD.exists(), "committed gold holdout missing"
+    gold = read_jsonl(GOLD)
+    assert RuleBaseline().accuracy(gold) == 1.0
+    assert model.accuracy(gold) >= 0.90
+
+
+def test_committed_artifact_passes_holdout():
+    assert ARTIFACT.exists()
+    model = SoftmaxLogReg.load(ARTIFACT)
+    gold = read_jsonl(GOLD)
+    assert model.accuracy(gold) >= 0.90
+
+
+def test_jsonl_roundtrip(tmp_path: Path):
+    examples = synthesize(n=20, seed=9)
+    path = tmp_path / "t.jsonl"
+    write_jsonl(path, examples)
+    loaded = read_jsonl(path)
+    assert len(loaded) == 20
+    assert loaded[0].genre == examples[0].genre
 
 
 def test_tracklist_fixture_aggregate(tmp_path: Path):

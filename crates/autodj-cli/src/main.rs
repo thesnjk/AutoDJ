@@ -10,7 +10,7 @@ use autodj_core::{
     within_lufs_tolerance, CamelotKey, CrossfadeParams, MixPlan, MixSegment, TrackFeatures,
     TransitionClass, DEFAULT_MAX_FLUX_RATIO, DEFAULT_TARGET_LUFS, LUFS_TOLERANCE_LU,
 };
-use autodj_graph::{load_policy_hints_map, solve_order, GenrePolicy};
+use autodj_graph::{load_policy_hints_map, solve_order, GenrePolicy, TransitionModel};
 use autodj_io::{read_wav, write_wav};
 use clap::{Parser, Subcommand};
 use rusqlite::{params, Connection};
@@ -63,6 +63,9 @@ enum Commands {
         /// Optional genre policy hints JSON from tracklist aggregate (`autodj-train aggregate-tracklists --hints-out`).
         #[arg(long)]
         policy_hints: Option<PathBuf>,
+        /// Optional Softmax transition model JSON from `autodj-train train` (per-edge class).
+        #[arg(long)]
+        transition_model: Option<PathBuf>,
     },
 }
 
@@ -131,25 +134,38 @@ fn main() -> Result<()> {
             lufs,
             no_loudness_norm,
             policy_hints,
+            transition_model,
         } => {
             let target = if no_loudness_norm { None } else { Some(lufs) };
             let policy = resolve_policy(&genre, policy_hints.as_deref())?;
+            let model = load_transition_model(transition_model.as_deref())?;
             if let Some(name) = golden {
                 if name != "smoke" {
                     bail!("unknown golden suite: {name}");
                 }
                 // Golden always uses the default deterministic target unless --no-loudness-norm.
+                // Omit --transition-model for bit-compatible preferred_transition behavior.
                 let golden_target = if no_loudness_norm {
                     None
                 } else {
                     Some(DEFAULT_TARGET_LUFS)
                 };
-                return cmd_golden_smoke(&out, policy, golden_target);
+                return cmd_golden_smoke(&out, policy, golden_target, model.as_ref());
             }
             let playlist = playlist.context("--playlist is required unless --golden is set")?;
-            cmd_mix(&playlist, &out, policy, db.as_deref(), target)
+            cmd_mix(&playlist, &out, policy, db.as_deref(), target, model.as_ref())
         }
     }
+}
+
+fn load_transition_model(path: Option<&Path>) -> Result<Option<TransitionModel>> {
+    let Some(path) = path else {
+        return Ok(None);
+    };
+    let raw = fs::read_to_string(path)
+        .with_context(|| format!("read transition model {}", path.display()))?;
+    let model = TransitionModel::from_json(&raw).context("parse transition model JSON")?;
+    Ok(Some(model))
 }
 
 fn resolve_policy(genre: &str, hints_path: Option<&Path>) -> Result<GenrePolicy> {
@@ -194,6 +210,7 @@ fn cmd_mix(
     mut policy: GenrePolicy,
     db: Option<&Path>,
     target_lufs: Option<f64>,
+    model: Option<&TransitionModel>,
 ) -> Result<()> {
     let raw = fs::read_to_string(playlist)?;
     let pl: PlaylistFile = serde_json::from_str(&raw)?;
@@ -230,7 +247,7 @@ fn cmd_mix(
     }
 
     // Free start → quiet opener within BPM band (energy-arc setcraft).
-    let solution = solve_order(&features, &policy, None);
+    let solution = solve_order(&features, &policy, None, model);
     let phrase_bars = bars_per_phrase_for_genre(&policy.id);
     let mut segments = Vec::new();
     let mut cue_reports = Vec::new();
@@ -354,7 +371,12 @@ fn cmd_mix(
     Ok(())
 }
 
-fn cmd_golden_smoke(out: &Path, policy: GenrePolicy, target_lufs: Option<f64>) -> Result<()> {
+fn cmd_golden_smoke(
+    out: &Path,
+    policy: GenrePolicy,
+    target_lufs: Option<f64>,
+    model: Option<&TransitionModel>,
+) -> Result<()> {
     let root = workspace_testdata()?;
     let playlist = root.join("party.json");
     if !playlist.exists() {
@@ -369,7 +391,7 @@ fn cmd_golden_smoke(out: &Path, policy: GenrePolicy, target_lufs: Option<f64>) -
         });
         fs::write(&playlist, serde_json::to_string_pretty(&json)?)?;
     }
-    cmd_mix(&playlist, out, policy, None, target_lufs)
+    cmd_mix(&playlist, out, policy, None, target_lufs, model)
 }
 
 fn resolve_track_path(playlist_dir: &Path, path: &Path) -> PathBuf {

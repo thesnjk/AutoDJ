@@ -23,6 +23,17 @@ GENRE_BPM_BANDS: dict[str, tuple[float, float]] = {
 GENRES = list(GENRE_BPM_BANDS.keys())
 
 
+# Plausible spectral-centroid bands (Hz) per genre for synthetic variance.
+GENRE_CENTROID_BANDS: dict[str, tuple[float, float]] = {
+    "house": (800.0, 2200.0),
+    "drum_and_bass": (1200.0, 3500.0),
+    "hip_hop": (600.0, 1800.0),
+    "trance": (1000.0, 2800.0),
+    "uk_garage": (900.0, 2500.0),
+    "open_format": (700.0, 2600.0),
+}
+
+
 @dataclass
 class TransitionExample:
     """One labeled transition pair (metadata only — no audio bytes)."""
@@ -33,6 +44,8 @@ class TransitionExample:
     energy_delta_db: float
     genre: str
     label: str
+    spectral_centroid_hz_a: float = 1500.0
+    spectral_centroid_hz_b: float = 1500.0
 
 
 def rule_label(
@@ -64,6 +77,9 @@ def _sample_one(rng: random.Random, genre: str | None = None) -> TransitionExamp
     bpm_b = max(70.0, min(180.0, bpm_b))
     camelot_dist = rng.randint(0, 6)
     energy_delta_db = rng.uniform(-6.0, 6.0)
+    clo, chi = GENRE_CENTROID_BANDS.get(genre, (700.0, 2600.0))
+    spectral_centroid_hz_a = rng.uniform(clo, chi)
+    spectral_centroid_hz_b = rng.uniform(clo, chi)
     label = rule_label(bpm_a, bpm_b, camelot_dist, energy_delta_db, genre)
     return TransitionExample(
         bpm_a=round(bpm_a, 2),
@@ -72,6 +88,8 @@ def _sample_one(rng: random.Random, genre: str | None = None) -> TransitionExamp
         energy_delta_db=round(energy_delta_db, 2),
         genre=genre,
         label=label.value,
+        spectral_centroid_hz_a=round(spectral_centroid_hz_a, 1),
+        spectral_centroid_hz_b=round(spectral_centroid_hz_b, 1),
     )
 
 
@@ -127,6 +145,8 @@ def read_jsonl(path: Path) -> list[TransitionExample]:
             if not line:
                 continue
             row = json.loads(line)
+            ca = float(row.get("spectral_centroid_hz_a", 1500.0))
+            cb = float(row.get("spectral_centroid_hz_b", ca))
             examples.append(
                 TransitionExample(
                     bpm_a=float(row["bpm_a"]),
@@ -135,6 +155,8 @@ def read_jsonl(path: Path) -> list[TransitionExample]:
                     energy_delta_db=float(row["energy_delta_db"]),
                     genre=str(row["genre"]),
                     label=str(row["label"]),
+                    spectral_centroid_hz_a=ca,
+                    spectral_centroid_hz_b=cb,
                 )
             )
     return examples

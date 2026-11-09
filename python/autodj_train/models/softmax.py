@@ -9,6 +9,7 @@ import numpy as np
 
 from autodj_train.datasets.synthetic import TransitionExample
 from autodj_train.models.features import (
+    DEFAULT_FEATURE_VERSION,
     FEATURE_GENRES,
     apply_standardizer,
     fit_standardizer,
@@ -35,11 +36,13 @@ class SoftmaxLogReg:
         epochs: int = 400,
         l2: float = 1e-4,
         seed: int = 0,
+        version: int = DEFAULT_FEATURE_VERSION,
     ) -> None:
         self.lr = lr
         self.epochs = epochs
         self.l2 = l2
         self.seed = seed
+        self.version = version
         self.classes: list[str] = list(CLASS_ORDER)
         self.genres: list[str] = list(FEATURE_GENRES)
         self.mean: np.ndarray | None = None
@@ -48,7 +51,7 @@ class SoftmaxLogReg:
         self.bias: np.ndarray | None = None  # (C,)
 
     def fit(self, examples: list[TransitionExample]) -> SoftmaxLogReg:
-        x = matrixize(examples)
+        x = matrixize(examples, version=self.version)
         y_labels = [ex.label for ex in examples]
         class_to_i = {c: i for i, c in enumerate(self.classes)}
         y = np.array([class_to_i[lab] for lab in y_labels], dtype=np.int64)
@@ -76,7 +79,9 @@ class SoftmaxLogReg:
 
     def predict_proba(self, examples: list[TransitionExample]) -> np.ndarray:
         assert self.weights is not None and self.mean is not None and self.std is not None
-        x = apply_standardizer(matrixize(examples), self.mean, self.std)
+        x = apply_standardizer(
+            matrixize(examples, version=self.version), self.mean, self.std
+        )
         logits = x @ self.weights.T + self.bias
         return _softmax(logits)
 
@@ -99,7 +104,7 @@ class SoftmaxLogReg:
         assert self.weights is not None and self.mean is not None and self.std is not None
         assert self.bias is not None
         return {
-            "version": 1,
+            "version": int(self.version),
             "classes": self.classes,
             "genres": self.genres,
             "mean": self.mean.tolist(),
@@ -110,7 +115,8 @@ class SoftmaxLogReg:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> SoftmaxLogReg:
-        model = cls()
+        version = int(data.get("version", 1))
+        model = cls(version=version)
         model.classes = list(data["classes"])
         model.genres = list(data["genres"])
         model.mean = np.asarray(data["mean"], dtype=np.float64)

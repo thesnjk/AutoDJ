@@ -26,9 +26,10 @@ pub use eq::{
     eq_swap_gains, BandGains, ThreeBandSplitter,
 };
 pub use eval::{
-    adjacent_flux_ratio, beat_phase_gate_pass, mean_beat_phase_offset_ms, peak_gate_pass,
-    spectral_continuity_pass, spectral_flux_envelope, BeatPhaseCue, DEFAULT_BEAT_PHASE_LIMIT_MS,
-    DEFAULT_MAX_FLUX_RATIO, DEFAULT_TRUE_PEAK_LIMIT,
+    adjacent_flux_ratio, beat_phase_gate_pass, join_continuity_pass, max_join_flux_ratio,
+    mean_beat_phase_offset_ms, peak_gate_pass, spectral_continuity_pass, spectral_flux_envelope,
+    BeatPhaseCue, DEFAULT_BEAT_PHASE_LIMIT_MS, DEFAULT_JOIN_FLUX_RATIO, DEFAULT_MAX_FLUX_RATIO,
+    DEFAULT_TRUE_PEAK_LIMIT,
 };
 pub use loudness::{
     measure_loudness, normalize_loudness, within_lufs_tolerance, LoudnessError, LoudnessReport,

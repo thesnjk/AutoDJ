@@ -19,7 +19,7 @@ Living gap matrix. Updated 2026-11-09 after Firecrawl research (raw notes in loc
 | Live / controller | VirtualDJ / Serato dual-deck | Parity-path (desktop shell) | Tauri 2 dialog picker for JSON/XML + `--preserve-order` / `--playlist-name`; live dual-deck still Later |
 | Loudness / broadcast | EBU R 128 (−23 LUFS integrated; true-peak limits); radio-style continuous sets | Parity-path (measure+norm shipped) | `loudness.rs` + CLI `--lufs`; golden gate ±2 LU (`Docs/mix-quality-rubric.md`) |
 | Tempo blend | djay Sync + Tempo Blend | Parity-path | `stretch.rs` WSOLA + `tempo_blend_head`; MixReport `tempo_blend_applied` (gold 128→140) |
-| Spectral continuity eval | Mix-quality rubric adjacent flux | Parity-path | `eval.rs` hop-RMS ratio; MixReport `spectral_continuity_pass` |
+| Spectral continuity eval | Mix-quality rubric adjacent flux | Parity-path | `eval.rs` hop-RMS ratio; MixReport `spectral_continuity_pass` + `join_continuity_pass` |
 
 ## Citations (paraphrase + link only)
 
@@ -56,9 +56,10 @@ Formula note: `(competitor best − AutoDJ) × persona weight × mix_impact`. Be
 | **P9** | Beat grid + beat-phase / peak CI gates | **Shipped** — `beat_offset_secs` + MixReport `beat_phase_gate_pass` / `peak_gate_pass` |
 | **P10** | Rekordbox XML ingest | **Shipped** — `rekordbox.rs` + `--preserve-order` + prep metadata overrides |
 | **P11** | Tauri XML file picker polish | **Shipped** — dialog plugin + preserve-order / playlist-name controls |
-| Next | Listening-rubric polish on real libraries | else stems only with rights-cleared path |
+| **P12** | Join-local continuity gate | **Shipped** — `join_sample_indices` + MixReport `join_continuity_pass` |
+| Next | Rekordbox full-mix CI golden | else stems only with rights-cleared path |
 | Later | Stems, live dual-deck / controller | v2 / gated |
 
 ## Re-rank bias
 
-Prefer agent-doable product code that closes remaining mix-quality gaps before brochure fluff. P0–P11 are in place; stems remain gated.
+Prefer agent-doable product code that closes remaining mix-quality gaps before brochure fluff. P0–P12 are in place; stems remain gated.

@@ -2,18 +2,38 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { open, save } from "@tauri-apps/plugin-dialog";
 
+type TransitionEdge = {
+  from: number;
+  to: number;
+  class: string;
+  policy_crossfade_secs?: number;
+  crossfade_secs?: number;
+};
+
 type MixReport = {
   order?: string[];
   genre?: string;
   out?: string;
+  total_cost?: number;
   integrated_lufs?: number | null;
+  target_lufs?: number | null;
   loudness_gate_pass?: boolean | null;
   spectral_continuity_pass?: boolean;
+  spectral_flux_ratio?: number;
   cue_phrase_aligned?: boolean;
   tempo_blend_applied?: boolean;
   beat_phase_gate_pass?: boolean;
+  beat_phase_mean_ms?: number;
   peak_gate_pass?: boolean | null;
-  total_cost?: number;
+  true_peak?: number | null;
+  preserve_order?: boolean;
+  join_continuity_pass?: boolean;
+  max_join_flux_ratio?: number;
+  bass_conflict_gate_pass?: boolean;
+  max_bass_overlap?: number;
+  tempo_stretch_gate_pass?: boolean;
+  max_stretch_clamp_excess?: number;
+  transitions?: TransitionEdge[];
 };
 
 const $ = <T extends HTMLElement>(id: string) =>
@@ -39,35 +59,137 @@ function setBusy(busy: boolean) {
   }
 }
 
-function showReport(text: string, error = false) {
-  const el = $<HTMLPreElement>("report");
-  if (!el) return;
-  el.hidden = false;
-  el.classList.toggle("error", error);
-  el.textContent = text;
+function showPlainReport(text: string, error = false) {
+  const panel = $<HTMLDivElement>("report-panel");
+  const pre = $<HTMLPreElement>("report");
+  if (panel) {
+    panel.hidden = true;
+    panel.innerHTML = "";
+    panel.classList.remove("ok", "fail");
+  }
+  if (!pre) return;
+  pre.hidden = false;
+  pre.classList.toggle("error", error);
+  pre.textContent = text;
 }
 
-function formatReport(r: MixReport): string {
-  const lines = [
-    `genre: ${r.genre ?? "?"}`,
-    `out: ${r.out ?? "?"}`,
-    `tracks: ${(r.order ?? []).length}`,
-    `loudness_gate: ${String(r.loudness_gate_pass)}`,
-    `spectral_continuity: ${String(r.spectral_continuity_pass)}`,
-    `cue_phrase_aligned: ${String(r.cue_phrase_aligned)}`,
-    `tempo_blend: ${String(r.tempo_blend_applied)}`,
-    `beat_phase_gate: ${String(r.beat_phase_gate_pass)}`,
-    `peak_gate: ${String(r.peak_gate_pass)}`,
-    `integrated_lufs: ${r.integrated_lufs ?? "n/a"}`,
-    `total_cost: ${r.total_cost ?? "n/a"}`,
+function gateClass(v: boolean | null | undefined): string {
+  if (v === true) return "pass";
+  if (v === false) return "fail";
+  return "na";
+}
+
+function gateLabel(v: boolean | null | undefined): string {
+  if (v === true) return "pass";
+  if (v === false) return "fail";
+  return "n/a";
+}
+
+function basename(path: string | undefined): string {
+  if (!path) return "?";
+  const parts = path.split(/[/\\]/);
+  return parts[parts.length - 1] || path;
+}
+
+function fmt(n: number | null | undefined, digits = 3): string {
+  if (n === null || n === undefined || Number.isNaN(n)) return "n/a";
+  return n.toFixed(digits);
+}
+
+function hardGatesOk(r: MixReport): boolean {
+  const hard: Array<boolean | null | undefined> = [
+    r.loudness_gate_pass,
+    r.beat_phase_gate_pass,
+    r.peak_gate_pass,
+    r.join_continuity_pass,
+    r.bass_conflict_gate_pass,
+    r.tempo_stretch_gate_pass,
   ];
-  if (r.order?.length) {
-    lines.push("order:");
-    for (const p of r.order) {
-      lines.push(`  ${p}`);
+  return hard.every((g) => g !== false);
+}
+
+function renderMixReport(r: MixReport, deterministic: boolean) {
+  const panel = $<HTMLDivElement>("report-panel");
+  const pre = $<HTMLPreElement>("report");
+  if (pre) {
+    pre.hidden = true;
+    pre.textContent = "";
+  }
+  if (!panel) return;
+
+  const gates: Array<[string, boolean | null | undefined]> = [
+    ["loudness", r.loudness_gate_pass],
+    ["spectral", r.spectral_continuity_pass],
+    ["join", r.join_continuity_pass],
+    ["bass", r.bass_conflict_gate_pass],
+    ["beat-phase", r.beat_phase_gate_pass],
+    ["peak", r.peak_gate_pass],
+    ["stretch", r.tempo_stretch_gate_pass],
+    ["cue", r.cue_phrase_aligned],
+    ["tempo-blend", r.tempo_blend_applied],
+  ];
+
+  const ok = !deterministic || hardGatesOk(r);
+  panel.hidden = false;
+  panel.classList.toggle("ok", ok);
+  panel.classList.toggle("fail", !ok);
+
+  const summary = document.createElement("div");
+  summary.className = "report-summary";
+  summary.textContent = [
+    `genre: ${r.genre ?? "?"}`,
+    `preserve_order: ${String(r.preserve_order ?? false)}`,
+    `tracks: ${(r.order ?? []).length}`,
+    `cost: ${fmt(r.total_cost, 2)}`,
+    `out: ${basename(r.out)}`,
+  ].join(" · ");
+
+  const strip = document.createElement("div");
+  strip.className = "gate-strip";
+  strip.setAttribute("aria-label", "Mix quality gates");
+  for (const [name, value] of gates) {
+    const pill = document.createElement("span");
+    pill.className = `gate ${gateClass(value)}`;
+    pill.textContent = `${name}: ${gateLabel(value)}`;
+    strip.appendChild(pill);
+  }
+
+  const metrics = document.createElement("p");
+  metrics.className = "report-metrics";
+  metrics.textContent = [
+    `lufs ${fmt(r.integrated_lufs, 2)} / target ${fmt(r.target_lufs, 1)}`,
+    `true_peak ${fmt(r.true_peak, 4)}`,
+    `beat_phase_ms ${fmt(r.beat_phase_mean_ms, 1)}`,
+    `flux ${fmt(r.spectral_flux_ratio, 2)}`,
+    `join_flux ${fmt(r.max_join_flux_ratio, 2)}`,
+    `bass_overlap ${fmt(r.max_bass_overlap, 3)}`,
+    `stretch_excess ${fmt(r.max_stretch_clamp_excess, 4)}`,
+  ].join(" · ");
+
+  const transitionsWrap = document.createElement("div");
+  transitionsWrap.className = "transitions";
+  const h = document.createElement("h3");
+  h.className = "transitions-title";
+  h.textContent = "Transitions";
+  transitionsWrap.appendChild(h);
+  const ul = document.createElement("ul");
+  const edges = r.transitions ?? [];
+  if (edges.length === 0) {
+    const li = document.createElement("li");
+    li.textContent = "(none)";
+    ul.appendChild(li);
+  } else {
+    for (const e of edges) {
+      const li = document.createElement("li");
+      const xfade = fmt(e.crossfade_secs, 2);
+      const policy = fmt(e.policy_crossfade_secs, 2);
+      li.textContent = `${e.from}→${e.to}: ${e.class} (xfade ${xfade}s, policy ${policy}s)`;
+      ul.appendChild(li);
     }
   }
-  return lines.join("\n");
+  transitionsWrap.appendChild(ul);
+
+  panel.replaceChildren(summary, strip, metrics, transitionsWrap);
 }
 
 async function refreshBin() {
@@ -121,7 +243,7 @@ window.addEventListener("DOMContentLoaded", async () => {
       try {
         await browsePlaylist();
       } catch (e) {
-        showReport(String(e), true);
+        showPlainReport(String(e), true);
         appendLog(String(e));
       }
     },
@@ -131,7 +253,7 @@ window.addEventListener("DOMContentLoaded", async () => {
     try {
       await browseOut();
     } catch (e) {
-      showReport(String(e), true);
+      showPlainReport(String(e), true);
       appendLog(String(e));
     }
   });
@@ -142,9 +264,9 @@ window.addEventListener("DOMContentLoaded", async () => {
     try {
       const v = await invoke<string>("autodj_version");
       appendLog(v);
-      showReport(v);
+      showPlainReport(v);
     } catch (e) {
-      showReport(String(e), true);
+      showPlainReport(String(e), true);
       appendLog(String(e));
     } finally {
       setBusy(false);
@@ -155,7 +277,7 @@ window.addEventListener("DOMContentLoaded", async () => {
     const input = $<HTMLInputElement>("analyze-input")?.value.trim() ?? "";
     const db = $<HTMLInputElement>("db")?.value.trim() || "features.sqlite";
     if (!input) {
-      showReport("Set analyze input path", true);
+      showPlainReport("Set analyze input path", true);
       return;
     }
     setBusy(true);
@@ -163,9 +285,9 @@ window.addEventListener("DOMContentLoaded", async () => {
     try {
       const out = await invoke<string>("analyze", { args: { input, db } });
       appendLog(out.trim());
-      showReport(out.trim() || "analyze ok");
+      showPlainReport(out.trim() || "analyze ok");
     } catch (e) {
-      showReport(String(e), true);
+      showPlainReport(String(e), true);
       appendLog(String(e));
     } finally {
       setBusy(false);
@@ -183,8 +305,13 @@ window.addEventListener("DOMContentLoaded", async () => {
       $<HTMLInputElement>("preserve-order")?.checked ?? false;
     const playlistName =
       $<HTMLInputElement>("playlist-name")?.value.trim() || null;
+    const deterministic =
+      $<HTMLInputElement>("deterministic")?.checked ?? true;
     if (!playlist || !out) {
-      showReport("Set playlist (JSON or Rekordbox XML) and output WAV paths", true);
+      showPlainReport(
+        "Set playlist (JSON or Rekordbox XML) and output WAV paths",
+        true,
+      );
       return;
     }
     setBusy(true);
@@ -199,12 +326,13 @@ window.addEventListener("DOMContentLoaded", async () => {
           transitionModel,
           preserveOrder,
           playlistName,
+          deterministic,
         },
       });
-      showReport(formatReport(report));
+      renderMixReport(report, deterministic);
       appendLog("mix complete");
     } catch (e) {
-      showReport(String(e), true);
+      showPlainReport(String(e), true);
       appendLog(String(e));
     } finally {
       setBusy(false);

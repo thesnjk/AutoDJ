@@ -114,6 +114,10 @@ fn analyze(app: AppHandle, args: AnalyzeArgs) -> Result<String, String> {
     Ok(stdout)
 }
 
+fn default_deterministic() -> bool {
+    true
+}
+
 #[derive(serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct MixArgs {
@@ -126,6 +130,9 @@ struct MixArgs {
     preserve_order: Option<bool>,
     /// Rekordbox PLAYLISTS NODE name when the XML has multiple playlists.
     playlist_name: Option<String>,
+    /// Strict MixReport hard gates (CLI default).
+    #[serde(default = "default_deterministic")]
+    deterministic: bool,
 }
 
 #[tauri::command]
@@ -158,6 +165,11 @@ fn mix(app: AppHandle, args: MixArgs) -> Result<serde_json::Value, String> {
     if let Some(ref m) = model {
         cli_args.push("--transition-model");
         cli_args.push(m.as_str());
+    }
+    if args.deterministic {
+        cli_args.push("--deterministic");
+    } else {
+        cli_args.push("--no-deterministic");
     }
 
     let (ok, stdout, stderr) = run_autodj(&app, &cli_args)?;

@@ -5,6 +5,7 @@ use autodj_io::AudioBuffer;
 use crate::analysis::TransitionClass;
 use crate::eq::{
     apply_echo_out_crossfade, apply_eq_swap_crossfade, apply_filter_sweep_crossfade,
+    max_eq_swap_bass_overlap,
 };
 use crate::stretch::{should_tempo_blend, tempo_blend_head};
 
@@ -54,6 +55,8 @@ pub struct MixRenderResult {
     ///
     /// Used by join-local continuity scoring. Hard cuts (`crossfade` length 0) are omitted.
     pub join_sample_indices: Vec<usize>,
+    /// Worst EqSwap concurrent low-band ownership product across joins (0 = none / clean).
+    pub max_bass_overlap: f32,
 }
 
 /// Render a [`MixPlan`] to an interleaved stereo buffer, then limit peaks.
@@ -68,6 +71,7 @@ pub fn mix_buffers_with_meta(plan: &MixPlan, params: CrossfadeParams) -> MixRend
     let mut tempo_blend_applied = false;
 
     let mut join_sample_indices = Vec::new();
+    let mut max_bass_overlap = 0.0f32;
 
     if plan.segments.is_empty() {
         return MixRenderResult {
@@ -78,6 +82,7 @@ pub fn mix_buffers_with_meta(plan: &MixPlan, params: CrossfadeParams) -> MixRend
             },
             tempo_blend_applied: false,
             join_sample_indices,
+            max_bass_overlap: 0.0,
         };
     }
 
@@ -119,6 +124,13 @@ pub fn mix_buffers_with_meta(plan: &MixPlan, params: CrossfadeParams) -> MixRend
                 tempo_blend_applied = true;
             }
             let b_head = tempo_blend_head(b_raw, sr, seg.bpm, next_seg.bpm);
+            if matches!(seg.transition, TransitionClass::EqSwap) && xfade > 0 {
+                let overlap =
+                    max_eq_swap_bass_overlap(a_tail, &b_head, sr, params.equal_power);
+                if overlap > max_bass_overlap {
+                    max_bass_overlap = overlap;
+                }
+            }
             let wet = crossfade_mono(
                 a_tail,
                 &b_head,
@@ -154,6 +166,7 @@ pub fn mix_buffers_with_meta(plan: &MixPlan, params: CrossfadeParams) -> MixRend
         },
         tempo_blend_applied,
         join_sample_indices,
+        max_bass_overlap,
     }
 }
 

@@ -5,13 +5,13 @@ use std::path::{Path, PathBuf};
 
 use anyhow::{bail, Context, Result};
 use autodj_core::{
-    adjacent_flux_ratio, analyze_path, bars_per_phrase_for_genre, beat_phase_gate_pass,
-    join_continuity_pass, max_join_flux_ratio, mean_beat_phase_offset_ms, measure_loudness,
-    mix_buffers_with_meta, normalize_loudness, parse_rekordbox_xml, peak_gate_pass,
-    plan_segment_cues, spectral_continuity_pass, within_lufs_tolerance, BeatPhaseCue, CamelotKey,
-    CrossfadeParams, MixPlan, MixSegment, TrackFeatures, TransitionClass,
-    DEFAULT_BEAT_PHASE_LIMIT_MS, DEFAULT_JOIN_FLUX_RATIO, DEFAULT_MAX_FLUX_RATIO,
-    DEFAULT_TARGET_LUFS, DEFAULT_TRUE_PEAK_LIMIT, LUFS_TOLERANCE_LU,
+    adjacent_flux_ratio, analyze_path, bars_per_phrase_for_genre, bass_conflict_pass,
+    beat_phase_gate_pass, join_continuity_pass, max_join_flux_ratio, mean_beat_phase_offset_ms,
+    measure_loudness, mix_buffers_with_meta, normalize_loudness, parse_rekordbox_xml,
+    peak_gate_pass, plan_segment_cues, spectral_continuity_pass, within_lufs_tolerance,
+    BeatPhaseCue, CamelotKey, CrossfadeParams, MixPlan, MixSegment, TrackFeatures, TransitionClass,
+    DEFAULT_BASS_OVERLAP_LIMIT, DEFAULT_BEAT_PHASE_LIMIT_MS, DEFAULT_JOIN_FLUX_RATIO,
+    DEFAULT_MAX_FLUX_RATIO, DEFAULT_TARGET_LUFS, DEFAULT_TRUE_PEAK_LIMIT, LUFS_TOLERANCE_LU,
 };
 use autodj_graph::{
     load_policy_hints_map, preserve_order, solve_order, GenrePolicy, TransitionModel,
@@ -138,6 +138,10 @@ struct MixReport {
     peak_gate_pass: Option<bool>,
     /// Whether playlist order was preserved (Rekordbox / `--preserve-order`).
     preserve_order: bool,
+    /// Worst EqSwap concurrent low-band ownership product (0 when no EqSwap joins).
+    max_bass_overlap: f32,
+    /// Whether [`max_bass_overlap`] is under [`DEFAULT_BASS_OVERLAP_LIMIT`].
+    bass_conflict_gate_pass: bool,
 }
 
 #[derive(Debug, Serialize)]
@@ -447,6 +451,7 @@ fn cmd_mix(
     let mut mixed = rendered.buffer;
     let tempo_blend_applied = rendered.tempo_blend_applied;
     let join_sample_indices = rendered.join_sample_indices;
+    let max_bass_overlap = rendered.max_bass_overlap;
 
     let (integrated_lufs, loudness_gate_pass, true_peak) = if let Some(target) = target_lufs {
         let report = normalize_loudness(&mut mixed, target)
@@ -489,6 +494,15 @@ fn cmd_mix(
             "join continuity gate failed: max join flux {:.2} > max {:.2}",
             max_join_flux,
             DEFAULT_JOIN_FLUX_RATIO
+        );
+    }
+
+    let bass_ok = bass_conflict_pass(max_bass_overlap, DEFAULT_BASS_OVERLAP_LIMIT);
+    if deterministic && !bass_ok {
+        bail!(
+            "bass conflict gate failed: max bass overlap {:.3} > limit {:.3}",
+            max_bass_overlap,
+            DEFAULT_BASS_OVERLAP_LIMIT
         );
     }
 
@@ -556,6 +570,8 @@ fn cmd_mix(
         true_peak,
         peak_gate_pass: peak_ok,
         preserve_order: keep_order,
+        max_bass_overlap,
+        bass_conflict_gate_pass: bass_ok,
     };
     println!("{}", serde_json::to_string_pretty(&report)?);
     Ok(())

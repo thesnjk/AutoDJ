@@ -40,7 +40,8 @@ cargo run -p autodj-cli -- analyze --input /absolute/path --db features.sqlite
 cargo run -p autodj-cli -- mix --playlist party.json --db features.sqlite --out mix.wav --genre house
 # MixReport includes beat_phase_mean_ms / beat_phase_gate_pass / true_peak / peak_gate_pass
 #   + max_join_flux_ratio / join_continuity_pass / spectral_continuity_pass
-# --deterministic (default true): fixed −14 LUFS target + hard-fail beat-phase/peak/join gates
+#   + max_bass_overlap / bass_conflict_gate_pass
+# --deterministic (default true): fixed −14 LUFS target + hard-fail beat-phase/peak/join/bass gates
 
 # Rekordbox DJ_PLAYLISTS XML (user export). Keeps setlist order with --preserve-order.
 cargo run -p autodj-cli -- mix --playlist testdata/rekordbox/gold_playlist.xml \

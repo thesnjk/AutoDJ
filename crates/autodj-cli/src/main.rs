@@ -193,11 +193,15 @@ fn cmd_analyze(input: &Path, db: &Path) -> Result<()> {
         upsert_features(&conn, &feats)?;
         n += 1;
         println!(
-            "analyzed {}  bpm={:.1} key={} loud={:.1}dB",
+            "analyzed {}  bpm={:.1} key={} loud={:.1}dB  bpm_conf={:.2} key_conf={:.2} sparse={} octave_corr={}",
             path.display(),
             feats.bpm,
             feats.key.as_str(),
-            feats.loudness_db
+            feats.loudness_db,
+            feats.quality.bpm_confidence,
+            feats.quality.key_confidence,
+            feats.quality.sparse_audio,
+            feats.quality.bpm_octave_corrected
         );
     }
     println!("wrote {n} tracks → {}", db.display());

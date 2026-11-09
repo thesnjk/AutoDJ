@@ -1,0 +1,19 @@
+{
+  "tracks": [
+    {
+      "file": "loop_a_128.wav",
+      "bpm": 128.0,
+      "key": "12B"
+    },
+    {
+      "file": "loop_b_128.wav",
+      "bpm": 128.0,
+      "key": "12B"
+    },
+    {
+      "file": "loop_c_140.wav",
+      "bpm": 140.0,
+      "key": "6B"
+    }
+  ]
+}

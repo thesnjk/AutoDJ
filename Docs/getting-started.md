@@ -34,6 +34,7 @@ Create `party.json`:
 
 ```bash
 cargo run -p autodj-cli -- analyze --input /absolute/path --db features.sqlite
+# analyze lines include bpm_conf / key_conf / sparse / octave_corr (AnalysisQuality)
 cargo run -p autodj-cli -- mix --playlist party.json --db features.sqlite --out mix.wav --genre house
 
 # Optional setcraft / classifier overrides

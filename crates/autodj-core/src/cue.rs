@@ -155,6 +155,7 @@ mod tests {
                 outro_start: outro,
             },
             spectral_centroid_hz: 1000.0,
+            quality: crate::analysis::AnalysisQuality::default(),
         }
     }
 

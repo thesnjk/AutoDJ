@@ -10,6 +10,7 @@ autodj-io.workspace = true
 anyhow.workspace = true
 serde.workspace = true
 thiserror.workspace = true
+ebur128 = "0.1.11"
 
 [dev-dependencies]
 tempfile.workspace = true

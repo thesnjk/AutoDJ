@@ -5,8 +5,9 @@ use std::path::{Path, PathBuf};
 
 use anyhow::{bail, Context, Result};
 use autodj_core::{
-    analyze_path, mix_buffers, CamelotKey, CrossfadeParams, MixPlan, MixSegment, TrackFeatures,
-    TransitionClass,
+    analyze_path, measure_loudness, mix_buffers, normalize_loudness, within_lufs_tolerance,
+    CamelotKey, CrossfadeParams, MixPlan, MixSegment, TrackFeatures, TransitionClass,
+    DEFAULT_TARGET_LUFS, LUFS_TOLERANCE_LU,
 };
 use autodj_graph::{solve_order, GenrePolicy};
 use autodj_io::{read_wav, write_wav};
@@ -52,6 +53,12 @@ enum Commands {
         /// Deterministic mode flag (reserved for seeded solvers).
         #[arg(long, default_value_t = true)]
         deterministic: bool,
+        /// Target integrated loudness in LUFS (EBU R 128 / BS.1770). Use -23 for broadcast.
+        #[arg(long, default_value_t = DEFAULT_TARGET_LUFS)]
+        lufs: f64,
+        /// Skip loudness normalization (peak-limit only).
+        #[arg(long, default_value_t = false)]
+        no_loudness_norm: bool,
     },
 }
 
@@ -77,6 +84,12 @@ struct MixReport {
     total_cost: f32,
     genre: String,
     out: String,
+    /// Post-render integrated loudness (LUFS), when measured.
+    integrated_lufs: Option<f64>,
+    /// Target LUFS used for normalization, if any.
+    target_lufs: Option<f64>,
+    /// Whether measured loudness is within ±[`LUFS_TOLERANCE_LU`] of target.
+    loudness_gate_pass: Option<bool>,
 }
 
 fn main() -> Result<()> {
@@ -90,15 +103,24 @@ fn main() -> Result<()> {
             golden,
             db,
             deterministic: _,
+            lufs,
+            no_loudness_norm,
         } => {
+            let target = if no_loudness_norm { None } else { Some(lufs) };
             if let Some(name) = golden {
                 if name != "smoke" {
                     bail!("unknown golden suite: {name}");
                 }
-                return cmd_golden_smoke(&out, &genre);
+                // Golden always uses the default deterministic target unless --no-loudness-norm.
+                let golden_target = if no_loudness_norm {
+                    None
+                } else {
+                    Some(DEFAULT_TARGET_LUFS)
+                };
+                return cmd_golden_smoke(&out, &genre, golden_target);
             }
             let playlist = playlist.context("--playlist is required unless --golden is set")?;
-            cmd_mix(&playlist, &out, &genre, db.as_deref())
+            cmd_mix(&playlist, &out, &genre, db.as_deref(), target)
         }
     }
 }
@@ -124,7 +146,13 @@ fn cmd_analyze(input: &Path, db: &Path) -> Result<()> {
     Ok(())
 }
 
-fn cmd_mix(playlist: &Path, out: &Path, genre: &str, db: Option<&Path>) -> Result<()> {
+fn cmd_mix(
+    playlist: &Path,
+    out: &Path,
+    genre: &str,
+    db: Option<&Path>,
+    target_lufs: Option<f64>,
+) -> Result<()> {
     let raw = fs::read_to_string(playlist)?;
     let pl: PlaylistFile = serde_json::from_str(&raw)?;
     let genre = pl.genre.as_deref().unwrap_or(genre);
@@ -190,7 +218,28 @@ fn cmd_mix(playlist: &Path, out: &Path, genre: &str, db: Option<&Path>) -> Resul
         segments,
         sample_rate: sr,
     };
-    let mixed = mix_buffers(&plan, CrossfadeParams::default());
+    let mut mixed = mix_buffers(&plan, CrossfadeParams::default());
+
+    let (integrated_lufs, loudness_gate_pass) = if let Some(target) = target_lufs {
+        let report = normalize_loudness(&mut mixed, target)
+            .with_context(|| format!("normalize to {target} LUFS"))?;
+        let pass = within_lufs_tolerance(report.integrated_lufs, target);
+        if !pass {
+            bail!(
+                "loudness gate failed: integrated {:.2} LUFS vs target {:.2} (±{:.1} LU)",
+                report.integrated_lufs,
+                target,
+                LUFS_TOLERANCE_LU
+            );
+        }
+        (Some(report.integrated_lufs), Some(pass))
+    } else {
+        match measure_loudness(&mixed) {
+            Ok(report) => (Some(report.integrated_lufs), None),
+            Err(_) => (None, None),
+        }
+    };
+
     write_wav(out, &mixed)?;
 
     let report = MixReport {
@@ -208,12 +257,15 @@ fn cmd_mix(playlist: &Path, out: &Path, genre: &str, db: Option<&Path>) -> Resul
         total_cost: solution.total_cost,
         genre: policy.id,
         out: out.display().to_string(),
+        integrated_lufs,
+        target_lufs,
+        loudness_gate_pass,
     };
     println!("{}", serde_json::to_string_pretty(&report)?);
     Ok(())
 }
 
-fn cmd_golden_smoke(out: &Path, genre: &str) -> Result<()> {
+fn cmd_golden_smoke(out: &Path, genre: &str, target_lufs: Option<f64>) -> Result<()> {
     let root = workspace_testdata()?;
     let playlist = root.join("party.json");
     if !playlist.exists() {
@@ -228,7 +280,7 @@ fn cmd_golden_smoke(out: &Path, genre: &str) -> Result<()> {
         });
         fs::write(&playlist, serde_json::to_string_pretty(&json)?)?;
     }
-    cmd_mix(&playlist, out, genre, None)
+    cmd_mix(&playlist, out, genre, None, target_lufs)
 }
 
 fn resolve_track_path(playlist_dir: &Path, path: &Path) -> PathBuf {

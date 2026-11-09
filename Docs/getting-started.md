@@ -10,8 +10,11 @@
 
 ```bash
 cargo run -p autodj-cli -- mix --golden smoke --out /tmp/autodj-smoke.wav
+# Optional: classic EBU R 128 programme loudness
+# cargo run -p autodj-cli -- mix --golden smoke --lufs -23 --out /tmp/autodj-smoke.wav
 afplay /tmp/autodj-smoke.wav   # macOS
 ```
+Default export target is **−14 LUFS** (streaming-style). Pass `--lufs -23` for broadcast R 128.
 
 ## Your playlist
 

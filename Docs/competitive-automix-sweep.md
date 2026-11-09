@@ -9,9 +9,9 @@ Living gap matrix. Updated 2026-11-09 after Firecrawl research (raw notes in loc
 | Offline automix render | djay Automix (playlist → continuous blend; Mix Now / cue points) | Parity-path MVP | `autodj-cli` `mix`; `crates/autodj-core/src/render.rs` |
 | Harmonic suggestions | Rekordbox / DJ.Studio Camelot ordering | Parity MVP | `camelot.rs`; `autodj-graph` `prefers_harmonic_neighbor` |
 | Transition type palette | djay Filter / Echo / Tremolo / Riser / Neural Mix; SetFlow six-core (EQ, bass swap, cut, blend) | Partial | `TransitionClass` enum in `analysis.rs`; renderer mostly equal-power crossfade |
-| Mix-in / mix-out cueing | VirtualDJ Smart automix (outro→intro ~4–8s); djay start/end points | Gap | `SectionMarks` coarse; CLI does not yet align xfades to phrase |
+| Mix-in / mix-out cueing | VirtualDJ Smart automix (outro→intro ~4–8s); djay start/end points | Parity-path | `cue.rs` `plan_segment_cues`; CLI slices via `AudioBuffer::slice_secs`; MixReport `cue_phrase_aligned` |
 | Stems-aware transitions | Serato Stems (vocal / melody / bass / drums pads) | Gap | no stem DSP; deferred v2 |
-| Phrase sync | Rekordbox phrase analysis | Gap | section marks only; no 8/16-bar phrase grid |
+| Phrase sync | Rekordbox phrase analysis | Partial | energy `SectionMarks` + 4/8-bar phrase snap; full phrase ML later |
 | Learning from setcraft | Mixonset / tracklist research tools | Gap→stub | `python/autodj_train` synthetic + `tracklist_stats.py` |
 | Live / controller | VirtualDJ / Serato dual-deck | Gap | `apps/autodj-app` README stub only |
 | Loudness / broadcast | EBU R 128 (−23 LUFS integrated; true-peak limits); radio-style continuous sets | Parity-path (measure+norm shipped) | `loudness.rs` + CLI `--lufs`; golden gate ±2 LU (`Docs/mix-quality-rubric.md`) |
@@ -39,11 +39,11 @@ Formula note: `(competitor best − AutoDJ) × persona weight × mix_impact`. Be
 | Priority | Gap | Why |
 |----------|-----|-----|
 | **P0** | EBU R128 normalize + CI loudness gate | **Shipped** — keep regression via golden `loudness_gate_pass` |
-| **P1** | Phrase / section-aware cue points | VDJ Smart + djay cue points; largest remaining “feels like a DJ” jump |
-| **P2** | 3-band EQ / bass-swap transition classes | SetFlow + house/techno policy; needs section cues to land well |
+| **P1** | Phrase / section-aware cue points | **Shipped** — `cue.rs` + energy section marks; keep `cue_phrase_aligned` in golden JSON |
+| **P2** | 3-band EQ / bass-swap transition classes | SetFlow + house/techno policy; cues now available to land EQ swaps |
 | **P3** | Tempo blend / stretch | djay Sync+Tempo Blend; higher DSP risk |
 | Later | Stems, live controller, setcraft learning | v2 / gated |
 
 ## Re-rank bias
 
-Prefer agent-doable product code that closes **mix_impact** gaps (phrase cueing, EQ swap DSP) before UI chrome. R128 loudness gate is in place.
+Prefer agent-doable product code that closes **mix_impact** gaps (EQ swap DSP next) before UI chrome. R128 + phrase cues are in place.

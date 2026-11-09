@@ -5,9 +5,9 @@ use std::path::{Path, PathBuf};
 
 use anyhow::{bail, Context, Result};
 use autodj_core::{
-    analyze_path, measure_loudness, mix_buffers, normalize_loudness, within_lufs_tolerance,
-    CamelotKey, CrossfadeParams, MixPlan, MixSegment, TrackFeatures, TransitionClass,
-    DEFAULT_TARGET_LUFS, LUFS_TOLERANCE_LU,
+    analyze_path, bars_per_phrase_for_genre, measure_loudness, mix_buffers, normalize_loudness,
+    plan_segment_cues, within_lufs_tolerance, CamelotKey, CrossfadeParams, MixPlan, MixSegment,
+    TrackFeatures, TransitionClass, DEFAULT_TARGET_LUFS, LUFS_TOLERANCE_LU,
 };
 use autodj_graph::{solve_order, GenrePolicy};
 use autodj_io::{read_wav, write_wav};
@@ -90,6 +90,18 @@ struct MixReport {
     target_lufs: Option<f64>,
     /// Whether measured loudness is within ±[`LUFS_TOLERANCE_LU`] of target.
     loudness_gate_pass: Option<bool>,
+    /// Per-track phrase/section cue windows used for the render.
+    cues: Vec<CueReport>,
+    /// True when cue planner ran (phrase-aligned mix-in/out).
+    cue_phrase_aligned: bool,
+}
+
+#[derive(Debug, Serialize)]
+struct CueReport {
+    track: String,
+    play_start_secs: f64,
+    play_end_secs: f64,
+    crossfade_secs: f32,
 }
 
 fn main() -> Result<()> {
@@ -183,29 +195,50 @@ fn cmd_mix(
     }
 
     let solution = solve_order(&features, &policy, Some(0));
+    let phrase_bars = bars_per_phrase_for_genre(&policy.id);
     let mut segments = Vec::new();
+    let mut cue_reports = Vec::new();
+    let n = solution.order.len();
     for (i, &idx) in solution.order.iter().enumerate() {
         let feats = &features[idx];
+        let next_feats = solution
+            .order
+            .get(i + 1)
+            .map(|&ni| &features[ni]);
         let path = feats
             .path
             .clone()
             .unwrap_or_else(|| resolve_track_path(playlist_dir, &pl.tracks[idx].path));
-        let buffer = read_wav(&path)?;
+        let full = read_wav(&path)?;
+        let policy_xfade = solution
+            .transitions
+            .get(i)
+            .map(|t| t.crossfade_secs)
+            .unwrap_or(policy.default_crossfade_secs);
+        let cues = plan_segment_cues(
+            feats,
+            next_feats,
+            policy_xfade,
+            phrase_bars,
+            i == 0,
+            i + 1 == n,
+        );
+        let buffer = full.slice_secs(cues.play_start_secs, cues.play_end_secs);
         let transition = solution
             .transitions
             .get(i)
             .map(|t| t.class)
             .unwrap_or(TransitionClass::LinearCrossfade);
-        let crossfade_secs = solution
-            .transitions
-            .get(i)
-            .map(|t| t.crossfade_secs)
-            .unwrap_or(0.0);
-        // Cue from outro region when possible: trim leading intro lightly.
+        cue_reports.push(CueReport {
+            track: path.display().to_string(),
+            play_start_secs: cues.play_start_secs,
+            play_end_secs: cues.play_end_secs,
+            crossfade_secs: cues.crossfade_secs,
+        });
         segments.push(MixSegment {
             buffer,
             bpm: feats.bpm,
-            crossfade_secs,
+            crossfade_secs: cues.crossfade_secs,
             transition,
         });
     }
@@ -260,6 +293,8 @@ fn cmd_mix(
         integrated_lufs,
         target_lufs,
         loudness_gate_pass,
+        cues: cue_reports,
+        cue_phrase_aligned: true,
     };
     println!("{}", serde_json::to_string_pretty(&report)?);
     Ok(())

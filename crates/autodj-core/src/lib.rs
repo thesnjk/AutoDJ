@@ -5,11 +5,16 @@
 
 mod analysis;
 mod camelot;
+mod cue;
 mod loudness;
 mod render;
 
 pub use analysis::{analyze_mono, analyze_path, SectionMarks, TrackFeatures, TransitionClass};
 pub use camelot::{camelot_distance, CamelotKey};
+pub use cue::{
+    align_crossfade_to_downbeat, bar_secs, bars_per_phrase_for_genre, beat_secs, plan_segment_cues,
+    snap_to_phrase, CuePoints,
+};
 pub use loudness::{
     measure_loudness, normalize_loudness, within_lufs_tolerance, LoudnessError, LoudnessReport,
     BROADCAST_TARGET_LUFS, DEFAULT_TARGET_LUFS, LUFS_TOLERANCE_LU,

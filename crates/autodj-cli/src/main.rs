@@ -79,9 +79,12 @@ enum Commands {
         /// Optional genre policy hints JSON from tracklist aggregate (`autodj-train aggregate-tracklists --hints-out`).
         #[arg(long)]
         policy_hints: Option<PathBuf>,
-        /// Optional Softmax transition model JSON from `autodj-train train` (per-edge class).
+        /// Softmax transition model JSON (default: committed artifact for ordinary mixes).
         #[arg(long)]
         transition_model: Option<PathBuf>,
+        /// Skip Softmax; use genre `preferred_transition` per edge (goldens do this by default).
+        #[arg(long, default_value_t = false)]
+        no_transition_model: bool,
     },
 }
 
@@ -195,6 +198,7 @@ fn main() -> Result<()> {
             no_loudness_norm,
             policy_hints,
             transition_model,
+            no_transition_model,
         } => {
             let deterministic = deterministic_flag && !no_deterministic;
             // Deterministic: fixed default LUFS (ignore --lufs) + hard beat/peak gates.
@@ -242,7 +246,11 @@ fn main() -> Result<()> {
                     other => bail!("unknown golden suite: {other}"),
                 };
             }
-            let model = load_transition_model(transition_model.as_deref())?;
+            let mut model = load_transition_model(transition_model.as_deref())?;
+            if model.is_none() && !no_transition_model {
+                let committed = resolve_committed_transition_model()?;
+                model = load_transition_model(Some(&committed))?;
+            }
             let playlist = playlist.context("--playlist is required unless --golden is set")?;
             let report = cmd_mix(
                 &playlist,
@@ -786,7 +794,7 @@ fn cmd_golden_transitions(
     Ok(())
 }
 
-/// Softmax E2E golden: mix with committed model; classes must match predictions (not preferred).
+/// Softmax E2E golden: per-genre mix with committed model; classes must match predictions.
 fn cmd_golden_transition_model(
     out: &Path,
     target_lufs: Option<f64>,
@@ -806,63 +814,75 @@ fn cmd_golden_transition_model(
         );
     }
 
-    let policy = GenrePolicy::builtin("house");
-    let report = cmd_mix(
-        &playlist,
-        None,
-        out,
-        policy,
-        None,
-        target_lufs,
-        Some(&model),
-        deterministic,
-        true,
-    )?;
-
+    const GENRES: &[&str] = &[
+        "house",
+        "trance",
+        "hip_hop",
+        "drum_and_bass",
+        "uk_garage",
+        "open_format",
+    ];
     let features = load_playlist_features(&playlist, None)?;
-    if report.transitions.len() != features.len().saturating_sub(1) {
-        bail!(
-            "transition_model golden: expected {} edges, got {}",
-            features.len().saturating_sub(1),
-            report.transitions.len()
-        );
-    }
+    let expected_edges = features.len().saturating_sub(1);
+    let mut summaries = Vec::new();
 
-    const PINNED: [TransitionClass; 2] =
-        [TransitionClass::EqSwap, TransitionClass::HardCut];
-
-    for (i, edge) in report.transitions.iter().enumerate() {
-        let a = &features[edge.from];
-        let b = &features[edge.to];
-        let predicted = predict_transition_class(
-            &model,
-            a.bpm,
-            b.bpm,
-            camelot_distance(a.key, b.key),
-            b.loudness_db - a.loudness_db,
-            "house",
-        );
-        if edge.class != predicted {
+    for &genre_id in GENRES {
+        let policy = GenrePolicy::builtin(genre_id);
+        let report = cmd_mix(
+            &playlist,
+            None,
+            out,
+            policy,
+            None,
+            target_lufs,
+            Some(&model),
+            deterministic,
+            true,
+        )?;
+        if report.genre != genre_id {
             bail!(
-                "transition_model golden: edge {}→{} MixReport {:?} != predict {:?}",
-                edge.from,
-                edge.to,
-                edge.class,
-                predicted
+                "transition_model golden: expected genre {genre_id}, got {}",
+                report.genre
             );
         }
-        if let Some(pin) = PINNED.get(i) {
-            if edge.class != *pin {
+        if report.transitions.len() != expected_edges {
+            bail!(
+                "transition_model golden ({genre_id}): expected {expected_edges} edges, got {}",
+                report.transitions.len()
+            );
+        }
+        for edge in &report.transitions {
+            let a = &features[edge.from];
+            let b = &features[edge.to];
+            let predicted = predict_transition_class(
+                &model,
+                a.bpm,
+                b.bpm,
+                camelot_distance(a.key, b.key),
+                b.loudness_db - a.loudness_db,
+                genre_id,
+            );
+            if edge.class != predicted {
                 bail!(
-                    "transition_model golden: edge {i} class {:?} != pinned {:?}; update pin after intentional retrain",
+                    "transition_model golden ({genre_id}): edge {}→{} MixReport {:?} != predict {:?}",
+                    edge.from,
+                    edge.to,
                     edge.class,
-                    pin
+                    predicted
                 );
             }
         }
+        summaries.push(serde_json::json!({
+            "genre": report.genre,
+            "transitions": report.transitions,
+            "preserve_order": report.preserve_order,
+            "bass_conflict_gate_pass": report.bass_conflict_gate_pass,
+            "join_continuity_pass": report.join_continuity_pass,
+            "loudness_gate_pass": report.loudness_gate_pass,
+        }));
     }
 
-    println!("{}", serde_json::to_string_pretty(&report)?);
+    println!("{}", serde_json::to_string_pretty(&summaries)?);
     Ok(())
 }
 

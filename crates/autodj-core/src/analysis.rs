@@ -70,6 +70,9 @@ pub struct TrackFeatures {
     pub sections: SectionMarks,
     /// Mean spectral centroid proxy (Hz).
     pub spectral_centroid_hz: f32,
+    /// Beat-grid phase offset in seconds (`[0, beat)`): first downbeat relative to t=0.
+    #[serde(default)]
+    pub beat_offset_secs: f64,
     /// Confidence / sparse / octave-correction flags.
     #[serde(default)]
     pub quality: AnalysisQuality,
@@ -130,6 +133,11 @@ pub fn analyze_mono(samples: &[f32], sample_rate: u32) -> anyhow::Result<TrackFe
 
     let spectral_centroid_hz = spectral_centroid(samples, sample_rate);
     let sections = estimate_sections(samples, sample_rate, duration_secs);
+    let beat_offset_secs = if sparse {
+        0.0
+    } else {
+        estimate_beat_offset(samples, sample_rate, bpm)
+    };
     Ok(TrackFeatures {
         path: None,
         bpm,
@@ -139,6 +147,7 @@ pub fn analyze_mono(samples: &[f32], sample_rate: u32) -> anyhow::Result<TrackFe
         sample_rate,
         sections,
         spectral_centroid_hz,
+        beat_offset_secs,
         quality: AnalysisQuality {
             bpm_confidence,
             key_confidence,
@@ -336,6 +345,50 @@ fn tempo_prior(bpm: f32) -> f32 {
     (-0.5 * d * d).exp()
 }
 
+/// Onset-phase beat-grid offset in `[0, beat)` seconds for a known BPM.
+///
+/// Sweeps candidate phases and scores onset-envelope energy on the grid.
+fn estimate_beat_offset(samples: &[f32], sample_rate: u32, bpm: f32) -> f64 {
+    let beat = 60.0 / bpm.max(1.0) as f64;
+    if !beat.is_finite() || beat <= 0.0 {
+        return 0.0;
+    }
+    let hop = (sample_rate as usize / 100).max(1); // ~10 ms
+    let mut env = Vec::new();
+    let mut prev = 0.0f32;
+    for chunk in samples.chunks(hop) {
+        let e: f32 = chunk.iter().map(|s| s.abs()).sum::<f32>() / chunk.len() as f32;
+        env.push((e - prev).max(0.0));
+        prev = e;
+    }
+    if env.len() < 4 {
+        return 0.0;
+    }
+    let hop_secs = hop as f64 / sample_rate as f64;
+    let beat_hops = (beat / hop_secs).round().max(1.0) as usize;
+    if beat_hops == 0 || beat_hops >= env.len() {
+        return 0.0;
+    }
+
+    let steps = beat_hops.clamp(8, 64);
+    let mut best_off = 0.0f64;
+    let mut best_score = f32::MIN;
+    for s in 0..steps {
+        let off_hops = (s * beat_hops) / steps;
+        let mut score = 0.0f32;
+        let mut i = off_hops;
+        while i < env.len() {
+            score += env[i];
+            i += beat_hops;
+        }
+        if score > best_score {
+            best_score = score;
+            best_off = off_hops as f64 * hop_secs;
+        }
+    }
+    best_off.rem_euclid(beat)
+}
+
 /// Returns `(pitch_class, minor, confidence)`.
 fn estimate_key(samples: &[f32], sample_rate: u32) -> (u8, bool, f32) {
     let base = 110.0f32; // A2
@@ -415,12 +468,16 @@ mod tests {
     }
 
     fn click_train(sr: u32, bpm: f32, seconds: f64) -> Vec<f32> {
+        click_train_offset(sr, bpm, seconds, 0.0)
+    }
+
+    fn click_train_offset(sr: u32, bpm: f32, seconds: f64, offset_secs: f64) -> Vec<f32> {
         let n = (sr as f64 * seconds) as usize;
-        let beat = 60.0 / bpm;
+        let beat = 60.0 / bpm as f64;
         let mut samples = vec![0.0f32; n];
         for i in 0..n {
-            let t = i as f32 / sr as f32;
-            let phase = (t as f64 % beat as f64) / beat as f64;
+            let t = i as f64 / sr as f64;
+            let phase = (t - offset_secs).rem_euclid(beat) / beat;
             let click = if phase < 0.04 {
                 (1.0 - phase / 0.04) as f32 * 0.9
             } else {
@@ -466,6 +523,40 @@ mod tests {
             feats.bpm,
             feats.quality.bpm_octave_corrected
         );
+    }
+
+    #[test]
+    fn beat_offset_recovers_delayed_click_train() {
+        let sr = 44_100u32;
+        let bpm = 128.0f32;
+        let delay = 0.10f64; // 100 ms into the beat (~469 ms)
+        let samples = click_train_offset(sr, bpm, 8.0, delay);
+        // Algorithm under known BPM (BPM autocorr can be ±1–2 on synthetic clicks).
+        let got = estimate_beat_offset(&samples, sr, bpm);
+        let beat = 60.0 / bpm as f64;
+        let circ = {
+            let d = (got - delay).rem_euclid(beat);
+            d.min(beat - d)
+        };
+        assert!(
+            circ <= 0.015,
+            "offset {got} vs expected {delay} (circ err {circ}s)"
+        );
+        let feats = analyze_mono(&samples, sr).unwrap();
+        assert!(feats.beat_offset_secs.is_finite());
+        assert!((feats.bpm - bpm).abs() < 3.0, "bpm={}", feats.bpm);
+        // When estimated BPM is close, analyze path should also recover.
+        if (feats.bpm - bpm).abs() <= 1.0 {
+            let circ2 = {
+                let d = (feats.beat_offset_secs - delay).rem_euclid(beat);
+                d.min(beat - d)
+            };
+            assert!(
+                circ2 < 0.015,
+                "analyze offset {} vs {delay} (circ {circ2})",
+                feats.beat_offset_secs
+            );
+        }
     }
 
     #[test]
@@ -540,6 +631,12 @@ mod tests {
                 feats.sections
             );
             assert!(!feats.quality.sparse_audio, "{file}: sparse");
+            assert!(
+                feats.beat_offset_secs.is_finite() && feats.beat_offset_secs >= 0.0,
+                "{file}: beat_offset={}",
+                feats.beat_offset_secs
+            );
         }
     }
+
 }

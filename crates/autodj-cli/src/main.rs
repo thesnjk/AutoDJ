@@ -5,10 +5,12 @@ use std::path::{Path, PathBuf};
 
 use anyhow::{bail, Context, Result};
 use autodj_core::{
-    adjacent_flux_ratio, analyze_path, bars_per_phrase_for_genre, measure_loudness,
-    mix_buffers_with_meta, normalize_loudness, plan_segment_cues, spectral_continuity_pass,
-    within_lufs_tolerance, CamelotKey, CrossfadeParams, MixPlan, MixSegment, TrackFeatures,
-    TransitionClass, DEFAULT_MAX_FLUX_RATIO, DEFAULT_TARGET_LUFS, LUFS_TOLERANCE_LU,
+    adjacent_flux_ratio, analyze_path, bars_per_phrase_for_genre, beat_phase_gate_pass,
+    mean_beat_phase_offset_ms, measure_loudness, mix_buffers_with_meta, normalize_loudness,
+    peak_gate_pass, plan_segment_cues, spectral_continuity_pass, within_lufs_tolerance,
+    BeatPhaseCue, CamelotKey, CrossfadeParams, MixPlan, MixSegment, TrackFeatures, TransitionClass,
+    DEFAULT_BEAT_PHASE_LIMIT_MS, DEFAULT_MAX_FLUX_RATIO, DEFAULT_TARGET_LUFS,
+    DEFAULT_TRUE_PEAK_LIMIT, LUFS_TOLERANCE_LU,
 };
 use autodj_graph::{load_policy_hints_map, solve_order, GenrePolicy, TransitionModel};
 use autodj_io::{read_wav, write_wav};
@@ -51,7 +53,7 @@ enum Commands {
         /// Feature DB (optional; analyzes on the fly if missing).
         #[arg(long)]
         db: Option<PathBuf>,
-        /// Deterministic mode flag (reserved for seeded solvers).
+        /// Strict gates + fixed defaults (beat-phase / peak hard-fail; default LUFS path).
         #[arg(long, default_value_t = true)]
         deterministic: bool,
         /// Target integrated loudness in LUFS (EBU R 128 / BS.1770). Use -23 for broadcast.
@@ -107,6 +109,14 @@ struct MixReport {
     spectral_flux_ratio: f32,
     /// Whether spectral continuity is within genre default bounds.
     spectral_continuity_pass: bool,
+    /// Mean absolute downbeat join offset across same-tempo edges (ms).
+    beat_phase_mean_ms: f32,
+    /// Whether [`beat_phase_mean_ms`] is under the 50 ms rubric limit.
+    beat_phase_gate_pass: bool,
+    /// Post-render true-peak (linear full-scale), when measured.
+    true_peak: Option<f64>,
+    /// Whether true-peak ≤ 0.99.
+    peak_gate_pass: Option<bool>,
 }
 
 #[derive(Debug, Serialize)]
@@ -130,13 +140,20 @@ fn main() -> Result<()> {
             genre,
             golden,
             db,
-            deterministic: _,
+            deterministic,
             lufs,
             no_loudness_norm,
             policy_hints,
             transition_model,
         } => {
-            let target = if no_loudness_norm { None } else { Some(lufs) };
+            // Deterministic: fixed default LUFS (ignore --lufs) + hard beat/peak gates.
+            let target = if no_loudness_norm {
+                None
+            } else if deterministic {
+                Some(DEFAULT_TARGET_LUFS)
+            } else {
+                Some(lufs)
+            };
             let policy = resolve_policy(&genre, policy_hints.as_deref())?;
             let model = load_transition_model(transition_model.as_deref())?;
             if let Some(name) = golden {
@@ -150,10 +167,24 @@ fn main() -> Result<()> {
                 } else {
                     Some(DEFAULT_TARGET_LUFS)
                 };
-                return cmd_golden_smoke(&out, policy, golden_target, model.as_ref());
+                return cmd_golden_smoke(
+                    &out,
+                    policy,
+                    golden_target,
+                    model.as_ref(),
+                    deterministic,
+                );
             }
             let playlist = playlist.context("--playlist is required unless --golden is set")?;
-            cmd_mix(&playlist, &out, policy, db.as_deref(), target, model.as_ref())
+            cmd_mix(
+                &playlist,
+                &out,
+                policy,
+                db.as_deref(),
+                target,
+                model.as_ref(),
+                deterministic,
+            )
         }
     }
 }
@@ -215,6 +246,7 @@ fn cmd_mix(
     db: Option<&Path>,
     target_lufs: Option<f64>,
     model: Option<&TransitionModel>,
+    deterministic: bool,
 ) -> Result<()> {
     let raw = fs::read_to_string(playlist)?;
     let pl: PlaylistFile = serde_json::from_str(&raw)?;
@@ -315,7 +347,7 @@ fn cmd_mix(
     let mut mixed = rendered.buffer;
     let tempo_blend_applied = rendered.tempo_blend_applied;
 
-    let (integrated_lufs, loudness_gate_pass) = if let Some(target) = target_lufs {
+    let (integrated_lufs, loudness_gate_pass, true_peak) = if let Some(target) = target_lufs {
         let report = normalize_loudness(&mut mixed, target)
             .with_context(|| format!("normalize to {target} LUFS"))?;
         let pass = within_lufs_tolerance(report.integrated_lufs, target);
@@ -327,11 +359,15 @@ fn cmd_mix(
                 LUFS_TOLERANCE_LU
             );
         }
-        (Some(report.integrated_lufs), Some(pass))
+        (
+            Some(report.integrated_lufs),
+            Some(pass),
+            Some(report.true_peak),
+        )
     } else {
         match measure_loudness(&mixed) {
-            Ok(report) => (Some(report.integrated_lufs), None),
-            Err(_) => (None, None),
+            Ok(report) => (Some(report.integrated_lufs), None, Some(report.true_peak)),
+            Err(_) => (None, None, None),
         }
     };
 
@@ -343,6 +379,38 @@ fn cmd_mix(
             spectral_flux_ratio,
             DEFAULT_MAX_FLUX_RATIO
         );
+    }
+
+    let phase_cues: Vec<BeatPhaseCue> = cue_reports
+        .iter()
+        .zip(solution.order.iter())
+        .map(|(c, &idx)| BeatPhaseCue {
+            play_start_secs: c.play_start_secs,
+            play_end_secs: c.play_end_secs,
+            crossfade_secs: c.crossfade_secs,
+            bpm: c.bpm,
+            beat_offset_secs: features[idx].beat_offset_secs,
+        })
+        .collect();
+    let beat_phase_mean_ms = mean_beat_phase_offset_ms(&phase_cues);
+    let beat_ok = beat_phase_gate_pass(beat_phase_mean_ms, DEFAULT_BEAT_PHASE_LIMIT_MS);
+    if deterministic && !beat_ok {
+        bail!(
+            "beat-phase gate failed: mean {:.1} ms ≥ limit {:.1} ms",
+            beat_phase_mean_ms,
+            DEFAULT_BEAT_PHASE_LIMIT_MS
+        );
+    }
+
+    let peak_ok = true_peak.map(|tp| peak_gate_pass(tp, DEFAULT_TRUE_PEAK_LIMIT));
+    if deterministic {
+        if let Some(false) = peak_ok {
+            bail!(
+                "peak gate failed: true_peak {:.4} > {:.2}",
+                true_peak.unwrap_or(0.0),
+                DEFAULT_TRUE_PEAK_LIMIT
+            );
+        }
     }
 
     write_wav(out, &mixed)?;
@@ -370,6 +438,10 @@ fn cmd_mix(
         tempo_blend_applied,
         spectral_flux_ratio,
         spectral_continuity_pass: spectral_ok,
+        beat_phase_mean_ms,
+        beat_phase_gate_pass: beat_ok,
+        true_peak,
+        peak_gate_pass: peak_ok,
     };
     println!("{}", serde_json::to_string_pretty(&report)?);
     Ok(())
@@ -380,6 +452,7 @@ fn cmd_golden_smoke(
     policy: GenrePolicy,
     target_lufs: Option<f64>,
     model: Option<&TransitionModel>,
+    deterministic: bool,
 ) -> Result<()> {
     let root = workspace_testdata()?;
     let playlist = root.join("party.json");
@@ -395,7 +468,15 @@ fn cmd_golden_smoke(
         });
         fs::write(&playlist, serde_json::to_string_pretty(&json)?)?;
     }
-    cmd_mix(&playlist, out, policy, None, target_lufs, model)
+    cmd_mix(
+        &playlist,
+        out,
+        policy,
+        None,
+        target_lufs,
+        model,
+        deterministic,
+    )
 }
 
 fn resolve_track_path(playlist_dir: &Path, path: &Path) -> PathBuf {

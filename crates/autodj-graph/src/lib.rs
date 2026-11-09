@@ -394,6 +394,7 @@ mod tests {
                 outro_start: 6.0,
             },
             spectral_centroid_hz: 1000.0,
+            beat_offset_secs: 0.0,
             quality: AnalysisQuality::default(),
         }
     }

@@ -17,12 +17,29 @@
 
       <section class="controls" aria-label="Mix controls">
         <label>
-          Playlist JSON
-          <input id="playlist" type="text" spellcheck="false" placeholder="/path/to/party.json" />
+          Playlist (JSON or Rekordbox XML)
+          <span class="path-row">
+            <input id="playlist" type="text" spellcheck="false" placeholder="/path/to/party.json or gold_playlist.xml" />
+            <button type="button" id="btn-browse-playlist" class="browse">Browse…</button>
+          </span>
         </label>
         <label>
           Output WAV
-          <input id="out" type="text" spellcheck="false" placeholder="/tmp/mix.wav" />
+          <span class="path-row">
+            <input id="out" type="text" spellcheck="false" placeholder="/tmp/mix.wav" />
+            <button type="button" id="btn-browse-out" class="browse">Browse…</button>
+          </span>
+        </label>
+        <label class="check">
+          <span class="check-row">
+            <input id="preserve-order" type="checkbox" />
+            <span>Preserve playlist order</span>
+          </span>
+          <span class="hint">Keep Rekordbox setlist order (skip energy-arc reorder)</span>
+        </label>
+        <label class="optional">
+          Rekordbox playlist name (optional)
+          <input id="playlist-name" type="text" spellcheck="false" placeholder="Gold Set" />
         </label>
         <label>
           Genre

@@ -68,4 +68,4 @@ npm install
 npm run tauri dev
 ```
 
-Point the UI at a playlist JSON and output WAV. CLI resolution: `AUTODJ_BIN` → `autodj` on `PATH` → `cargo run -p autodj-cli` from the repo root.
+Use **Browse…** to pick a playlist JSON or Rekordbox XML (e.g. `testdata/rekordbox/gold_playlist.xml`), set an output WAV, optionally enable **Preserve playlist order** and a Rekordbox playlist NODE name. CLI resolution: `AUTODJ_BIN` → `autodj` on `PATH` → `cargo run -p autodj-cli` from the repo root.

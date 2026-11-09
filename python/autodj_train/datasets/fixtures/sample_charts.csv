@@ -1,0 +1,6 @@
+source_url,retrieved_at,genre,bpm,key_from,key_to,transition_density
+https://example.com/charts/ukg-export,2026-11-09,uk_garage,130,5A,6A,0.55
+https://example.com/charts/ukg-export,2026-11-09,uk_garage,132,6A,7A,0.55
+https://example.com/charts/ukg-export,2026-11-09,uk_garage,134,7A,7B,0.55
+https://example.com/charts/open-export,2026-11-09,open_format,118,11A,12A,0.6
+https://example.com/charts/open-export,2026-11-09,open_format,122,12A,1A,0.6

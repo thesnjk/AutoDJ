@@ -2,6 +2,8 @@
 
 Mirrored in `GenrePolicy::builtin` (`autodj-graph`). Adjust weights in code + keep this Doc honest.
 
+Optional overrides from tracklist aggregates: `autodj mix --policy-hints path/to/demo_policy_hints.json` merges `bpm_center` and `default_crossfade_secs` via `GenrePolicy::with_hints` (energy-arc weight and preferred transition stay built-in).
+
 | Genre id | BPM center | Max ΔBPM | Default xfade | Preferred transition | Energy-arc weight |
 |----------|------------|----------|---------------|----------------------|-------------------|
 | `house` (default) | 124 | 6 | 8s | `eq_swap` | 1.0 |

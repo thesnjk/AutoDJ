@@ -25,6 +25,17 @@ fn default_energy_arc_weight() -> f32 {
     1.0
 }
 
+/// Optional overrides from tracklist/chart aggregate stats (`policy_hints` JSON).
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct PolicyHintOverride {
+    /// Override preferred BPM center when set.
+    #[serde(default)]
+    pub bpm_center: Option<f32>,
+    /// Override default crossfade seconds when set.
+    #[serde(default)]
+    pub default_crossfade_secs: Option<f32>,
+}
+
 impl GenrePolicy {
     /// Built-in defaults matching `Docs/genre-policy.md`.
     pub fn builtin(id: &str) -> Self {
@@ -80,6 +91,25 @@ impl GenrePolicy {
             },
         }
     }
+
+    /// Merge aggregate setcraft hints onto this policy (bpm_center / crossfade only).
+    pub fn with_hints(&self, hint: &PolicyHintOverride) -> Self {
+        let mut out = self.clone();
+        if let Some(bpm) = hint.bpm_center {
+            out.bpm_center = bpm;
+        }
+        if let Some(xfade) = hint.default_crossfade_secs {
+            out.default_crossfade_secs = xfade;
+        }
+        out
+    }
+}
+
+/// Load a genre→hints map from JSON (`{ "house": { "bpm_center": 125.0, … }, … }`).
+pub fn load_policy_hints_map(
+    raw: &str,
+) -> Result<std::collections::HashMap<String, PolicyHintOverride>, serde_json::Error> {
+    serde_json::from_str(raw)
 }
 
 /// Position in a setcraft energy arc.
@@ -409,5 +439,27 @@ mod tests {
         ];
         let policy = GenrePolicy::builtin("house");
         assert_eq!(select_opener(&tracks, &policy), 1);
+    }
+
+    #[test]
+    fn with_hints_overrides_bpm_and_crossfade() {
+        let base = GenrePolicy::builtin("house");
+        let hinted = base.with_hints(&PolicyHintOverride {
+            bpm_center: Some(126.5),
+            default_crossfade_secs: Some(12.0),
+        });
+        assert!((hinted.bpm_center - 126.5).abs() < 1e-5);
+        assert!((hinted.default_crossfade_secs - 12.0).abs() < 1e-5);
+        assert_eq!(hinted.preferred_transition, base.preferred_transition);
+        assert!((hinted.energy_arc_weight - base.energy_arc_weight).abs() < 1e-5);
+    }
+
+    #[test]
+    fn load_policy_hints_map_parses_demo_shape() {
+        let raw = r#"{"house":{"bpm_center":124.5,"default_crossfade_secs":12.0}}"#;
+        let map = load_policy_hints_map(raw).unwrap();
+        let h = map.get("house").unwrap();
+        assert!((h.bpm_center.unwrap() - 124.5).abs() < 1e-5);
+        assert!((h.default_crossfade_secs.unwrap() - 12.0).abs() < 1e-5);
     }
 }

@@ -1,0 +1,26 @@
+[
+  {
+    "source_url": "https://www.setflow.app/blog/dj-transitions-how-to-mix-between-songs",
+    "retrieved_at": "2026-11-09",
+    "genre": "house",
+    "bpm_values": [120, 122, 124, 126, 128],
+    "key_routes": ["8A->9A", "9A->10A", "8A->8B"],
+    "transition_density": 0.38
+  },
+  {
+    "source_url": "https://www.setflow.app/blog/dj-transitions-how-to-mix-between-songs",
+    "retrieved_at": "2026-11-09",
+    "genre": "trance",
+    "bpm_values": [132, 136, 138, 140],
+    "key_routes": ["7A->8A", "8A->9A"],
+    "transition_density": 0.28
+  },
+  {
+    "source_url": "https://help.algoriddim.com/user-manual/djay-pro-windows/mixing-basics/using-automix",
+    "retrieved_at": "2026-11-09",
+    "genre": "open_format",
+    "bpm_values": [100, 110, 120, 128],
+    "key_routes": ["1A->2A", "5A->6A"],
+    "transition_density": 0.5
+  }
+]

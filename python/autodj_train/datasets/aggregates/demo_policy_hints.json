@@ -1,0 +1,26 @@
+{
+  "drum_and_bass": {
+    "bpm_center": 174.0,
+    "default_crossfade_secs": 0.5
+  },
+  "hip_hop": {
+    "bpm_center": 91.0,
+    "default_crossfade_secs": 2.417
+  },
+  "house": {
+    "bpm_center": 124.5,
+    "default_crossfade_secs": 12.0
+  },
+  "open_format": {
+    "bpm_center": 119.0,
+    "default_crossfade_secs": 9.125
+  },
+  "trance": {
+    "bpm_center": 138.0,
+    "default_crossfade_secs": 12.0
+  },
+  "uk_garage": {
+    "bpm_center": 132.0,
+    "default_crossfade_secs": 9.125
+  }
+}

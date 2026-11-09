@@ -10,7 +10,7 @@ use autodj_core::{
     within_lufs_tolerance, CamelotKey, CrossfadeParams, MixPlan, MixSegment, TrackFeatures,
     TransitionClass, DEFAULT_MAX_FLUX_RATIO, DEFAULT_TARGET_LUFS, LUFS_TOLERANCE_LU,
 };
-use autodj_graph::{solve_order, GenrePolicy};
+use autodj_graph::{load_policy_hints_map, solve_order, GenrePolicy};
 use autodj_io::{read_wav, write_wav};
 use clap::{Parser, Subcommand};
 use rusqlite::{params, Connection};
@@ -60,6 +60,9 @@ enum Commands {
         /// Skip loudness normalization (peak-limit only).
         #[arg(long, default_value_t = false)]
         no_loudness_norm: bool,
+        /// Optional genre policy hints JSON from tracklist aggregate (`autodj-train aggregate-tracklists --hints-out`).
+        #[arg(long)]
+        policy_hints: Option<PathBuf>,
     },
 }
 
@@ -127,8 +130,10 @@ fn main() -> Result<()> {
             deterministic: _,
             lufs,
             no_loudness_norm,
+            policy_hints,
         } => {
             let target = if no_loudness_norm { None } else { Some(lufs) };
+            let policy = resolve_policy(&genre, policy_hints.as_deref())?;
             if let Some(name) = golden {
                 if name != "smoke" {
                     bail!("unknown golden suite: {name}");
@@ -139,11 +144,26 @@ fn main() -> Result<()> {
                 } else {
                     Some(DEFAULT_TARGET_LUFS)
                 };
-                return cmd_golden_smoke(&out, &genre, golden_target);
+                return cmd_golden_smoke(&out, policy, golden_target);
             }
             let playlist = playlist.context("--playlist is required unless --golden is set")?;
-            cmd_mix(&playlist, &out, &genre, db.as_deref(), target)
+            cmd_mix(&playlist, &out, policy, db.as_deref(), target)
         }
+    }
+}
+
+fn resolve_policy(genre: &str, hints_path: Option<&Path>) -> Result<GenrePolicy> {
+    let base = GenrePolicy::builtin(genre);
+    let Some(path) = hints_path else {
+        return Ok(base);
+    };
+    let raw = fs::read_to_string(path)
+        .with_context(|| format!("read policy hints {}", path.display()))?;
+    let map = load_policy_hints_map(&raw).context("parse policy hints JSON")?;
+    if let Some(hint) = map.get(&base.id).or_else(|| map.get(genre)) {
+        Ok(base.with_hints(hint))
+    } else {
+        Ok(base)
     }
 }
 
@@ -171,14 +191,19 @@ fn cmd_analyze(input: &Path, db: &Path) -> Result<()> {
 fn cmd_mix(
     playlist: &Path,
     out: &Path,
-    genre: &str,
+    mut policy: GenrePolicy,
     db: Option<&Path>,
     target_lufs: Option<f64>,
 ) -> Result<()> {
     let raw = fs::read_to_string(playlist)?;
     let pl: PlaylistFile = serde_json::from_str(&raw)?;
-    let genre = pl.genre.as_deref().unwrap_or(genre);
-    let policy = GenrePolicy::builtin(genre);
+    if let Some(g) = pl.genre.as_deref() {
+        // Playlist genre wins identity; keep any bpm/xfade overrides already applied
+        // only when the playlist genre matches the resolved policy id.
+        if g != policy.id {
+            policy = GenrePolicy::builtin(g);
+        }
+    }
     let conn = db.map(open_db).transpose()?;
 
     let playlist_dir = playlist.parent().unwrap_or_else(|| Path::new("."));
@@ -329,7 +354,7 @@ fn cmd_mix(
     Ok(())
 }
 
-fn cmd_golden_smoke(out: &Path, genre: &str, target_lufs: Option<f64>) -> Result<()> {
+fn cmd_golden_smoke(out: &Path, policy: GenrePolicy, target_lufs: Option<f64>) -> Result<()> {
     let root = workspace_testdata()?;
     let playlist = root.join("party.json");
     if !playlist.exists() {
@@ -344,7 +369,7 @@ fn cmd_golden_smoke(out: &Path, genre: &str, target_lufs: Option<f64>) -> Result
         });
         fs::write(&playlist, serde_json::to_string_pretty(&json)?)?;
     }
-    cmd_mix(&playlist, out, genre, None, target_lufs)
+    cmd_mix(&playlist, out, policy, None, target_lufs)
 }
 
 fn resolve_track_path(playlist_dir: &Path, path: &Path) -> PathBuf {

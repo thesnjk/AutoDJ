@@ -16,7 +16,7 @@ cargo run -p autodj-cli -- mix --golden smoke --out /tmp/autodj-smoke.wav
 cargo run -p autodj-cli -- mix --golden rekordbox --out /tmp/autodj-rekordbox.wav
 # Full builtin genre palette preferred classes (incl. uk_garage / open_format)
 cargo run -p autodj-cli -- mix --golden transitions --out /tmp/autodj-transitions.wav
-# Softmax artifact drives mix classes (committed transition_model.json)
+# Softmax artifact drives mix classes for all six builtins (committed transition_model.json)
 cargo run -p autodj-cli -- mix --golden transition_model --out /tmp/autodj-transition-model.wav
 # Optional: classic EBU R 128 programme loudness
 # cargo run -p autodj-cli -- mix --golden smoke --lufs -23 --out /tmp/autodj-smoke.wav
@@ -53,6 +53,8 @@ cargo run -p autodj-cli -- mix --playlist party.json --db features.sqlite --out 
 cargo run -p autodj-cli -- mix --playlist testdata/rekordbox/gold_playlist.xml \
   --preserve-order --playlist-name "Gold Set" --out mix.wav --genre house
 
+# Ordinary mix auto-loads committed Softmax (per-edge classes). Opt out:
+cargo run -p autodj-cli -- mix --playlist party.json --out mix.wav --no-transition-model
 # Optional setcraft / classifier overrides
 cargo run -p autodj-cli -- mix --playlist party.json --out mix.wav \
   --policy-hints python/autodj_train/datasets/aggregates/demo_policy_hints.json

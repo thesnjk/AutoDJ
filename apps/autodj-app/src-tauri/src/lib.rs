@@ -19,6 +19,26 @@ enum AutodjLaunch {
     Cargo { repo_root: PathBuf },
 }
 
+/// Locate committed Softmax artifact; omit from CLI args when missing (preferred_transition fallback).
+fn resolve_committed_transition_model() -> Result<String, String> {
+    let rel = Path::new("python/autodj_train/models/artifacts/transition_model.json");
+    let mut candidates = Vec::new();
+    if let Ok(root) = find_repo_root() {
+        candidates.push(root.join(rel));
+    }
+    if let Ok(cwd) = std::env::current_dir() {
+        candidates.push(cwd.join(rel));
+    }
+    let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    candidates.push(manifest_dir.join("../../..").join(rel));
+    for c in candidates {
+        if c.exists() {
+            return Ok(c.canonicalize().unwrap_or(c).to_string_lossy().into_owned());
+        }
+    }
+    Err("committed transition_model.json not found".into())
+}
+
 fn find_repo_root() -> Result<PathBuf, String> {
     if let Ok(env) = std::env::var("AUTODJ_REPO_ROOT") {
         let p = PathBuf::from(env);
@@ -148,6 +168,11 @@ fn mix(app: AppHandle, args: MixArgs) -> Result<serde_json::Value, String> {
     ];
     let hints = args.policy_hints.filter(|s| !s.trim().is_empty());
     let model = args.transition_model.filter(|s| !s.trim().is_empty());
+    let resolved_default = if model.is_none() {
+        resolve_committed_transition_model().ok()
+    } else {
+        None
+    };
     let playlist_name = args
         .playlist_name
         .filter(|s| !s.trim().is_empty());
@@ -165,6 +190,9 @@ fn mix(app: AppHandle, args: MixArgs) -> Result<serde_json::Value, String> {
     if let Some(ref m) = model {
         cli_args.push("--transition-model");
         cli_args.push(m.as_str());
+    } else if let Some(ref path) = resolved_default {
+        cli_args.push("--transition-model");
+        cli_args.push(path.as_str());
     }
     if args.deterministic {
         cli_args.push("--deterministic");

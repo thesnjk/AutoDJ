@@ -9,7 +9,7 @@ Automated gates (CI) plus listening checklist for v1+.
 | Golden smoke CLI | `autodj mix --golden smoke` exits 0 and writes WAV |
 | Golden rekordbox CLI | `autodj mix --golden rekordbox` exits 0; MixReport `preserve_order: true`; setlist order a→b→c from `testdata/rekordbox/gold_playlist.xml` (hard-fail if `preserve_order` returns non-sequential indices) |
 | Golden transitions CLI | `autodj mix --golden transitions` exits 0; all six builtins (house/trance/hip_hop/drum_and_bass/uk_garage/open_format) edges match `preferred_transition` (`eq_swap` / `filter_sweep` / `echo_out` / `hard_cut` / `eq_swap` / `linear_crossfade`) via MixReport `transitions` |
-| Golden transition_model CLI | `autodj mix --golden transition_model` exits 0; house preserve-order edges match Softmax `predict_transition_class` on committed `transition_model.json` (pinned `eq_swap` then `hard_cut`); not `preferred_transition` |
+| Golden transition_model CLI | `autodj mix --golden transition_model` exits 0; all six builtins preserve-order edges match Softmax `predict_transition_class` on committed `transition_model.json` (not `preferred_transition`) |
 | Peak limit | True-peak ≤ 0.99 full scale; MixReport `true_peak` + `peak_gate_pass` (hard-fail when `--deterministic`, default). Evidence: `loudness.rs`, golden smoke |
 | Integrated loudness (R128 / BS.1770) | After normalize, `integrated_lufs` within ±2 LU of `--lufs` (golden default −14 LUFS; use `--lufs -23` for classic EBU R 128). Evidence: `loudness.rs`, MixReport `loudness_gate_pass` |
 | Phrase / section cues | MixReport `cue_phrase_aligned: true`; cue windows from `plan_segment_cues` (evidence: `cue.rs`, unit snap tests). Crossfade durations snapped to whole beats. |
@@ -21,7 +21,7 @@ Automated gates (CI) plus listening checklist for v1+.
 | Bass conflict (EqSwap) | Worst EqSwap concurrent low-band ownership ≤ 0.40 (`DEFAULT_BASS_OVERLAP_LIMIT`); MixReport `max_bass_overlap` + `bass_conflict_gate_pass` (hard-fail when `--deterministic`). Non-EqSwap joins skipped. Evidence: `eq.rs` `max_eq_swap_bass_overlap`, renderer |
 | Solver unit tests | Harmonic neighbor preferred; energy-arc quiet opener + rise/fall (`autodj-graph` tests) |
 | EQ / bass-swap DSP | `eq_swap_gains` + `apply_eq_swap_crossfade` unit tests; house golden uses `EqSwap` (evidence: `eq.rs`, `render.rs`) |
-| Transition classifier (train gate) | `autodj-train eval` accuracy ≥ 0.90 on `eval/gold/synthetic_holdout.jsonl` (evidence: `SoftmaxLogReg`, CI python job). Golden WAV still uses genre `preferred_transition` unless `--transition-model` is passed |
+| Transition classifier (train gate) | `autodj-train eval` accuracy ≥ 0.90 on `eval/gold/synthetic_holdout.jsonl` (evidence: `SoftmaxLogReg`, CI python job). Ordinary `mix` defaults to committed Softmax; smoke/rekordbox/transitions goldens keep `preferred_transition` (`--no-transition-model`) |
 | Gold analyze (BPM/key/sections) | `testdata/gold/*.wav` BPM within ±1 of `expected_analyze.json`; frozen key string; `intro_end < drop_start < outro_start`; not sparse (evidence: `analysis::tests::gold_analyze_matches_expected`) |
 | macOS native CI | Rust job on `macos-latest` (Apple Silicon hosted) plus `ubuntu-latest`; local `aarch64-apple-darwin` verify required when hosted Mac runners are unavailable |
 

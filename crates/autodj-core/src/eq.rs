@@ -226,6 +226,74 @@ pub fn band_rms(samples: &[f32], sample_rate: u32) -> (f32, f32, f32) {
     )
 }
 
+/// Max concurrent low-band ownership during a healthy EQ swap (~0.25 at mid-crossfade).
+///
+/// Tuned above the theoretical mid-swap product so house golden stays green, while dual
+/// full-gain bass ownership (~1.0) hard-fails.
+pub const DEFAULT_BASS_OVERLAP_LIMIT: f32 = 0.40;
+
+/// Hop size for bass-overlap scoring (milliseconds).
+const BASS_OVERLAP_HOP_MS: f32 = 40.0;
+
+/// Max concurrent low-band ownership product during an EQ bass-swap (lower = cleaner handoff).
+///
+/// Per hop: `(ga.low * low_a) * (gb.low * low_b) / ref²` where `ref` is the louder deck's
+/// unweighted low RMS. Empty/short tails return `0.0` (pass).
+pub fn max_eq_swap_bass_overlap(
+    a_tail: &[f32],
+    b_head: &[f32],
+    sample_rate: u32,
+    equal_power: bool,
+) -> f32 {
+    score_bass_overlap(a_tail, b_head, sample_rate, |t| {
+        let (ga, gb) = eq_swap_gains(t, equal_power);
+        (ga.low, gb.low)
+    })
+}
+
+/// Whether bass overlap is under the configured limit.
+pub fn bass_conflict_pass(overlap: f32, max_allowed: f32) -> bool {
+    overlap.is_finite() && overlap <= max_allowed
+}
+
+fn score_bass_overlap(
+    a_tail: &[f32],
+    b_head: &[f32],
+    sample_rate: u32,
+    low_gains: impl Fn(f32) -> (f32, f32),
+) -> f32 {
+    let n = a_tail.len().min(b_head.len());
+    if n < 2 {
+        return 0.0;
+    }
+    let hop = ((BASS_OVERLAP_HOP_MS * 0.001) * sample_rate.max(1) as f32)
+        .round()
+        .max(1.0) as usize;
+    let mut worst = 0.0f32;
+    let mut i = 0usize;
+    while i < n {
+        let end = (i + hop).min(n);
+        let a_hop = &a_tail[i..end];
+        let b_hop = &b_head[i..end];
+        let (low_a, _, _) = band_rms(a_hop, sample_rate);
+        let (low_b, _, _) = band_rms(b_hop, sample_rate);
+        let mid = (i + end) as f32 * 0.5 / (n - 1) as f32;
+        let (ga_low, gb_low) = low_gains(mid.clamp(0.0, 1.0));
+        let ref_rms = low_a.max(low_b).max(1e-6);
+        let contrib_a = ga_low.max(0.0) * low_a;
+        let contrib_b = gb_low.max(0.0) * low_b;
+        let score = (contrib_a * contrib_b) / (ref_rms * ref_rms);
+        if score > worst {
+            worst = score;
+        }
+        if end == n {
+            break;
+        }
+        i = end;
+    }
+    worst
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -283,5 +351,42 @@ mod tests {
         assert!(echo.iter().all(|s| s.is_finite()));
         let peak = echo.iter().copied().map(f32::abs).fold(0.0, f32::max);
         assert!(peak < 5.0); // before limiter; should not explode
+    }
+
+    #[test]
+    fn clean_eq_swap_bass_overlap_passes() {
+        let sr = 44_100u32;
+        let a = tone(sr, 2.0, 60.0, 0.5);
+        let b: Vec<f32> = (0..a.len())
+            .map(|i| {
+                let t = i as f32 / sr as f32;
+                (2.0 * std::f32::consts::PI * 60.0 * t + 1.0).sin() * 0.5
+            })
+            .collect();
+        let overlap = max_eq_swap_bass_overlap(&a, &b, sr, true);
+        assert!(
+            bass_conflict_pass(overlap, DEFAULT_BASS_OVERLAP_LIMIT),
+            "clean swap overlap={overlap}"
+        );
+        assert!(overlap > 0.05, "expected mid-swap ownership, got {overlap}");
+    }
+
+    #[test]
+    fn dual_full_gain_bass_fails_conflict_gate() {
+        let sr = 44_100u32;
+        let a = tone(sr, 1.0, 60.0, 0.6);
+        let b = tone(sr, 1.0, 55.0, 0.6);
+        let overlap = score_bass_overlap(&a, &b, sr, |_| (1.0, 1.0));
+        assert!(
+            !bass_conflict_pass(overlap, DEFAULT_BASS_OVERLAP_LIMIT),
+            "dual full-gain overlap should fail, got {overlap}"
+        );
+        assert!(overlap > 0.8, "expected near-1.0 dual ownership, got {overlap}");
+    }
+
+    #[test]
+    fn empty_tails_bass_overlap_is_zero() {
+        assert_eq!(max_eq_swap_bass_overlap(&[], &[], 44_100, true), 0.0);
+        assert!(bass_conflict_pass(0.0, DEFAULT_BASS_OVERLAP_LIMIT));
     }
 }

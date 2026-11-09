@@ -23,7 +23,8 @@ pub use cue::{
 };
 pub use eq::{
     apply_echo_out_crossfade, apply_eq_swap_crossfade, apply_filter_sweep_crossfade, band_rms,
-    eq_swap_gains, BandGains, ThreeBandSplitter,
+    bass_conflict_pass, eq_swap_gains, max_eq_swap_bass_overlap, BandGains, ThreeBandSplitter,
+    DEFAULT_BASS_OVERLAP_LIMIT,
 };
 pub use eval::{
     adjacent_flux_ratio, beat_phase_gate_pass, join_continuity_pass, max_join_flux_ratio,

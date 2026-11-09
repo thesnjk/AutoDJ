@@ -12,7 +12,7 @@ Living gap matrix. Updated 2026-11-09 after Firecrawl research (raw notes in loc
 | Energy-arc setcraft | Club open→peak→cool programming | Parity-path | `ArcPhase` + `pair_cost_at` + quiet opener; MixReport order |
 | Transition type palette | djay Filter / Echo / Tremolo / Riser / Neural Mix; SetFlow six-core (EQ, bass swap, cut, blend) | Parity-path | `eq.rs` + Softmax `TransitionModel` per-edge via `--transition-model` |
 | Mix-in / mix-out cueing | VirtualDJ Smart automix (outro→intro ~4–8s); djay start/end points | Parity-path | `cue.rs` `plan_segment_cues`; CLI slices via `AudioBuffer::slice_secs`; MixReport `cue_phrase_aligned` |
-| Library prep (Rekordbox XML) | Rekordbox playlist export → DJ.Studio | Parity-path | `rekordbox.rs` + `--playlist` `.xml`; BPM/key/grid/cue overrides; `--preserve-order` |
+| Library prep (Rekordbox XML) | Rekordbox playlist export → DJ.Studio | Parity-path | `rekordbox.rs` + `--playlist` `.xml`; BPM/key/grid/cue overrides; `--preserve-order`; CI `--golden rekordbox` |
 | Stems-aware transitions | Serato Stems (vocal / melody / bass / drums pads) | Gap | no stem DSP; deferred v2 |
 | Phrase sync | Rekordbox phrase analysis / djay BPM+Beats sync | Parity-path | `beat_offset_secs` + grid-aware cue snap; MixReport `beat_phase_gate_pass`; full phrase ML later |
 | Learning from setcraft | Mixonset / tracklist research tools | Parity-path | tracklist aggregates + synthetic SoftmaxLogReg (`transition_model.json`); `autodj-train eval` ≥ 0.90 |
@@ -57,9 +57,10 @@ Formula note: `(competitor best − AutoDJ) × persona weight × mix_impact`. Be
 | **P10** | Rekordbox XML ingest | **Shipped** — `rekordbox.rs` + `--preserve-order` + prep metadata overrides |
 | **P11** | Tauri XML file picker polish | **Shipped** — dialog plugin + preserve-order / playlist-name controls |
 | **P12** | Join-local continuity gate | **Shipped** — `join_sample_indices` + MixReport `join_continuity_pass` |
-| Next | Rekordbox full-mix CI golden | else stems only with rights-cleared path |
-| Later | Stems, live dual-deck / controller | v2 / gated |
+| **P13** | Rekordbox full-mix CI golden | **Shipped** — `--golden rekordbox` + preserve-order integrity + CI step |
+| Next | Stems / live dual-deck | gated (rights-cleared stems path required) |
+| Later | Listening-rubric polish on real libraries | user-owned audio only |
 
 ## Re-rank bias
 
-Prefer agent-doable product code that closes remaining mix-quality gaps before brochure fluff. P0–P12 are in place; stems remain gated.
+Prefer agent-doable product code that closes remaining mix-quality gaps before brochure fluff. P0–P13 are in place; stems remain gated.

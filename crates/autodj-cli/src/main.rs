@@ -56,7 +56,7 @@ enum Commands {
         /// Genre policy id.
         #[arg(long, default_value = "house")]
         genre: String,
-        /// Run built-in golden smoke mix from testdata/gold.
+        /// Built-in golden suite: `smoke` (JSON) or `rekordbox` (XML preserve-order).
         #[arg(long)]
         golden: Option<String>,
         /// Feature DB (optional; analyzes on the fly if missing).
@@ -136,6 +136,8 @@ struct MixReport {
     true_peak: Option<f64>,
     /// Whether true-peak ≤ 0.99.
     peak_gate_pass: Option<bool>,
+    /// Whether playlist order was preserved (Rekordbox / `--preserve-order`).
+    preserve_order: bool,
 }
 
 #[derive(Debug, Serialize)]
@@ -178,9 +180,6 @@ fn main() -> Result<()> {
             let policy = resolve_policy(&genre, policy_hints.as_deref())?;
             let model = load_transition_model(transition_model.as_deref())?;
             if let Some(name) = golden {
-                if name != "smoke" {
-                    bail!("unknown golden suite: {name}");
-                }
                 // Golden always uses the default deterministic target unless --no-loudness-norm.
                 // Omit --transition-model for bit-compatible preferred_transition behavior.
                 let golden_target = if no_loudness_norm {
@@ -188,13 +187,23 @@ fn main() -> Result<()> {
                 } else {
                     Some(DEFAULT_TARGET_LUFS)
                 };
-                return cmd_golden_smoke(
-                    &out,
-                    policy,
-                    golden_target,
-                    model.as_ref(),
-                    deterministic,
-                );
+                return match name.as_str() {
+                    "smoke" => cmd_golden_smoke(
+                        &out,
+                        policy,
+                        golden_target,
+                        model.as_ref(),
+                        deterministic,
+                    ),
+                    "rekordbox" => cmd_golden_rekordbox(
+                        &out,
+                        policy,
+                        golden_target,
+                        model.as_ref(),
+                        deterministic,
+                    ),
+                    other => bail!("unknown golden suite: {other}"),
+                };
             }
             let playlist = playlist.context("--playlist is required unless --golden is set")?;
             cmd_mix(
@@ -361,7 +370,16 @@ fn cmd_mix(
     }
 
     let solution = if keep_order {
-        preserve_order(&features, &policy, model)
+        let sol = preserve_order(&features, &policy, model);
+        let expected: Vec<usize> = (0..features.len()).collect();
+        if sol.order != expected {
+            bail!(
+                "preserve-order integrity failed: got {:?} expected {:?}",
+                sol.order,
+                expected
+            );
+        }
+        sol
     } else {
         // Free start → quiet opener within BPM band (energy-arc setcraft).
         solve_order(&features, &policy, None, model)
@@ -537,6 +555,7 @@ fn cmd_mix(
         beat_phase_gate_pass: beat_ok,
         true_peak,
         peak_gate_pass: peak_ok,
+        preserve_order: keep_order,
     };
     println!("{}", serde_json::to_string_pretty(&report)?);
     Ok(())
@@ -573,6 +592,31 @@ fn cmd_golden_smoke(
         model,
         deterministic,
         false,
+    )
+}
+
+fn cmd_golden_rekordbox(
+    out: &Path,
+    policy: GenrePolicy,
+    target_lufs: Option<f64>,
+    model: Option<&TransitionModel>,
+    deterministic: bool,
+) -> Result<()> {
+    let root = workspace_testdata()?;
+    let playlist = root.join("rekordbox/gold_playlist.xml");
+    if !playlist.exists() {
+        bail!("missing Rekordbox golden fixture: {}", playlist.display());
+    }
+    cmd_mix(
+        &playlist,
+        Some("Gold Set"),
+        out,
+        policy,
+        None,
+        target_lufs,
+        model,
+        deterministic,
+        true,
     )
 }
 

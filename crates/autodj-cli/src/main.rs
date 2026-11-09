@@ -6,15 +6,17 @@ use std::path::{Path, PathBuf};
 use anyhow::{bail, Context, Result};
 use autodj_core::{
     adjacent_flux_ratio, analyze_path, bars_per_phrase_for_genre, bass_conflict_pass,
-    beat_phase_gate_pass, join_continuity_pass, max_join_flux_ratio, mean_beat_phase_offset_ms,
-    measure_loudness, mix_buffers_with_meta, normalize_loudness, parse_rekordbox_xml,
-    peak_gate_pass, plan_segment_cues, spectral_continuity_pass, within_lufs_tolerance,
-    BeatPhaseCue, CamelotKey, CrossfadeParams, MixPlan, MixSegment, TrackFeatures, TransitionClass,
-    DEFAULT_BASS_OVERLAP_LIMIT, DEFAULT_BEAT_PHASE_LIMIT_MS, DEFAULT_JOIN_FLUX_RATIO,
-    DEFAULT_MAX_FLUX_RATIO, DEFAULT_TARGET_LUFS, DEFAULT_TRUE_PEAK_LIMIT, LUFS_TOLERANCE_LU,
+    beat_phase_gate_pass, camelot_distance, join_continuity_pass, max_join_flux_ratio,
+    mean_beat_phase_offset_ms, measure_loudness, mix_buffers_with_meta, normalize_loudness,
+    parse_rekordbox_xml, peak_gate_pass, plan_segment_cues, spectral_continuity_pass,
+    within_lufs_tolerance, BeatPhaseCue, CamelotKey, CrossfadeParams, MixPlan, MixSegment,
+    TrackFeatures, TransitionClass, DEFAULT_BASS_OVERLAP_LIMIT, DEFAULT_BEAT_PHASE_LIMIT_MS,
+    DEFAULT_JOIN_FLUX_RATIO, DEFAULT_MAX_FLUX_RATIO, DEFAULT_TARGET_LUFS, DEFAULT_TRUE_PEAK_LIMIT,
+    LUFS_TOLERANCE_LU,
 };
 use autodj_graph::{
-    load_policy_hints_map, preserve_order, solve_order, GenrePolicy, TransitionModel,
+    load_policy_hints_map, predict_transition_class, preserve_order, solve_order, GenrePolicy,
+    TransitionModel,
 };
 use autodj_io::{read_wav, write_wav};
 use clap::{Parser, Subcommand};
@@ -56,7 +58,7 @@ enum Commands {
         /// Genre policy id.
         #[arg(long, default_value = "house")]
         genre: String,
-        /// Built-in golden suite: `smoke`, `rekordbox`, or `transitions`.
+        /// Built-in golden suite: `smoke`, `rekordbox`, `transitions`, or `transition_model`.
         #[arg(long)]
         golden: Option<String>,
         /// Feature DB (optional; analyzes on the fly if missing).
@@ -195,10 +197,10 @@ fn main() -> Result<()> {
                 Some(lufs)
             };
             let policy = resolve_policy(&genre, policy_hints.as_deref())?;
-            let model = load_transition_model(transition_model.as_deref())?;
             if let Some(name) = golden {
-                // Golden always uses the default deterministic target unless --no-loudness-norm.
-                // Omit --transition-model for bit-compatible preferred_transition behavior.
+                // Golden suites use fixed LUFS unless --no-loudness-norm.
+                // smoke / rekordbox / transitions omit the Softmax model for preferred_transition
+                // bit-compat; only `transition_model` loads the committed artifact.
                 let golden_target = if no_loudness_norm {
                     None
                 } else {
@@ -209,25 +211,29 @@ fn main() -> Result<()> {
                         &out,
                         policy,
                         golden_target,
-                        model.as_ref(),
+                        None,
                         deterministic,
                     ),
                     "rekordbox" => cmd_golden_rekordbox(
                         &out,
                         policy,
                         golden_target,
-                        model.as_ref(),
+                        None,
                         deterministic,
                     ),
                     "transitions" => cmd_golden_transitions(
                         &out,
                         golden_target,
-                        model.as_ref(),
+                        None,
                         deterministic,
                     ),
+                    "transition_model" => {
+                        cmd_golden_transition_model(&out, golden_target, deterministic)
+                    }
                     other => bail!("unknown golden suite: {other}"),
                 };
             }
+            let model = load_transition_model(transition_model.as_deref())?;
             let playlist = playlist.context("--playlist is required unless --golden is set")?;
             let report = cmd_mix(
                 &playlist,
@@ -745,6 +751,120 @@ fn cmd_golden_transitions(
     }
     println!("{}", serde_json::to_string_pretty(&summaries)?);
     Ok(())
+}
+
+/// Softmax E2E golden: mix with committed model; classes must match predictions (not preferred).
+fn cmd_golden_transition_model(
+    out: &Path,
+    target_lufs: Option<f64>,
+    deterministic: bool,
+) -> Result<()> {
+    let model_path = resolve_committed_transition_model()?;
+    let raw = fs::read_to_string(&model_path)
+        .with_context(|| format!("read {}", model_path.display()))?;
+    let model = TransitionModel::from_json(&raw).context("parse committed transition model")?;
+
+    let root = workspace_testdata()?;
+    let playlist = root.join("transitions_playlist.json");
+    if !playlist.exists() {
+        bail!(
+            "missing transitions playlist fixture: {}",
+            playlist.display()
+        );
+    }
+
+    let policy = GenrePolicy::builtin("house");
+    let report = cmd_mix(
+        &playlist,
+        None,
+        out,
+        policy,
+        None,
+        target_lufs,
+        Some(&model),
+        deterministic,
+        true,
+    )?;
+
+    let features = load_playlist_features(&playlist, None)?;
+    if report.transitions.len() != features.len().saturating_sub(1) {
+        bail!(
+            "transition_model golden: expected {} edges, got {}",
+            features.len().saturating_sub(1),
+            report.transitions.len()
+        );
+    }
+
+    const PINNED: [TransitionClass; 2] =
+        [TransitionClass::EqSwap, TransitionClass::HardCut];
+
+    for (i, edge) in report.transitions.iter().enumerate() {
+        let a = &features[edge.from];
+        let b = &features[edge.to];
+        let predicted = predict_transition_class(
+            &model,
+            a.bpm,
+            b.bpm,
+            camelot_distance(a.key, b.key),
+            b.loudness_db - a.loudness_db,
+            "house",
+        );
+        if edge.class != predicted {
+            bail!(
+                "transition_model golden: edge {}→{} MixReport {:?} != predict {:?}",
+                edge.from,
+                edge.to,
+                edge.class,
+                predicted
+            );
+        }
+        if let Some(pin) = PINNED.get(i) {
+            if edge.class != *pin {
+                bail!(
+                    "transition_model golden: edge {i} class {:?} != pinned {:?}; update pin after intentional retrain",
+                    edge.class,
+                    pin
+                );
+            }
+        }
+    }
+
+    println!("{}", serde_json::to_string_pretty(&report)?);
+    Ok(())
+}
+
+fn resolve_committed_transition_model() -> Result<PathBuf> {
+    let root = workspace_testdata()?;
+    let rel = Path::new("python/autodj_train/models/artifacts/transition_model.json");
+    let candidates = [
+        root.parent().unwrap_or(Path::new(".")).join(rel),
+        PathBuf::from(rel),
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../").join(rel),
+    ];
+    for c in candidates {
+        if c.exists() {
+            return Ok(c.canonicalize().unwrap_or(c));
+        }
+    }
+    bail!("could not locate committed transition_model.json — run from repo root")
+}
+
+/// Analyze + apply playlist overrides (same path as `cmd_mix`, no SQLite).
+fn load_playlist_features(
+    playlist: &Path,
+    playlist_name: Option<&str>,
+) -> Result<Vec<TrackFeatures>> {
+    let pl = load_playlist_file(playlist, playlist_name)?;
+    let playlist_dir = playlist.parent().unwrap_or_else(|| Path::new("."));
+    let mut features = Vec::new();
+    for t in &pl.tracks {
+        let track_path = resolve_track_path(playlist_dir, &t.path);
+        let mut feats = analyze_path(&track_path)?;
+        apply_track_overrides(&mut feats, t);
+        feats.path = Some(track_path);
+        features.push(feats);
+    }
+    Ok(features)
 }
 
 fn resolve_track_path(playlist_dir: &Path, path: &Path) -> PathBuf {

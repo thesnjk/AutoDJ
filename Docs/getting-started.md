@@ -16,6 +16,8 @@ cargo run -p autodj-cli -- mix --golden smoke --out /tmp/autodj-smoke.wav
 cargo run -p autodj-cli -- mix --golden rekordbox --out /tmp/autodj-rekordbox.wav
 # Multi-genre transition palette (house/trance/hip_hop/drum_and_bass preferred classes)
 cargo run -p autodj-cli -- mix --golden transitions --out /tmp/autodj-transitions.wav
+# Softmax artifact drives mix classes (committed transition_model.json)
+cargo run -p autodj-cli -- mix --golden transition_model --out /tmp/autodj-transition-model.wav
 # Optional: classic EBU R 128 programme loudness
 # cargo run -p autodj-cli -- mix --golden smoke --lufs -23 --out /tmp/autodj-smoke.wav
 afplay /tmp/autodj-smoke.wav   # macOS

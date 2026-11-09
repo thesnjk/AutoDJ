@@ -1,12 +1,12 @@
 //! Softmax transition classifier loaded from Python `autodj-train` JSON artifacts.
 
-use autodj_core::TransitionClass;
+use autodj_core::{stretch_clamp_excess, TrackFeatures, TransitionClass};
 use serde::{Deserialize, Serialize};
 
 /// Serialized SoftmaxLogReg weights (matches `SoftmaxLogReg.to_dict`).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TransitionModel {
-    /// Schema version.
+    /// Schema version (`1` = 5 numeric; `2` = 7 numeric incl. stretch + spectral delta).
     #[serde(default = "default_version")]
     pub version: u32,
     /// Class labels in weight-row order (snake_case).
@@ -32,6 +32,15 @@ impl TransitionModel {
     pub fn from_json(raw: &str) -> Result<Self, serde_json::Error> {
         serde_json::from_str(raw)
     }
+
+    /// Numeric feature count before genre one-hot.
+    pub fn n_numeric(&self) -> usize {
+        if self.version >= 2 {
+            7
+        } else {
+            5
+        }
+    }
 }
 
 fn parse_class(name: &str) -> TransitionClass {
@@ -45,7 +54,7 @@ fn parse_class(name: &str) -> TransitionClass {
     }
 }
 
-/// Build the same feature vector as Python `vectorize` (length = 5 + n_genres).
+/// Build the same feature vector as Python `vectorize` for this model version.
 pub fn feature_vector(
     model: &TransitionModel,
     bpm_a: f32,
@@ -53,30 +62,28 @@ pub fn feature_vector(
     camelot_dist: u8,
     energy_delta_db: f32,
     genre: &str,
+    spectral_centroid_delta_hz: f32,
 ) -> Vec<f64> {
-    let n = 5 + model.genres.len();
+    let n_num = model.n_numeric();
+    let n = n_num + model.genres.len();
     let mut v = vec![0.0_f64; n];
     v[0] = f64::from(bpm_a);
     v[1] = f64::from(bpm_b);
     v[2] = f64::from((bpm_a - bpm_b).abs());
     v[3] = f64::from(camelot_dist);
     v[4] = f64::from(energy_delta_db);
+    if model.version >= 2 {
+        v[5] = f64::from(stretch_clamp_excess(bpm_a, bpm_b));
+        v[6] = f64::from(spectral_centroid_delta_hz);
+    }
     if let Some(gi) = model.genres.iter().position(|g| g == genre) {
-        v[5 + gi] = 1.0;
+        v[n_num + gi] = 1.0;
     }
     v
 }
 
-/// Softmax argmax prediction matching Python `SoftmaxLogReg.predict`.
-pub fn predict_transition_class(
-    model: &TransitionModel,
-    bpm_a: f32,
-    bpm_b: f32,
-    camelot_dist: u8,
-    energy_delta_db: f32,
-    genre: &str,
-) -> TransitionClass {
-    let raw = feature_vector(model, bpm_a, bpm_b, camelot_dist, energy_delta_db, genre);
+/// Softmax argmax from a pre-built raw feature vector.
+fn predict_from_raw(model: &TransitionModel, raw: &[f64]) -> TransitionClass {
     if raw.len() != model.mean.len() || model.weights.is_empty() {
         return TransitionClass::LinearCrossfade;
     }
@@ -127,9 +134,74 @@ pub fn predict_transition_class(
     parse_class(name)
 }
 
+/// Softmax argmax prediction matching Python `SoftmaxLogReg.predict`.
+///
+/// For v1 models, `spectral_centroid_delta_hz` is ignored. Prefer
+/// [`predict_transition_class_edge`] when track features are available.
+pub fn predict_transition_class(
+    model: &TransitionModel,
+    bpm_a: f32,
+    bpm_b: f32,
+    camelot_dist: u8,
+    energy_delta_db: f32,
+    genre: &str,
+) -> TransitionClass {
+    predict_transition_class_with_spectral(
+        model,
+        bpm_a,
+        bpm_b,
+        camelot_dist,
+        energy_delta_db,
+        genre,
+        0.0,
+    )
+}
+
+/// Softmax prediction with explicit spectral centroid delta (Hz).
+pub fn predict_transition_class_with_spectral(
+    model: &TransitionModel,
+    bpm_a: f32,
+    bpm_b: f32,
+    camelot_dist: u8,
+    energy_delta_db: f32,
+    genre: &str,
+    spectral_centroid_delta_hz: f32,
+) -> TransitionClass {
+    let raw = feature_vector(
+        model,
+        bpm_a,
+        bpm_b,
+        camelot_dist,
+        energy_delta_db,
+        genre,
+        spectral_centroid_delta_hz,
+    );
+    predict_from_raw(model, &raw)
+}
+
+/// Softmax prediction from a pair of analyzed tracks (v2 uses stretch + spectral).
+pub fn predict_transition_class_edge(
+    model: &TransitionModel,
+    a: &TrackFeatures,
+    b: &TrackFeatures,
+    camelot_dist: u8,
+    genre: &str,
+) -> TransitionClass {
+    predict_transition_class_with_spectral(
+        model,
+        a.bpm,
+        b.bpm,
+        camelot_dist,
+        b.loudness_db - a.loudness_db,
+        genre,
+        b.spectral_centroid_hz - a.spectral_centroid_hz,
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use autodj_core::stretch_clamp_excess;
 
     fn tiny_hard_cut_model() -> TransitionModel {
         // 5 numeric + 1 genre (drum_and_bass). Bias hard_cut high when genre one-hot is on.
@@ -161,5 +233,31 @@ mod tests {
         let m = tiny_hard_cut_model();
         let c = predict_transition_class(&m, 174.0, 175.0, 1, 0.0, "drum_and_bass");
         assert_eq!(c, TransitionClass::HardCut);
+    }
+
+    #[test]
+    fn stretch_parity_with_core() {
+        // 128→140 within ±15% → 0; 128→155 clamps.
+        assert!(stretch_clamp_excess(128.0, 140.0) < 1e-6);
+        let excess = stretch_clamp_excess(128.0, 155.0);
+        assert!(excess > 0.0, "expected clamp excess, got {excess}");
+        // Python: tempo_ratio = 155/128 ≈ 1.2109; excess ≈ 1.2109 - 1.15 ≈ 0.0609
+        assert!((excess - (155.0 / 128.0 - 1.15)).abs() < 1e-5);
+    }
+
+    #[test]
+    fn v1_fixture_loads_and_predicts() {
+        let path = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../python/autodj_train/models/artifacts/transition_model_v1.json"
+        );
+        let Ok(raw) = std::fs::read_to_string(path) else {
+            // Snapshot created later in the same PR; skip if absent during partial builds.
+            return;
+        };
+        let model = TransitionModel::from_json(&raw).expect("parse v1");
+        assert_eq!(model.version, 1);
+        assert_eq!(model.mean.len(), 5 + model.genres.len());
+        let _ = predict_transition_class(&model, 124.0, 125.0, 1, 0.5, "house");
     }
 }

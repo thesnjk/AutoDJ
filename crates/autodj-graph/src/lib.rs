@@ -8,7 +8,8 @@ use autodj_core::{
 use serde::{Deserialize, Serialize};
 
 pub use transition_model::{
-    feature_vector, predict_transition_class, TransitionModel,
+    feature_vector, predict_transition_class, predict_transition_class_edge,
+    predict_transition_class_with_spectral, TransitionModel,
 };
 
 /// Genre policy knobs used by the solver.
@@ -179,12 +180,11 @@ pub fn resolve_transition_class(
     model: Option<&TransitionModel>,
 ) -> TransitionClass {
     if let Some(m) = model {
-        predict_transition_class(
+        predict_transition_class_edge(
             m,
-            a.bpm,
-            b.bpm,
+            a,
+            b,
             camelot_distance(a.key, b.key),
-            b.loudness_db - a.loudness_db,
             &policy.id,
         )
     } else {
@@ -603,9 +603,23 @@ mod tests {
         );
         let raw = std::fs::read_to_string(path).expect("committed transition_model.json");
         let model = TransitionModel::from_json(&raw).unwrap();
+        assert!(
+            model.version >= 2,
+            "expected Softmax v2 artifact, got version {}",
+            model.version
+        );
+        assert_eq!(model.mean.len(), 7 + model.genres.len());
         let dnb = predict_transition_class(&model, 174.0, 175.0, 1, 0.0, "drum_and_bass");
         assert_eq!(dnb, TransitionClass::HardCut);
-        let house = predict_transition_class(&model, 124.0, 125.0, 1, 0.5, "house");
+        let house = predict_transition_class_with_spectral(
+            &model,
+            124.0,
+            125.0,
+            1,
+            0.5,
+            "house",
+            100.0,
+        );
         assert!(
             matches!(
                 house,

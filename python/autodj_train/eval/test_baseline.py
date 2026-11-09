@@ -15,6 +15,7 @@ from autodj_train.datasets.tracklist_stats import (
     policy_hints_from_stats,
 )
 from autodj_train.models.baseline import FrequencyPrior, RuleBaseline
+from autodj_train.models.features import stretch_clamp_excess
 from autodj_train.models.softmax import SoftmaxLogReg
 from autodj_train.transitions import ALL_CLASSES
 
@@ -58,8 +59,16 @@ def test_softmax_recovers_rules_on_holdout():
 def test_committed_artifact_passes_holdout():
     assert ARTIFACT.exists()
     model = SoftmaxLogReg.load(ARTIFACT)
+    assert model.version >= 2
+    assert len(model.mean) == 13
     gold = read_jsonl(GOLD)
     assert model.accuracy(gold) >= 0.90
+
+
+def test_stretch_clamp_excess_matches_rust():
+    assert stretch_clamp_excess(128.0, 140.0) < 1e-9
+    excess = stretch_clamp_excess(128.0, 155.0)
+    assert abs(excess - (155.0 / 128.0 - 1.15)) < 1e-9
 
 
 def test_jsonl_roundtrip(tmp_path: Path):

@@ -16,8 +16,8 @@ use autodj_core::{
     DEFAULT_TARGET_LUFS, DEFAULT_TRUE_PEAK_LIMIT, LUFS_TOLERANCE_LU,
 };
 use autodj_graph::{
-    crossfade_secs_for_class, load_policy_hints_map, predict_transition_class, preserve_order,
-    solve_order, GenrePolicy, TransitionModel,
+    crossfade_secs_for_class, load_policy_hints_map, predict_transition_class_edge,
+    preserve_order, solve_order, GenrePolicy, TransitionModel,
 };
 use autodj_io::{read_wav, write_wav};
 use clap::{Parser, Subcommand};
@@ -1000,12 +1000,11 @@ fn cmd_golden_transition_model(
         for edge in &report.transitions {
             let a = &features[edge.from];
             let b = &features[edge.to];
-            let predicted = predict_transition_class(
+            let predicted = predict_transition_class_edge(
                 &model,
-                a.bpm,
-                b.bpm,
+                a,
+                b,
                 camelot_distance(a.key, b.key),
-                b.loudness_db - a.loudness_db,
                 genre_id,
             );
             if edge.class != predicted {

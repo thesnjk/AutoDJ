@@ -65,11 +65,12 @@ cargo run -p autodj-cli -- mix --playlist party.json --out mix.wav \
 
 Keys/BPM/`beat_offset_secs`/`intro_end`/`outro_start`/`bars_per_phrase` (`4`/`8`/`16`) in JSON (or Rekordbox TEMPO/Tonality/POSITION_MARK) override analyzer estimates when present. Without an override, mix resolves phrase length per track via `estimate_bars_per_phrase` (section span) with a genre fallback. A playlist BPM override also satisfies the prep quality gate when analysis is sparse or low-confidence. Without `--preserve-order`, the solver may reorder for harmonic/energy-arc.
 
-Train gate (CI):
+Train gate (CI) — committed artifact is Softmax **v2** (13 dims: stretch + spectral delta + genres):
 
 ```bash
 cd python && pip install -e ".[dev]"
 autodj-train eval --model autodj_train/models/artifacts/transition_model.json
+# Retrain (optional): autodj-train train --out autodj_train/models/artifacts/transition_model.json --n 2000 --seed 7
 ```
 
 ## Desktop shell (Tauri)

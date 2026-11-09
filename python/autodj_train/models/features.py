@@ -8,27 +8,74 @@ from autodj_train.datasets.synthetic import GENRES, TransitionExample
 
 # Fixed order — must match Rust TransitionModel.genres.
 FEATURE_GENRES: list[str] = list(GENRES)
-N_NUMERIC = 5  # bpm_a, bpm_b, |delta|, camelot_dist, energy_delta_db
-FEATURE_DIM = N_NUMERIC + len(FEATURE_GENRES)
+
+# Soft clamp for stretch factors (~±15% tempo) — must match autodj_core::stretch.
+STRETCH_MIN = 0.85
+STRETCH_MAX = 1.15
+
+N_NUMERIC_V1 = 5  # bpm_a, bpm_b, |delta|, camelot_dist, energy_delta_db
+N_NUMERIC_V2 = 7  # + stretch_clamp_excess, spectral_centroid_delta_hz
+FEATURE_DIM_V1 = N_NUMERIC_V1 + len(FEATURE_GENRES)
+FEATURE_DIM_V2 = N_NUMERIC_V2 + len(FEATURE_GENRES)
+
+# Default training / artifact schema.
+N_NUMERIC = N_NUMERIC_V2
+FEATURE_DIM = FEATURE_DIM_V2
+DEFAULT_FEATURE_VERSION = 2
 
 
-def vectorize(ex: TransitionExample) -> np.ndarray:
-    """Return shape ``(FEATURE_DIM,)`` float64 feature vector."""
-    vec = np.zeros(FEATURE_DIM, dtype=np.float64)
+def stretch_clamp_excess(bpm_a: float, bpm_b: float) -> float:
+    """How far tempo_ratio sits outside ±15% clamp (0 = no clamp). Matches Rust."""
+    from_bpm = max(float(bpm_a), 1.0)
+    to_bpm = max(float(bpm_b), 1.0)
+    r = to_bpm / from_bpm
+    if r < STRETCH_MIN:
+        return STRETCH_MIN - r
+    if r > STRETCH_MAX:
+        return r - STRETCH_MAX
+    return 0.0
+
+
+def feature_dim_for_version(version: int) -> int:
+    if version <= 1:
+        return FEATURE_DIM_V1
+    return FEATURE_DIM_V2
+
+
+def n_numeric_for_version(version: int) -> int:
+    if version <= 1:
+        return N_NUMERIC_V1
+    return N_NUMERIC_V2
+
+
+def vectorize(ex: TransitionExample, version: int = DEFAULT_FEATURE_VERSION) -> np.ndarray:
+    """Return float64 feature vector for the given schema version."""
+    dim = feature_dim_for_version(version)
+    n_num = n_numeric_for_version(version)
+    vec = np.zeros(dim, dtype=np.float64)
     vec[0] = ex.bpm_a
     vec[1] = ex.bpm_b
     vec[2] = abs(ex.bpm_a - ex.bpm_b)
     vec[3] = float(ex.camelot_dist)
     vec[4] = ex.energy_delta_db
+    if version >= 2:
+        vec[5] = stretch_clamp_excess(ex.bpm_a, ex.bpm_b)
+        ca = float(ex.spectral_centroid_hz_a)
+        cb = float(ex.spectral_centroid_hz_b)
+        vec[6] = cb - ca
     if ex.genre in FEATURE_GENRES:
-        vec[N_NUMERIC + FEATURE_GENRES.index(ex.genre)] = 1.0
+        vec[n_num + FEATURE_GENRES.index(ex.genre)] = 1.0
     return vec
 
 
-def matrixize(examples: list[TransitionExample]) -> np.ndarray:
+def matrixize(
+    examples: list[TransitionExample],
+    version: int = DEFAULT_FEATURE_VERSION,
+) -> np.ndarray:
+    dim = feature_dim_for_version(version)
     if not examples:
-        return np.zeros((0, FEATURE_DIM), dtype=np.float64)
-    return np.stack([vectorize(ex) for ex in examples], axis=0)
+        return np.zeros((0, dim), dtype=np.float64)
+    return np.stack([vectorize(ex, version=version) for ex in examples], axis=0)
 
 
 def fit_standardizer(x: np.ndarray) -> tuple[np.ndarray, np.ndarray]:

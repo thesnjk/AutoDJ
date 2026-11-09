@@ -65,6 +65,8 @@ def main(argv: list[str] | None = None) -> None:
     pred.add_argument("--camelot-dist", type=int, required=True)
     pred.add_argument("--energy-delta-db", type=float, required=True)
     pred.add_argument("--genre", type=str, required=True)
+    pred.add_argument("--centroid-a", type=float, default=1500.0)
+    pred.add_argument("--centroid-b", type=float, default=1500.0)
 
     agg = sub.add_parser("aggregate-tracklists", help="Aggregate offline fixtures")
     agg.add_argument("--fixture", type=Path, action="append", default=[], help="JSON fixture")
@@ -110,6 +112,8 @@ def main(argv: list[str] | None = None) -> None:
             energy_delta_db=args.energy_delta_db,
             genre=args.genre,
             label="",
+            spectral_centroid_hz_a=args.centroid_a,
+            spectral_centroid_hz_b=args.centroid_b,
         )
         print(model.predict_one(ex))
     elif args.cmd == "aggregate-tracklists":

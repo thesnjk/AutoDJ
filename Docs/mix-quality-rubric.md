@@ -8,7 +8,7 @@ Automated gates (CI) plus listening checklist for v1+.
 |-------|----------------|
 | Golden smoke CLI | `autodj mix --golden smoke` exits 0 and writes WAV |
 | Golden rekordbox CLI | `autodj mix --golden rekordbox` exits 0; MixReport `preserve_order: true`; setlist order a→b→c from `testdata/rekordbox/gold_playlist.xml` (hard-fail if `preserve_order` returns non-sequential indices) |
-| Golden transitions CLI | `autodj mix --golden transitions` exits 0; all six builtins (house/trance/hip_hop/drum_and_bass/uk_garage/open_format) edges match `preferred_transition` (`eq_swap` / `filter_sweep` / `echo_out` / `hard_cut` / `eq_swap` / `linear_crossfade`) via MixReport `transitions` |
+| Golden transitions CLI | `autodj mix --golden transitions` exits 0; all six builtins (house/trance/hip_hop/drum_and_bass/uk_garage/open_format) edges match `preferred_transition` and class-aware `policy_crossfade_secs` via `crossfade_secs_for_class` (DnB 0 / hip_hop ~1 / house 8 / …) |
 | Golden transition_model CLI | `autodj mix --golden transition_model` exits 0; all six builtins preserve-order edges match Softmax `predict_transition_class` on committed `transition_model.json` (not `preferred_transition`) |
 | Peak limit | True-peak ≤ 0.99 full scale; MixReport `true_peak` + `peak_gate_pass` (hard-fail when `--deterministic`, default). Evidence: `loudness.rs`, golden smoke |
 | Integrated loudness (R128 / BS.1770) | After normalize, `integrated_lufs` within ±2 LU of `--lufs` (golden default −14 LUFS; use `--lufs -23` for classic EBU R 128). Evidence: `loudness.rs`, MixReport `loudness_gate_pass` |

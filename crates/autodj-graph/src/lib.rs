@@ -192,6 +192,26 @@ pub fn resolve_transition_class(
     }
 }
 
+/// Scale genre default crossfade length by transition class.
+///
+/// - [`TransitionClass::HardCut`] → `0` (true abut cut)
+/// - [`TransitionClass::EchoOut`] → short tail (`min(policy, max(1s, 2 beats))`)
+/// - blends / EQ / filter → genre `default_crossfade_secs`
+pub fn crossfade_secs_for_class(class: TransitionClass, policy: &GenrePolicy, bpm: f32) -> f32 {
+    let policy_default = policy.default_crossfade_secs.max(0.0);
+    match class {
+        TransitionClass::HardCut => 0.0,
+        TransitionClass::EchoOut => {
+            let beat = 60.0 / bpm.max(1.0);
+            let two_beats = 2.0 * beat;
+            policy_default.min(1.0_f32.max(two_beats))
+        }
+        TransitionClass::EqSwap
+        | TransitionClass::FilterSweep
+        | TransitionClass::LinearCrossfade => policy_default,
+    }
+}
+
 /// Edge decision between two consecutive tracks.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TransitionDecision {
@@ -251,8 +271,8 @@ pub fn pair_cost_edge(
     let center_pull = ((a.bpm + b.bpm) * 0.5 - policy.bpm_center).abs() * 0.02;
     let energy = energy_arc_cost(a.loudness_db, b.loudness_db, phase) * policy.energy_arc_weight;
     let class = resolve_transition_class(a, b, policy, model);
-    let style = soft_style_penalty(policy, policy.default_crossfade_secs)
-        + policy_transition_penalty(class, policy);
+    let xfade = crossfade_secs_for_class(class, policy, a.bpm);
+    let style = soft_style_penalty(policy, xfade) + policy_transition_penalty(class, policy);
     let stretch = STRETCH_EXCESS_WEIGHT * stretch_clamp_excess(a.bpm, b.bpm);
     key_cost + bpm_cost + energy + center_pull + style + stretch
 }
@@ -348,7 +368,7 @@ pub fn preserve_order(
             from,
             to,
             class,
-            crossfade_secs: policy.default_crossfade_secs,
+            crossfade_secs: crossfade_secs_for_class(class, policy, tracks[from].bpm),
             cost,
         });
     }
@@ -405,7 +425,7 @@ pub fn solve_order(
             from: last,
             to: next,
             class,
-            crossfade_secs: policy.default_crossfade_secs,
+            crossfade_secs: crossfade_secs_for_class(class, policy, tracks[last].bpm),
             cost: best_cost,
         });
         total += best_cost;
@@ -616,6 +636,34 @@ mod tests {
             policy_transition_penalty(TransitionClass::HardCut, &house),
             2.0
         );
+    }
+
+    #[test]
+    fn crossfade_secs_scales_by_class() {
+        let house = GenrePolicy::builtin("house");
+        let dnb = GenrePolicy::builtin("drum_and_bass");
+        let hip = GenrePolicy::builtin("hip_hop");
+        let trance = GenrePolicy::builtin("trance");
+        assert_eq!(
+            crossfade_secs_for_class(TransitionClass::HardCut, &dnb, 174.0),
+            0.0
+        );
+        assert!(
+            (crossfade_secs_for_class(TransitionClass::EqSwap, &house, 128.0) - 8.0).abs() < 1e-5
+        );
+        assert!(
+            (crossfade_secs_for_class(TransitionClass::FilterSweep, &trance, 138.0) - 16.0).abs()
+                < 1e-5
+        );
+        // hip_hop EchoOut policy 1.0 stays ~1s at 90 BPM (2 beats ≈ 1.33 → max(1,1.33)=1.33 → min(1,1.33)=1).
+        let hip_xf = crossfade_secs_for_class(TransitionClass::EchoOut, &hip, 90.0);
+        assert!((hip_xf - 1.0).abs() < 1e-5, "hip_hop echo got {hip_xf}");
+        // Softmax echo on house: short tail (~1s), not 8s blend.
+        let house_echo = crossfade_secs_for_class(TransitionClass::EchoOut, &house, 128.0);
+        assert!((house_echo - 1.0).abs() < 1e-5, "house echo got {house_echo}");
+        let tracks = vec![feat(174.0, "8A", -12.0), feat(175.0, "8A", -11.0)];
+        let sol = preserve_order(&tracks, &dnb, None);
+        assert_eq!(sol.transitions[0].crossfade_secs, 0.0);
     }
 
     #[test]

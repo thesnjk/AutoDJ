@@ -33,6 +33,8 @@ type MixReport = {
   max_bass_overlap?: number;
   tempo_stretch_gate_pass?: boolean;
   max_stretch_clamp_excess?: number;
+  prep_quality_gate_pass?: boolean;
+  cue_drop_aware?: boolean;
   transitions?: TransitionEdge[];
 };
 
@@ -104,6 +106,7 @@ function hardGatesOk(r: MixReport): boolean {
     r.join_continuity_pass,
     r.bass_conflict_gate_pass,
     r.tempo_stretch_gate_pass,
+    r.prep_quality_gate_pass,
   ];
   return hard.every((g) => g !== false);
 }
@@ -118,6 +121,7 @@ function renderMixReport(r: MixReport, deterministic: boolean) {
   if (!panel) return;
 
   const gates: Array<[string, boolean | null | undefined]> = [
+    ["prep", r.prep_quality_gate_pass],
     ["loudness", r.loudness_gate_pass],
     ["spectral", r.spectral_continuity_pass],
     ["join", r.join_continuity_pass],
@@ -126,6 +130,7 @@ function renderMixReport(r: MixReport, deterministic: boolean) {
     ["peak", r.peak_gate_pass],
     ["stretch", r.tempo_stretch_gate_pass],
     ["cue", r.cue_phrase_aligned],
+    ["drop", r.cue_drop_aware],
     ["tempo-blend", r.tempo_blend_applied],
   ];
 

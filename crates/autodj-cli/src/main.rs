@@ -111,6 +111,9 @@ struct PlaylistTrack {
     outro_start: Option<f64>,
 }
 
+/// Minimum analyzed BPM confidence for prep-trusted tracks without a BPM override.
+const DEFAULT_MIN_BPM_CONFIDENCE: f32 = 0.25;
+
 #[derive(Debug, Serialize)]
 struct MixReport {
     order: Vec<String>,
@@ -129,6 +132,10 @@ struct MixReport {
     cue_phrase_aligned: bool,
     /// True when every edge used ordered section marks (`intro ≤ drop ≤ outro`).
     cue_drop_aware: bool,
+    /// Per-track analysis prep summary (confidence + override flags).
+    prep_tracks: Vec<PrepTrackReport>,
+    /// Whether every track is prep-trusted (analysis or BPM override).
+    prep_quality_gate_pass: bool,
     /// True when any adjacent pair used WSOLA tempo blend (|ΔBPM| ≥ 0.5).
     tempo_blend_applied: bool,
     /// Adjacent spectral-flux ratio (max/median); lower is smoother.
@@ -159,6 +166,20 @@ struct MixReport {
     max_stretch_clamp_excess: f32,
     /// Whether [`max_stretch_clamp_excess`] is zero (no silent ±15% clip).
     tempo_stretch_gate_pass: bool,
+}
+
+#[derive(Debug, Serialize)]
+struct PrepTrackReport {
+    track: String,
+    sparse_audio: bool,
+    bpm_confidence: f32,
+    key_confidence: f32,
+    bpm_octave_corrected: bool,
+    bpm_overridden: bool,
+    key_overridden: bool,
+    beat_offset_overridden: bool,
+    /// True when analysis is strong enough or BPM was overridden.
+    trusted: bool,
 }
 
 #[derive(Debug, Serialize)]
@@ -406,6 +427,7 @@ fn cmd_mix(
 
     let playlist_dir = playlist.parent().unwrap_or_else(|| Path::new("."));
     let mut features = Vec::new();
+    let mut prep_tracks = Vec::new();
     for t in &pl.tracks {
         let track_path = resolve_track_path(playlist_dir, &t.path);
         let mut feats = if let Some(conn) = conn.as_ref() {
@@ -416,8 +438,43 @@ fn cmd_mix(
             analyze_path(&track_path)?
         };
         apply_track_overrides(&mut feats, t);
-        feats.path = Some(track_path);
+        let bpm_overridden = t.bpm.is_some();
+        let key_overridden = t.key.is_some();
+        let beat_offset_overridden = t.beat_offset_secs.is_some();
+        let analysis_ok = !feats.quality.sparse_audio
+            && feats.quality.bpm_confidence >= DEFAULT_MIN_BPM_CONFIDENCE;
+        let trusted = analysis_ok || bpm_overridden;
+        prep_tracks.push(PrepTrackReport {
+            track: track_path.display().to_string(),
+            sparse_audio: feats.quality.sparse_audio,
+            bpm_confidence: feats.quality.bpm_confidence,
+            key_confidence: feats.quality.key_confidence,
+            bpm_octave_corrected: feats.quality.bpm_octave_corrected,
+            bpm_overridden,
+            key_overridden,
+            beat_offset_overridden,
+            trusted,
+        });
+        feats.path.replace(track_path);
         features.push(feats);
+    }
+    let prep_quality_gate_pass = !prep_tracks.is_empty() && prep_tracks.iter().all(|p| p.trusted);
+    if deterministic && !prep_quality_gate_pass {
+        let offenders: Vec<String> = prep_tracks
+            .iter()
+            .filter(|p| !p.trusted)
+            .map(|p| {
+                format!(
+                    "{} (sparse={}, bpm_conf={:.2}, bpm_overridden={})",
+                    p.track, p.sparse_audio, p.bpm_confidence, p.bpm_overridden
+                )
+            })
+            .collect();
+        bail!(
+            "prep quality gate failed (need !sparse && bpm_conf>={:.2} or BPM override): {}",
+            DEFAULT_MIN_BPM_CONFIDENCE,
+            offenders.join("; ")
+        );
     }
 
     let solution = if keep_order {
@@ -647,6 +704,8 @@ fn cmd_mix(
         cues: cue_reports,
         cue_phrase_aligned: true,
         cue_drop_aware: cue_drop_aware && saw_edge,
+        prep_tracks,
+        prep_quality_gate_pass,
         tempo_blend_applied,
         spectral_flux_ratio,
         spectral_continuity_pass: spectral_ok,
@@ -703,6 +762,9 @@ fn cmd_golden_smoke(
     if !report.cue_drop_aware {
         bail!("smoke golden: expected cue_drop_aware");
     }
+    if !report.prep_quality_gate_pass {
+        bail!("smoke golden: expected prep_quality_gate_pass");
+    }
     println!("{}", serde_json::to_string_pretty(&report)?);
     Ok(())
 }
@@ -735,6 +797,9 @@ fn cmd_golden_rekordbox(
     }
     if !report.cue_drop_aware {
         bail!("rekordbox golden: expected cue_drop_aware");
+    }
+    if !report.prep_quality_gate_pass {
+        bail!("rekordbox golden: expected prep_quality_gate_pass");
     }
     println!("{}", serde_json::to_string_pretty(&report)?);
     Ok(())

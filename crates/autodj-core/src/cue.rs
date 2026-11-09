@@ -84,9 +84,14 @@ fn snap_cue_time(t: f64, bpm: f32, bars_per_phrase: u32, beat_offset_secs: f64, 
 }
 
 /// Snap a duration so the crossfade lands on an integer number of beats (prefer nearest).
+///
+/// Zero-length fades (HardCut) stay zero — they must not be inflated to one beat.
 pub fn align_crossfade_to_downbeat(crossfade_secs: f32, bpm: f32) -> f32 {
+    if !crossfade_secs.is_finite() || crossfade_secs <= 0.0 {
+        return 0.0;
+    }
     let beat = beat_secs(bpm);
-    if beat <= 0.0 || !crossfade_secs.is_finite() {
+    if beat <= 0.0 {
         return crossfade_secs.max(0.0);
     }
     let beats = (crossfade_secs as f64 / beat).round().max(1.0);
@@ -320,6 +325,15 @@ mod tests {
         assert!((aligned as f64 - 1.5).abs() < 1e-3);
         let rem = (aligned as f64) % beat;
         assert!(rem < 1e-3 || (beat - rem) < 1e-3);
+    }
+
+    #[test]
+    fn hard_cut_zero_crossfade_stays_zero() {
+        assert_eq!(align_crossfade_to_downbeat(0.0, 128.0), 0.0);
+        let a = feats_with_drop(128.0, 8.0, 1.0, 3.0, 6.0);
+        let b = feats_with_drop(128.0, 8.0, 1.0, 3.0, 6.0);
+        let cues = plan_segment_cues(&a, Some(&b), 0.0, 8, true, false);
+        assert_eq!(cues.crossfade_secs, 0.0);
     }
 
     #[test]

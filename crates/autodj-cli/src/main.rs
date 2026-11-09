@@ -16,8 +16,8 @@ use autodj_core::{
     DEFAULT_MAX_FLUX_RATIO, DEFAULT_TARGET_LUFS, DEFAULT_TRUE_PEAK_LIMIT, LUFS_TOLERANCE_LU,
 };
 use autodj_graph::{
-    load_policy_hints_map, predict_transition_class, preserve_order, solve_order, GenrePolicy,
-    TransitionModel,
+    crossfade_secs_for_class, load_policy_hints_map, predict_transition_class, preserve_order,
+    solve_order, GenrePolicy, TransitionModel,
 };
 use autodj_io::{read_wav, write_wav};
 use clap::{Parser, Subcommand};
@@ -777,7 +777,7 @@ fn cmd_golden_transitions(
             &playlist,
             None,
             out,
-            policy,
+            policy.clone(),
             None,
             target_lufs,
             model,
@@ -804,6 +804,21 @@ fn cmd_golden_transitions(
                     edge.to,
                     edge.class,
                     expected
+                );
+            }
+            let bpm = report
+                .cues
+                .get(edge.from)
+                .map(|c| c.bpm)
+                .unwrap_or(128.0);
+            let expected_xf = crossfade_secs_for_class(expected, &policy, bpm);
+            if (edge.policy_crossfade_secs - expected_xf).abs() > 1e-3 {
+                bail!(
+                    "transitions golden ({genre_id}): edge {}→{} policy_crossfade_secs {:.4} != class-aware {:.4}",
+                    edge.from,
+                    edge.to,
+                    edge.policy_crossfade_secs,
+                    expected_xf
                 );
             }
         }

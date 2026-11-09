@@ -12,6 +12,7 @@ Living gap matrix. Updated 2026-11-09 after Firecrawl research (raw notes in loc
 | Energy-arc setcraft | Club open→peak→cool programming | Parity-path | `ArcPhase` + `pair_cost_at` + quiet opener; MixReport order |
 | Transition type palette | djay Filter / Echo / Tremolo / Riser / Neural Mix; SetFlow six-core (EQ, bass swap, cut, blend) | Parity-path | `eq.rs` + Softmax `TransitionModel` per-edge via `--transition-model` |
 | Mix-in / mix-out cueing | VirtualDJ Smart automix (outro→intro ~4–8s); djay start/end points | Parity-path | `cue.rs` `plan_segment_cues`; CLI slices via `AudioBuffer::slice_secs`; MixReport `cue_phrase_aligned` |
+| Library prep (Rekordbox XML) | Rekordbox playlist export → DJ.Studio | Parity-path | `rekordbox.rs` + `--playlist` `.xml`; BPM/key/grid/cue overrides; `--preserve-order` |
 | Stems-aware transitions | Serato Stems (vocal / melody / bass / drums pads) | Gap | no stem DSP; deferred v2 |
 | Phrase sync | Rekordbox phrase analysis / djay BPM+Beats sync | Parity-path | `beat_offset_secs` + grid-aware cue snap; MixReport `beat_phase_gate_pass`; full phrase ML later |
 | Learning from setcraft | Mixonset / tracklist research tools | Parity-path | tracklist aggregates + synthetic SoftmaxLogReg (`transition_model.json`); `autodj-train eval` ≥ 0.90 |
@@ -53,9 +54,10 @@ Formula note: `(competitor best − AutoDJ) × persona weight × mix_impact`. Be
 | **P7** | Tauri desktop shell | **Shipped** — `apps/autodj-app` playlist → progress → export over CLI |
 | **P8** | Feature extraction hardening | **Shipped** — BPM octave fold + `AnalysisQuality` + gold analyze gate |
 | **P9** | Beat grid + beat-phase / peak CI gates | **Shipped** — `beat_offset_secs` + MixReport `beat_phase_gate_pass` / `peak_gate_pass` |
-| Next | Rekordbox XML ingest (library prep metadata) | else stems only with rights-cleared path |
+| **P10** | Rekordbox XML ingest | **Shipped** — `rekordbox.rs` + `--preserve-order` + prep metadata overrides |
+| Next | Tauri XML file picker polish | else stems only with rights-cleared path |
 | Later | Stems, live dual-deck / controller | v2 / gated |
 
 ## Re-rank bias
 
-Prefer agent-doable product code that closes remaining mix-quality gaps before brochure fluff. P0–P9 are in place; stems remain gated.
+Prefer agent-doable product code that closes remaining mix-quality gaps before brochure fluff. P0–P10 are in place; stems remain gated.

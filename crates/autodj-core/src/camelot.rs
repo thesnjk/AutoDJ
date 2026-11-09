@@ -31,6 +31,18 @@ impl CamelotKey {
         Some(Self { number, minor })
     }
 
+    /// Parse Camelot (`8A`) or common musical / Rekordbox `Tonality` strings (`Am`, `C#m`, `F`).
+    pub fn parse_flexible(s: &str) -> Option<Self> {
+        let trimmed = s.trim();
+        if trimmed.is_empty() {
+            return None;
+        }
+        if let Some(k) = Self::parse(trimmed) {
+            return Some(k);
+        }
+        musical_to_camelot(trimmed)
+    }
+
     /// Display as `8A` / `8B`.
     pub fn as_str(self) -> String {
         format!("{}{}", self.number, if self.minor { "A" } else { "B" })
@@ -54,6 +66,50 @@ pub fn camelot_distance(a: CamelotKey, b: CamelotKey) -> u8 {
         dn
     } else {
         dn.saturating_add(1)
+    }
+}
+
+/// Map musical key names (Rekordbox Tonality) to Camelot.
+fn musical_to_camelot(s: &str) -> Option<CamelotKey> {
+    let t = s.trim().to_lowercase().replace('♭', "b").replace('♯', "#");
+    // Normalize "a minor" / "amin" / "am" / "a-m".
+    let compact: String = t
+        .chars()
+        .filter(|c| !c.is_whitespace() && *c != '-' && *c != '_')
+        .collect();
+    let (root, minor) = if let Some(r) = compact.strip_suffix("minor") {
+        (r, true)
+    } else if let Some(r) = compact.strip_suffix("maj") {
+        (r, false)
+    } else if let Some(r) = compact.strip_suffix("major") {
+        (r, false)
+    } else if compact.ends_with('m') && !compact.ends_with("am") && compact.len() > 1 {
+        // "cm", "c#m", "bbm" — but not lone "am" handled below
+        (&compact[..compact.len() - 1], true)
+    } else if compact.ends_with('m') {
+        (&compact[..compact.len() - 1], true)
+    } else {
+        (compact.as_str(), false)
+    };
+    let pc = pitch_class_from_name(root)?;
+    Some(from_pitch_class(pc, minor))
+}
+
+fn pitch_class_from_name(name: &str) -> Option<u8> {
+    match name {
+        "c" => Some(0),
+        "c#" | "db" => Some(1),
+        "d" => Some(2),
+        "d#" | "eb" => Some(3),
+        "e" => Some(4),
+        "f" => Some(5),
+        "f#" | "gb" => Some(6),
+        "g" => Some(7),
+        "g#" | "ab" => Some(8),
+        "a" => Some(9),
+        "a#" | "bb" => Some(10),
+        "b" => Some(11),
+        _ => None,
     }
 }
 
@@ -84,5 +140,28 @@ mod tests {
         assert_eq!(camelot_distance(a, a), 0);
         assert_eq!(camelot_distance(a, b), 1);
         assert_eq!(camelot_distance(a, c), 1);
+    }
+
+    #[test]
+    fn parse_flexible_musical_and_camelot() {
+        assert_eq!(
+            CamelotKey::parse_flexible("8A").unwrap(),
+            CamelotKey::parse("8A").unwrap()
+        );
+        // A minor → 8A; C major → 8B
+        assert_eq!(
+            CamelotKey::parse_flexible("Am").unwrap().as_str(),
+            "8A"
+        );
+        assert_eq!(
+            CamelotKey::parse_flexible("C").unwrap().as_str(),
+            "8B"
+        );
+        assert_eq!(
+            CamelotKey::parse_flexible("F#m").unwrap().as_str(),
+            from_pitch_class(6, true).as_str()
+        );
+        assert!(CamelotKey::parse_flexible("").is_none());
+        assert!(CamelotKey::parse_flexible("not-a-key").is_none());
     }
 }

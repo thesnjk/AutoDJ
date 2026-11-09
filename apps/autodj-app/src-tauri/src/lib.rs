@@ -122,6 +122,10 @@ struct MixArgs {
     genre: String,
     policy_hints: Option<String>,
     transition_model: Option<String>,
+    /// Keep playlist order (Rekordbox setlist fidelity).
+    preserve_order: Option<bool>,
+    /// Rekordbox PLAYLISTS NODE name when the XML has multiple playlists.
+    playlist_name: Option<String>,
 }
 
 #[tauri::command]
@@ -137,6 +141,16 @@ fn mix(app: AppHandle, args: MixArgs) -> Result<serde_json::Value, String> {
     ];
     let hints = args.policy_hints.filter(|s| !s.trim().is_empty());
     let model = args.transition_model.filter(|s| !s.trim().is_empty());
+    let playlist_name = args
+        .playlist_name
+        .filter(|s| !s.trim().is_empty());
+    if args.preserve_order.unwrap_or(false) {
+        cli_args.push("--preserve-order");
+    }
+    if let Some(ref name) = playlist_name {
+        cli_args.push("--playlist-name");
+        cli_args.push(name.as_str());
+    }
     if let Some(ref h) = hints {
         cli_args.push("--policy-hints");
         cli_args.push(h.as_str());
@@ -264,6 +278,7 @@ fn path_exists(path: String) -> bool {
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
             resolve_autodj_bin,
             autodj_version,

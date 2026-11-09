@@ -25,7 +25,7 @@ autodj_train: synth → SoftmaxLogReg JSON + tracklist aggregate → policy_hint
 - **autodj-core** — feature extraction (`AnalysisQuality`, BPM octave correction, `beat_offset_secs`), Rekordbox XML ingest (`rekordbox.rs`), cue planner, EQ, WSOLA, R128, spectral + beat-phase eval (`eval.rs`). Pure Rust; primary target macOS Apple Silicon. Analysis is offline-only (not audio-thread safe).
 - **autodj-graph** — greedy NN solver with energy-arc phases + genre policy weights; `preserve_order` for setlist fidelity; `PolicyHintOverride` / `with_hints`; optional `TransitionModel` per-edge class.
 - **autodj-cli** — user-facing analyze/mix; JSON or Rekordbox `.xml` via `--playlist`; `--playlist-name`; `--preserve-order`; `--policy-hints`; `--transition-model`; `--deterministic`; golden smoke for CI.
-- **autodj-app** — Tauri 2 desktop shell; invokes CLI via `AUTODJ_BIN` / PATH / `cargo run -p autodj-cli`; emits `autodj-progress` events. Excluded from the Cargo workspace (`workspace.exclude`).
+- **autodj-app** — Tauri 2 desktop shell; dialog picker for JSON/Rekordbox XML; forwards `--preserve-order` / `--playlist-name` to CLI via `AUTODJ_BIN` / PATH / `cargo run -p autodj-cli`; emits `autodj-progress` events. Excluded from the Cargo workspace (`workspace.exclude`).
 
 ## Train / runtime split
 

@@ -90,6 +90,55 @@ body {
   opacity: 0.85;
 }
 
+.controls label.check {
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 0.9rem;
+  color: var(--ink);
+}
+
+.check-row {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  font-family: var(--font-body);
+  font-size: 0.95rem;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.check-row input[type="checkbox"] {
+  width: 1rem;
+  height: 1rem;
+  accent-color: var(--accent);
+  padding: 0;
+}
+
+.hint {
+  font-size: 0.78rem;
+  color: var(--muted);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.path-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: stretch;
+}
+
+.path-row input {
+  flex: 1;
+  min-width: 0;
+}
+
+button.browse {
+  flex-shrink: 0;
+  padding: 0.65rem 0.85rem;
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
 .controls input,
 .controls select {
   font-family: var(--font-mono);

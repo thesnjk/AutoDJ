@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { open, save } from "@tauri-apps/plugin-dialog";
 
 type MixReport = {
   order?: string[];
@@ -10,6 +11,8 @@ type MixReport = {
   spectral_continuity_pass?: boolean;
   cue_phrase_aligned?: boolean;
   tempo_blend_applied?: boolean;
+  beat_phase_gate_pass?: boolean;
+  peak_gate_pass?: boolean | null;
   total_cost?: number;
 };
 
@@ -24,7 +27,13 @@ function appendLog(line: string) {
 }
 
 function setBusy(busy: boolean) {
-  for (const id of ["btn-version", "btn-analyze", "btn-mix"]) {
+  for (const id of [
+    "btn-version",
+    "btn-analyze",
+    "btn-mix",
+    "btn-browse-playlist",
+    "btn-browse-out",
+  ]) {
     const btn = $<HTMLButtonElement>(id);
     if (btn) btn.disabled = busy;
   }
@@ -47,6 +56,8 @@ function formatReport(r: MixReport): string {
     `spectral_continuity: ${String(r.spectral_continuity_pass)}`,
     `cue_phrase_aligned: ${String(r.cue_phrase_aligned)}`,
     `tempo_blend: ${String(r.tempo_blend_applied)}`,
+    `beat_phase_gate: ${String(r.beat_phase_gate_pass)}`,
+    `peak_gate: ${String(r.peak_gate_pass)}`,
     `integrated_lufs: ${r.integrated_lufs ?? "n/a"}`,
     `total_cost: ${r.total_cost ?? "n/a"}`,
   ];
@@ -69,6 +80,31 @@ async function refreshBin() {
   }
 }
 
+async function browsePlaylist() {
+  const selected = await open({
+    multiple: false,
+    directory: false,
+    title: "Select playlist",
+    filters: [{ name: "Playlist", extensions: ["json", "xml"] }],
+  });
+  if (typeof selected === "string") {
+    const el = $<HTMLInputElement>("playlist");
+    if (el) el.value = selected;
+  }
+}
+
+async function browseOut() {
+  const selected = await save({
+    title: "Export mix WAV",
+    filters: [{ name: "WAV", extensions: ["wav"] }],
+    defaultPath: "mix.wav",
+  });
+  if (typeof selected === "string") {
+    const el = $<HTMLInputElement>("out");
+    if (el) el.value = selected;
+  }
+}
+
 window.addEventListener("DOMContentLoaded", async () => {
   await listen<{ line: string }>("autodj-progress", (ev) => {
     appendLog(ev.payload.line);
@@ -78,6 +114,27 @@ window.addEventListener("DOMContentLoaded", async () => {
 
   const outEl = $<HTMLInputElement>("out");
   if (outEl) outEl.value = "/tmp/autodj-mix.wav";
+
+  $<HTMLButtonElement>("btn-browse-playlist")?.addEventListener(
+    "click",
+    async () => {
+      try {
+        await browsePlaylist();
+      } catch (e) {
+        showReport(String(e), true);
+        appendLog(String(e));
+      }
+    },
+  );
+
+  $<HTMLButtonElement>("btn-browse-out")?.addEventListener("click", async () => {
+    try {
+      await browseOut();
+    } catch (e) {
+      showReport(String(e), true);
+      appendLog(String(e));
+    }
+  });
 
   $<HTMLButtonElement>("btn-version")?.addEventListener("click", async () => {
     setBusy(true);
@@ -122,8 +179,12 @@ window.addEventListener("DOMContentLoaded", async () => {
     const policyHints = $<HTMLInputElement>("policy-hints")?.value.trim() || null;
     const transitionModel =
       $<HTMLInputElement>("transition-model")?.value.trim() || null;
+    const preserveOrder =
+      $<HTMLInputElement>("preserve-order")?.checked ?? false;
+    const playlistName =
+      $<HTMLInputElement>("playlist-name")?.value.trim() || null;
     if (!playlist || !out) {
-      showReport("Set playlist JSON and output WAV paths", true);
+      showReport("Set playlist (JSON or Rekordbox XML) and output WAV paths", true);
       return;
     }
     setBusy(true);
@@ -136,6 +197,8 @@ window.addEventListener("DOMContentLoaded", async () => {
           genre,
           policyHints,
           transitionModel,
+          preserveOrder,
+          playlistName,
         },
       });
       showReport(formatReport(report));

@@ -6,6 +6,9 @@ members = [
     "crates/autodj-io",
     "crates/autodj-cli",
 ]
+exclude = [
+    "apps/autodj-app/src-tauri",
+]
 
 [workspace.package]
 version = "0.1.0"

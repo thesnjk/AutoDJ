@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="stylesheet" href="/src/styles.css" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AutoDJ</title>
+    <script type="module" src="/src/main.ts" defer></script>
+  </head>
+  <body>
+    <div class="atmosphere" aria-hidden="true"></div>
+    <main class="shell">
+      <header class="hero">
+        <p class="brand">AutoDJ</p>
+        <p class="tagline">Playlist → mix → export</p>
+      </header>
+
+      <section class="controls" aria-label="Mix controls">
+        <label>
+          Playlist JSON
+          <input id="playlist" type="text" spellcheck="false" placeholder="/path/to/party.json" />
+        </label>
+        <label>
+          Output WAV
+          <input id="out" type="text" spellcheck="false" placeholder="/tmp/mix.wav" />
+        </label>
+        <label>
+          Genre
+          <select id="genre">
+            <option value="house" selected>house</option>
+            <option value="trance">trance</option>
+            <option value="drum_and_bass">drum_and_bass</option>
+            <option value="hip_hop">hip_hop</option>
+            <option value="uk_garage">uk_garage</option>
+            <option value="open_format">open_format</option>
+          </select>
+        </label>
+        <label>
+          Analyze input (file or folder)
+          <input id="analyze-input" type="text" spellcheck="false" placeholder="/path/to/library" />
+        </label>
+        <label>
+          Feature DB
+          <input id="db" type="text" spellcheck="false" value="features.sqlite" />
+        </label>
+        <label class="optional">
+          Policy hints (optional)
+          <input id="policy-hints" type="text" spellcheck="false" placeholder="demo_policy_hints.json" />
+        </label>
+        <label class="optional">
+          Transition model (optional)
+          <input id="transition-model" type="text" spellcheck="false" placeholder="transition_model.json" />
+        </label>
+
+        <div class="actions">
+          <button type="button" id="btn-version">Check CLI</button>
+          <button type="button" id="btn-analyze">Analyze</button>
+          <button type="button" id="btn-mix" class="primary">Mix</button>
+        </div>
+      </section>
+
+      <section class="status" aria-live="polite">
+        <p id="bin-path" class="meta">Resolving autodj…</p>
+        <pre id="report" class="report" hidden></pre>
+      </section>
+
+      <section class="log-wrap" aria-label="Progress log">
+        <h2 class="log-title">Progress</h2>
+        <pre id="log" class="log"></pre>
+      </section>
+    </main>
+  </body>
+</html>

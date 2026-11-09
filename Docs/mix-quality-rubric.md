@@ -16,6 +16,7 @@ Automated gates (CI) plus listening checklist for v1+.
 | Solver unit tests | Harmonic neighbor preferred; energy-arc quiet opener + rise/fall (`autodj-graph` tests) |
 | EQ / bass-swap DSP | `eq_swap_gains` + `apply_eq_swap_crossfade` unit tests; house golden uses `EqSwap` (evidence: `eq.rs`, `render.rs`) |
 | Transition classifier (train gate) | `autodj-train eval` accuracy ≥ 0.90 on `eval/gold/synthetic_holdout.jsonl` (evidence: `SoftmaxLogReg`, CI python job). Golden WAV still uses genre `preferred_transition` unless `--transition-model` is passed |
+| Gold analyze (BPM/key/sections) | `testdata/gold/*.wav` BPM within ±1 of `expected_analyze.json`; frozen key string; `intro_end < drop_start < outro_start`; not sparse (evidence: `analysis::tests::gold_analyze_matches_expected`) |
 | macOS native CI | Rust job on `macos-latest` (Apple Silicon hosted) plus `ubuntu-latest`; local `aarch64-apple-darwin` verify required when hosted Mac runners are unavailable |
 
 ## Listening checklist (human)

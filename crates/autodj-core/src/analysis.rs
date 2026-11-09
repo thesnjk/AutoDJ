@@ -1,4 +1,8 @@
 //! Offline track feature extraction.
+//!
+//! # Real-time safety
+//! Analysis allocates and scans whole buffers — **offline only**. Do not call
+//! [`analyze_mono`] / [`analyze_path`] from an audio callback.
 
 use std::path::{Path, PathBuf};
 
@@ -23,6 +27,30 @@ pub enum TransitionClass {
     HardCut,
 }
 
+/// Confidence and failure-mode flags for an analysis pass.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct AnalysisQuality {
+    /// BPM estimate confidence in `0.0..=1.0`.
+    pub bpm_confidence: f32,
+    /// Key estimate confidence in `0.0..=1.0`.
+    pub key_confidence: f32,
+    /// True when the buffer is near-silence or too short for reliable analysis.
+    pub sparse_audio: bool,
+    /// True when BPM was doubled after autocorr preferred a half-time peak.
+    pub bpm_octave_corrected: bool,
+}
+
+impl Default for AnalysisQuality {
+    fn default() -> Self {
+        Self {
+            bpm_confidence: 0.0,
+            key_confidence: 0.0,
+            sparse_audio: false,
+            bpm_octave_corrected: false,
+        }
+    }
+}
+
 /// Analyzed features for one track.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TrackFeatures {
@@ -42,6 +70,9 @@ pub struct TrackFeatures {
     pub sections: SectionMarks,
     /// Mean spectral centroid proxy (Hz).
     pub spectral_centroid_hz: f32,
+    /// Confidence / sparse / octave-correction flags.
+    #[serde(default)]
+    pub quality: AnalysisQuality,
 }
 
 /// Coarse structural marks used for cueing.
@@ -55,7 +86,7 @@ pub struct SectionMarks {
     pub outro_start: f64,
 }
 
-/// Analyze a WAV path.
+/// Analyze a WAV path (offline only).
 pub fn analyze_path(path: impl AsRef<Path>) -> anyhow::Result<TrackFeatures> {
     let path = path.as_ref();
     let buf = read_wav(path)?;
@@ -64,20 +95,39 @@ pub fn analyze_path(path: impl AsRef<Path>) -> anyhow::Result<TrackFeatures> {
     Ok(feats)
 }
 
-/// Analyze an in-memory buffer.
+/// Analyze an in-memory buffer (offline only).
 pub fn analyze_buffer(buf: &AudioBuffer) -> anyhow::Result<TrackFeatures> {
     let mono = buf.to_mono();
     analyze_mono(&mono, buf.sample_rate)
 }
 
-/// Analyze mono PCM.
+/// Analyze mono PCM (offline only — heap OK).
 pub fn analyze_mono(samples: &[f32], sample_rate: u32) -> anyhow::Result<TrackFeatures> {
     anyhow::ensure!(!samples.is_empty(), "empty audio");
     let duration_secs = samples.len() as f64 / sample_rate as f64;
-    let bpm = estimate_bpm(samples, sample_rate);
-    let (pc, minor) = estimate_key(samples, sample_rate);
-    let key = from_pitch_class(pc, minor);
     let loudness_db = rms_db(samples);
+    let sparse = is_sparse(samples, duration_secs, loudness_db);
+
+    let (bpm, bpm_confidence, bpm_octave_corrected) = if sparse {
+        (120.0, 0.0, false)
+    } else {
+        estimate_bpm(samples, sample_rate)
+    };
+
+    let (pc, minor, key_confidence) = if sparse {
+        (0u8, true, 0.0)
+    } else {
+        estimate_key(samples, sample_rate)
+    };
+    let key = from_pitch_class(pc, minor);
+
+    let mut bpm_confidence = bpm_confidence;
+    let mut key_confidence = key_confidence;
+    if duration_secs < 2.0 {
+        bpm_confidence *= 0.35;
+        key_confidence *= 0.35;
+    }
+
     let spectral_centroid_hz = spectral_centroid(samples, sample_rate);
     let sections = estimate_sections(samples, sample_rate, duration_secs);
     Ok(TrackFeatures {
@@ -89,10 +139,31 @@ pub fn analyze_mono(samples: &[f32], sample_rate: u32) -> anyhow::Result<TrackFe
         sample_rate,
         sections,
         spectral_centroid_hz,
+        quality: AnalysisQuality {
+            bpm_confidence,
+            key_confidence,
+            sparse_audio: sparse,
+            bpm_octave_corrected,
+        },
     })
 }
 
+fn is_sparse(samples: &[f32], duration_secs: f64, loudness_db: f32) -> bool {
+    if duration_secs < 0.25 {
+        return true;
+    }
+    // Near silence.
+    if loudness_db < -55.0 {
+        return true;
+    }
+    let peak = samples.iter().map(|s| s.abs()).fold(0.0f32, f32::max);
+    peak < 1e-4
+}
+
 /// Estimate coarse intro / drop / outro marks from a windowed RMS envelope.
+///
+/// Falls back to 15% / 35% / 75% of duration when the buffer is too short or
+/// ordering cannot be established.
 fn estimate_sections(samples: &[f32], sample_rate: u32, duration_secs: f64) -> SectionMarks {
     let fallback = SectionMarks {
         intro_end: (duration_secs * 0.15).clamp(0.0, duration_secs),
@@ -120,7 +191,6 @@ fn estimate_sections(samples: &[f32], sample_rate: u32, duration_secs: f64) -> S
     let threshold = (median * 1.15).max(1e-6);
     let hop_secs = hop as f64 / sample_rate as f64;
 
-    // Intro end: first window past median energy that holds for 2 hops.
     let mut intro_end = fallback.intro_end;
     for i in 0..env.len().saturating_sub(1) {
         if env[i] >= threshold && env[i + 1] >= threshold {
@@ -129,7 +199,6 @@ fn estimate_sections(samples: &[f32], sample_rate: u32, duration_secs: f64) -> S
         }
     }
 
-    // Outro start: last sustained drop below median in the final third.
     let final_third = (env.len() * 2) / 3;
     let mut outro_start = fallback.outro_start;
     let low = median * 0.85;
@@ -140,7 +209,6 @@ fn estimate_sections(samples: &[f32], sample_rate: u32, duration_secs: f64) -> S
         }
     }
 
-    // Drop: peak energy between intro and outro.
     let start_i = ((intro_end / hop_secs).floor() as usize).min(env.len().saturating_sub(1));
     let end_i = ((outro_start / hop_secs).floor() as usize)
         .max(start_i)
@@ -155,7 +223,6 @@ fn estimate_sections(samples: &[f32], sample_rate: u32, duration_secs: f64) -> S
     }
     let mut drop_start = (peak_i as f64 * hop_secs).clamp(0.0, duration_secs);
 
-    // Keep ordering sensible.
     if intro_end > outro_start {
         return fallback;
     }
@@ -179,8 +246,8 @@ fn rms_db(samples: &[f32]) -> f32 {
     (20.0 * rms.log10()) as f32
 }
 
-fn estimate_bpm(samples: &[f32], sample_rate: u32) -> f32 {
-    // Onset strength via half-wave rectified spectral flux proxy (time-domain energy diff).
+/// Returns `(bpm, confidence, octave_corrected)`.
+fn estimate_bpm(samples: &[f32], sample_rate: u32) -> (f32, f32, bool) {
     let hop = (sample_rate as usize / 50).max(1); // ~20 ms
     let mut env = Vec::new();
     let mut prev = 0.0f32;
@@ -190,37 +257,91 @@ fn estimate_bpm(samples: &[f32], sample_rate: u32) -> f32 {
         prev = e;
     }
     if env.len() < 8 {
-        return 120.0;
+        return (120.0, 0.0, false);
     }
-    // Autocorrelation over BPM range 70–180.
     let fps = sample_rate as f32 / hop as f32;
-    let mut best_bpm = 120.0f32;
-    let mut best_score = f32::MIN;
-    let mut bpm = 70.0f32;
-    while bpm <= 180.0 {
+
+    let score_at = |bpm: f32| -> f32 {
         let lag = (60.0 * fps / bpm).round() as usize;
         if lag == 0 || lag >= env.len() {
-            bpm += 0.5;
-            continue;
+            return f32::MIN / 4.0;
         }
         let mut score = 0.0f32;
         for i in lag..env.len() {
             score += env[i] * env[i - lag];
         }
+        score
+    };
+
+    let mut best_bpm = 120.0f32;
+    let mut best_score = f32::MIN;
+    let mut second_score = f32::MIN;
+    let mut bpm = 70.0f32;
+    while bpm <= 180.0 {
+        let score = score_at(bpm);
         if score > best_score {
+            second_score = best_score;
             best_score = score;
             best_bpm = bpm;
+        } else if score > second_score {
+            second_score = score;
         }
         bpm += 0.5;
     }
-    best_bpm
+
+    // Among {peak, 2×, ½×} pick max (autocorr_score * dance-tempo prior).
+    // Fixes half-time peaks (e.g. 70→140) without always forcing doubles on true slow tracks.
+    let raw_peak = best_bpm;
+    let candidates = [raw_peak, raw_peak * 2.0, raw_peak * 0.5];
+    let mut pick = raw_peak;
+    let mut pick_score = f32::MIN;
+    let mut pick_raw = best_score;
+    for &c in &candidates {
+        if !(70.0..=180.0).contains(&c) {
+            continue;
+        }
+        let s = score_at(c);
+        if !s.is_finite() || s <= 0.0 {
+            continue;
+        }
+        let weighted = s * tempo_prior(c);
+        if weighted > pick_score {
+            pick_score = weighted;
+            pick = c;
+            pick_raw = s;
+        }
+    }
+    let octave_corrected = (pick - raw_peak).abs() > 0.25;
+    best_bpm = pick;
+    if pick_raw > best_score {
+        second_score = best_score;
+        best_score = pick_raw;
+    }
+
+    let confidence = if best_score <= 0.0 || !best_score.is_finite() {
+        0.0
+    } else if second_score <= 0.0 || !second_score.is_finite() {
+        0.85
+    } else {
+        let raw = ((best_score / second_score) - 1.0).clamp(0.0, 2.0) / 2.0;
+        (0.15 + 0.85 * raw).clamp(0.0, 1.0)
+    };
+
+    (best_bpm, confidence, octave_corrected)
 }
 
-fn estimate_key(samples: &[f32], sample_rate: u32) -> (u8, bool) {
-    // Crude chroma via Goertzel-like energy at pitch-class frequencies over one octave.
+fn tempo_prior(bpm: f32) -> f32 {
+    // Mild preference for dance-music midrange so half-time peaks lose to doubles.
+    let d = (bpm - 128.0) / 45.0;
+    (-0.5 * d * d).exp()
+}
+
+/// Returns `(pitch_class, minor, confidence)`.
+fn estimate_key(samples: &[f32], sample_rate: u32) -> (u8, bool, f32) {
     let base = 110.0f32; // A2
     let mut chroma = [0.0f64; 12];
-    let n = samples.len().min(sample_rate as usize * 4);
+    // Up to 8 s (was 4 s) for stabler chroma on short loops.
+    let n = samples.len().min(sample_rate as usize * 8);
     let slice = &samples[..n];
     for (pc, bin) in chroma.iter_mut().enumerate() {
         let freq = base * 2f32.powf(pc as f32 / 12.0);
@@ -234,17 +355,39 @@ fn estimate_key(samples: &[f32], sample_rate: u32) -> (u8, bool) {
         }
         *bin = cos * cos + sin * sin;
     }
+
+    // Softmax-normalize for confidence.
+    let max_raw = chroma.iter().cloned().fold(0.0f64, f64::max).max(1e-12);
+    let mut soft = [0.0f64; 12];
+    let mut denom = 0.0f64;
+    for i in 0..12 {
+        soft[i] = ((chroma[i] / max_raw) * 8.0).exp();
+        denom += soft[i];
+    }
+    for s in soft.iter_mut() {
+        *s /= denom;
+    }
+
     let mut best = 0usize;
+    let mut second = 0usize;
     for i in 1..12 {
-        if chroma[i] > chroma[best] {
+        if soft[i] > soft[best] {
+            second = best;
             best = i;
+        } else if soft[i] > soft[second] {
+            second = i;
         }
     }
-    // Minor if neighbors of peak are stronger on the minor triad side (very rough).
+    let confidence = if soft[best] <= 1e-9 {
+        0.0
+    } else {
+        ((soft[best] - soft[second]) / soft[best]).clamp(0.0, 1.0) as f32
+    };
+
     let major_third = chroma[(best + 4) % 12];
     let minor_third = chroma[(best + 3) % 12];
     let minor = minor_third > major_third;
-    (best as u8, minor)
+    (best as u8, minor, confidence)
 }
 
 fn spectral_centroid(samples: &[f32], sample_rate: u32) -> f32 {
@@ -265,6 +408,28 @@ fn spectral_centroid(samples: &[f32], sample_rate: u32) -> f32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::path::PathBuf;
+
+    fn gold_dir() -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../testdata/gold")
+    }
+
+    fn click_train(sr: u32, bpm: f32, seconds: f64) -> Vec<f32> {
+        let n = (sr as f64 * seconds) as usize;
+        let beat = 60.0 / bpm;
+        let mut samples = vec![0.0f32; n];
+        for i in 0..n {
+            let t = i as f32 / sr as f32;
+            let phase = (t as f64 % beat as f64) / beat as f64;
+            let click = if phase < 0.04 {
+                (1.0 - phase / 0.04) as f32 * 0.9
+            } else {
+                0.0
+            };
+            samples[i] = click;
+        }
+        samples
+    }
 
     #[test]
     fn analyzes_synthetic_tone() {
@@ -287,6 +452,28 @@ mod tests {
         let feats = analyze_mono(&samples, sr).unwrap();
         assert!(feats.bpm > 100.0 && feats.bpm < 160.0, "bpm={}", feats.bpm);
         assert!(feats.duration_secs > 3.5);
+        assert!(!feats.quality.sparse_audio);
+        assert!(feats.quality.key_confidence >= 0.0);
+    }
+
+    #[test]
+    fn bpm_140_not_halved_to_70() {
+        let samples = click_train(44_100, 140.0, 8.0);
+        let feats = analyze_mono(&samples, 44_100).unwrap();
+        assert!(
+            (feats.bpm - 140.0).abs() < 2.0,
+            "expected ~140, got {} (octave_corrected={})",
+            feats.bpm,
+            feats.quality.bpm_octave_corrected
+        );
+    }
+
+    #[test]
+    fn sparse_silence_flags_quality() {
+        let samples = vec![0.0f32; 44_100];
+        let feats = analyze_mono(&samples, 44_100).unwrap();
+        assert!(feats.quality.sparse_audio);
+        assert!(feats.quality.bpm_confidence < 0.1);
     }
 
     #[test]
@@ -325,5 +512,34 @@ mod tests {
             "outro_start={}",
             feats.sections.outro_start
         );
+    }
+
+    #[test]
+    fn gold_analyze_matches_expected() {
+        let expected_path = gold_dir().join("expected_analyze.json");
+        let raw = std::fs::read_to_string(&expected_path)
+            .unwrap_or_else(|e| panic!("missing {}: {e}", expected_path.display()));
+        let expected: serde_json::Value = serde_json::from_str(&raw).unwrap();
+        let tracks = expected["tracks"].as_array().expect("tracks array");
+        for row in tracks {
+            let file = row["file"].as_str().unwrap();
+            let path = gold_dir().join(file);
+            let feats = analyze_path(&path).unwrap_or_else(|e| panic!("{}: {e}", path.display()));
+            let bpm_exp = row["bpm"].as_f64().unwrap() as f32;
+            assert!(
+                (feats.bpm - bpm_exp).abs() <= 1.0,
+                "{file}: bpm {} vs expected {bpm_exp}",
+                feats.bpm
+            );
+            let key_exp = row["key"].as_str().unwrap();
+            assert_eq!(feats.key.as_str(), key_exp, "{file}: key");
+            assert!(
+                feats.sections.intro_end < feats.sections.drop_start
+                    && feats.sections.drop_start < feats.sections.outro_start,
+                "{file}: section order {:?}",
+                feats.sections
+            );
+            assert!(!feats.quality.sparse_audio, "{file}: sparse");
+        }
     }
 }

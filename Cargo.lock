@@ -92,6 +92,7 @@ dependencies = [
  "autodj-io",
  "ebur128",
  "serde",
+ "serde_json",
  "tempfile",
  "thiserror",
 ]

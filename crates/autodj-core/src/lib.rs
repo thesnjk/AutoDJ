@@ -12,7 +12,9 @@ mod loudness;
 mod render;
 mod stretch;
 
-pub use analysis::{analyze_mono, analyze_path, SectionMarks, TrackFeatures, TransitionClass};
+pub use analysis::{
+    analyze_mono, analyze_path, AnalysisQuality, SectionMarks, TrackFeatures, TransitionClass,
+};
 pub use camelot::{camelot_distance, CamelotKey};
 pub use cue::{
     align_crossfade_to_downbeat, bar_secs, bars_per_phrase_for_genre, beat_secs, plan_segment_cues,

@@ -7,6 +7,7 @@ Living gap matrix. Updated 2026-11-09 after Firecrawl research (raw notes in loc
 | Surface | Competitor cue | AutoDJ status | Evidence |
 |---------|----------------|---------------|----------|
 | Offline automix render | djay Automix (playlist → continuous blend; Mix Now / cue points) | Parity-path MVP | `autodj-cli` `mix`; `crates/autodj-core/src/render.rs` |
+| Feature extraction (BPM/key/sections) | Rekordbox / djay prep analysis | Parity-path | `analysis.rs` `AnalysisQuality` + octave fold; gold `expected_analyze.json` regression |
 | Harmonic suggestions | Rekordbox / DJ.Studio Camelot ordering | Parity MVP | `camelot.rs`; `autodj-graph` `prefers_harmonic_neighbor` |
 | Energy-arc setcraft | Club open→peak→cool programming | Parity-path | `ArcPhase` + `pair_cost_at` + quiet opener; MixReport order |
 | Transition type palette | djay Filter / Echo / Tremolo / Riser / Neural Mix; SetFlow six-core (EQ, bass swap, cut, blend) | Parity-path | `eq.rs` + Softmax `TransitionModel` per-edge via `--transition-model` |
@@ -50,9 +51,10 @@ Formula note: `(competitor best − AutoDJ) × persona weight × mix_impact`. Be
 | **P5** | Tracklist ingest → policy hints | **Shipped** — offline JSON/CSV aggregate + `--policy-hints` |
 | **P6** | Train stub / transition classifier | **Shipped** — SoftmaxLogReg + gold holdout + `--transition-model` |
 | **P7** | Tauri desktop shell | **Shipped** — `apps/autodj-app` playlist → progress → export over CLI |
-| Next | Feature extraction hardening (#3) | analysis accuracy on gold loops |
+| **P8** | Feature extraction hardening | **Shipped** — BPM octave fold + `AnalysisQuality` + gold analyze gate |
+| Next | (ungated backlog clear of first-session epics) | prefer stems only with rights-cleared path; else polish / listening rubric |
 | Later | Stems, live dual-deck / controller | v2 / gated |
 
 ## Re-rank bias
 
-Prefer agent-doable product code that closes remaining mix-quality gaps (analysis hardening) before brochure fluff. Core offline mix loop + setcraft/train + desktop shell are in place.
+Prefer agent-doable product code that closes remaining mix-quality gaps before brochure fluff. First-session epics P0–P8 are in place; stems remain gated.

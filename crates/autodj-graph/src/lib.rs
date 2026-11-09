@@ -378,7 +378,7 @@ pub fn suggest_next_keys(current: CamelotKey) -> Vec<CamelotKey> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use autodj_core::{CamelotKey, SectionMarks, TrackFeatures};
+    use autodj_core::{AnalysisQuality, CamelotKey, SectionMarks, TrackFeatures};
 
     fn feat(bpm: f32, key: &str, loud: f32) -> TrackFeatures {
         TrackFeatures {
@@ -394,6 +394,7 @@ mod tests {
                 outro_start: 6.0,
             },
             spectral_centroid_hz: 1000.0,
+            quality: AnalysisQuality::default(),
         }
     }
 

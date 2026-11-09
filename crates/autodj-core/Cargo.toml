@@ -14,3 +14,4 @@ ebur128 = "0.1.11"
 
 [dev-dependencies]
 tempfile.workspace = true
+serde_json.workspace = true

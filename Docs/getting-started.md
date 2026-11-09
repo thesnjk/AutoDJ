@@ -36,6 +36,8 @@ Create `party.json`:
 cargo run -p autodj-cli -- analyze --input /absolute/path --db features.sqlite
 # analyze lines include bpm_conf / key_conf / sparse / octave_corr (AnalysisQuality)
 cargo run -p autodj-cli -- mix --playlist party.json --db features.sqlite --out mix.wav --genre house
+# MixReport includes beat_phase_mean_ms / beat_phase_gate_pass / true_peak / peak_gate_pass
+# --deterministic (default true): fixed −14 LUFS target + hard-fail beat-phase/peak gates
 
 # Optional setcraft / classifier overrides
 cargo run -p autodj-cli -- mix --playlist party.json --out mix.wav \

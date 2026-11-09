@@ -7,10 +7,10 @@ Automated gates (CI) plus listening checklist for v1+.
 | Check | Pass criterion |
 |-------|----------------|
 | Golden smoke CLI | `autodj mix --golden smoke` exits 0 and writes WAV |
-| Peak limit | True-peak proxy ≤ 0.99 full scale |
+| Peak limit | True-peak ≤ 0.99 full scale; MixReport `true_peak` + `peak_gate_pass` (hard-fail when `--deterministic`, default). Evidence: `loudness.rs`, golden smoke |
 | Integrated loudness (R128 / BS.1770) | After normalize, `integrated_lufs` within ±2 LU of `--lufs` (golden default −14 LUFS; use `--lufs -23` for classic EBU R 128). Evidence: `loudness.rs`, MixReport `loudness_gate_pass` |
 | Phrase / section cues | MixReport `cue_phrase_aligned: true`; cue windows from `plan_segment_cues` (evidence: `cue.rs`, unit snap tests). Crossfade durations snapped to whole beats. |
-| Beat-phase (v1) | Mean downbeat offset across transitions < 50 ms on gold loops — improved by WSOLA tempo blend on multi-BPM joins; unit coverage via `align_crossfade_to_downbeat` / `snap_to_phrase` / `stretch.rs` |
+| Beat-phase (v1) | Mean same-tempo join offset &lt; 50 ms; MixReport `beat_phase_mean_ms` + `beat_phase_gate_pass` (hard-fail when `--deterministic`). Evidence: `TrackFeatures.beat_offset_secs`, `mean_beat_phase_offset_ms`, golden smoke |
 | Tempo blend (multi-BPM) | Golden smoke (128→140) reports `tempo_blend_applied: true` (evidence: `stretch.rs`, `mix_buffers_with_meta`) |
 | Spectral continuity (v1) | Adjacent hop-RMS ratio ≤ 4.0 (`DEFAULT_MAX_FLUX_RATIO`); MixReport `spectral_continuity_pass` (evidence: `eval.rs`). Buffers with fewer than 8 hops skip-with-pass |
 | Solver unit tests | Harmonic neighbor preferred; energy-arc quiet opener + rise/fall (`autodj-graph` tests) |

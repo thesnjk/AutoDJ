@@ -29,12 +29,49 @@ pub fn beat_secs(bpm: f32) -> f64 {
 
 /// Snap `t` to the nearest phrase boundary (multiples of `bars_per_phrase` bars).
 pub fn snap_to_phrase(t: f64, bpm: f32, bars_per_phrase: u32) -> f64 {
+    snap_to_phrase_grid(t, bpm, bars_per_phrase, 0.0)
+}
+
+/// Snap `t` to the nearest phrase boundary relative to `beat_offset_secs`.
+pub fn snap_to_phrase_grid(t: f64, bpm: f32, bars_per_phrase: u32, beat_offset_secs: f64) -> f64 {
     let phrase = bar_secs(bpm) * bars_per_phrase.max(1) as f64;
     if phrase <= 0.0 || !t.is_finite() {
         return t.max(0.0);
     }
-    let n = (t / phrase).round();
-    (n * phrase).max(0.0)
+    let off = if beat_offset_secs.is_finite() {
+        beat_offset_secs.rem_euclid(phrase)
+    } else {
+        0.0
+    };
+    let rel = t - off;
+    let n = (rel / phrase).round();
+    (n * phrase + off).max(0.0)
+}
+
+/// Snap `t` to the nearest beat relative to `beat_offset_secs`.
+pub fn snap_to_beat_grid(t: f64, bpm: f32, beat_offset_secs: f64) -> f64 {
+    let beat = beat_secs(bpm);
+    if beat <= 0.0 || !t.is_finite() {
+        return t.max(0.0);
+    }
+    let off = if beat_offset_secs.is_finite() {
+        beat_offset_secs.rem_euclid(beat)
+    } else {
+        0.0
+    };
+    let rel = t - off;
+    let n = (rel / beat).round();
+    (n * beat + off).max(0.0)
+}
+
+/// Phrase snap when the track is long enough; otherwise beat-grid snap (short gold loops).
+fn snap_cue_time(t: f64, bpm: f32, bars_per_phrase: u32, beat_offset_secs: f64, dur: f64) -> f64 {
+    let phrase = bar_secs(bpm) * bars_per_phrase.max(1) as f64;
+    if dur < phrase * 0.9 {
+        snap_to_beat_grid(t, bpm, beat_offset_secs)
+    } else {
+        snap_to_phrase_grid(t, bpm, bars_per_phrase, beat_offset_secs)
+    }
 }
 
 /// Snap a duration so the crossfade lands on an integer number of beats (prefer nearest).
@@ -73,16 +110,17 @@ pub fn plan_segment_cues(
     let dur = feats.duration_secs.max(0.0);
     let bpm = feats.bpm.max(1.0);
 
+    let offset = feats.beat_offset_secs;
     let play_start = if is_first {
+        // Keep the head of the first track (short gold loops need the full buffer).
         0.0
     } else {
-        // Prefer the top of the track / early intro, snapped to phrase.
+        // Prefer early intro, snapped to phrase/beat grid.
         let raw = feats.sections.intro_end.min(dur * 0.25).max(0.0);
-        // For short loops, intro_end may be tiny — stay near 0.
         let candidate = if raw < bar_secs(bpm) {
             0.0
         } else {
-            snap_to_phrase(0.0, bpm, bars_per_phrase)
+            snap_cue_time(raw, bpm, bars_per_phrase, offset, dur)
         };
         candidate.clamp(0.0, (dur * 0.5).max(0.0))
     };
@@ -110,11 +148,13 @@ pub fn plan_segment_cues(
 
             xfade = align_crossfade_to_downbeat(xfade, bpm);
 
-            // End of play window: phrase-snap near outro_start + xfade (or duration).
+            // End of play window: grid-snap near outro_start + xfade (or duration).
             let raw_end = (feats.sections.outro_start + xfade as f64).min(dur);
-            let mut play_end = snap_to_phrase(raw_end, bpm, bars_per_phrase);
+            let mut play_end = snap_cue_time(raw_end, bpm, bars_per_phrase, offset, dur);
             if play_end <= play_start + xfade as f64 {
+                // Rescue without re-collapsing onto the first grid point.
                 play_end = (play_start + xfade as f64 + bar_secs(bpm)).min(dur);
+                play_end = snap_to_beat_grid(play_end, bpm, offset).clamp(play_start + xfade as f64, dur);
             }
             if play_end > dur {
                 play_end = dur;
@@ -155,8 +195,17 @@ mod tests {
                 outro_start: outro,
             },
             spectral_centroid_hz: 1000.0,
+            beat_offset_secs: 0.0,
             quality: crate::analysis::AnalysisQuality::default(),
         }
+    }
+
+    #[test]
+    fn snap_grid_respects_offset() {
+        let bpm = 120.0;
+        // 8 bars = 16 s; offset 0.5 s → nearest phrase to 16.4 is 16.5
+        let snapped = snap_to_phrase_grid(16.4, bpm, 8, 0.5);
+        assert!((snapped - 16.5).abs() < 1e-6, "got {snapped}");
     }
 
     #[test]

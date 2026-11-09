@@ -5,7 +5,7 @@
 - **Primary platform:** macOS Apple Silicon (`aarch64-apple-darwin`). Offline DSP is pure Rust (EQ, WSOLA tempo blend, R128 — no Linux-only audio backends).
 - Rust stable (1.75+)
 - Python 3.12+ (train package)
-- Optional: Tauri deps when building `apps/autodj-app`
+- Optional desktop: Node 20+ for `apps/autodj-app` (Tauri 2)
 - CI also runs the Rust suite on `macos-latest` and `ubuntu-latest` (hosted Mac runners need Actions minutes on private repos).
 
 ## First mix
@@ -35,6 +35,30 @@ Create `party.json`:
 ```bash
 cargo run -p autodj-cli -- analyze --input /absolute/path --db features.sqlite
 cargo run -p autodj-cli -- mix --playlist party.json --db features.sqlite --out mix.wav --genre house
+
+# Optional setcraft / classifier overrides
+cargo run -p autodj-cli -- mix --playlist party.json --out mix.wav \
+  --policy-hints python/autodj_train/datasets/aggregates/demo_policy_hints.json
+cargo run -p autodj-cli -- mix --playlist party.json --out mix.wav \
+  --transition-model python/autodj_train/models/artifacts/transition_model.json
 ```
 
 Keys/BPM in the playlist override analyzer estimates when present.
+
+Train gate (CI):
+
+```bash
+cd python && pip install -e ".[dev]"
+autodj-train eval --model autodj_train/models/artifacts/transition_model.json
+```
+
+## Desktop shell (Tauri)
+
+```bash
+cargo build -p autodj-cli
+cd apps/autodj-app
+npm install
+npm run tauri dev
+```
+
+Point the UI at a playlist JSON and output WAV. CLI resolution: `AUTODJ_BIN` → `autodj` on `PATH` → `cargo run -p autodj-cli` from the repo root.

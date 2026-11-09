@@ -14,7 +14,7 @@ Living gap matrix. Updated 2026-11-09 after Firecrawl research (raw notes in loc
 | Stems-aware transitions | Serato Stems (vocal / melody / bass / drums pads) | Gap | no stem DSP; deferred v2 |
 | Phrase sync | Rekordbox phrase analysis | Partial | energy `SectionMarks` + 4/8-bar phrase snap; full phrase ML later |
 | Learning from setcraft | Mixonset / tracklist research tools | Parity-path | tracklist aggregates + synthetic SoftmaxLogReg (`transition_model.json`); `autodj-train eval` ≥ 0.90 |
-| Live / controller | VirtualDJ / Serato dual-deck | Gap | `apps/autodj-app` README stub only |
+| Live / controller | VirtualDJ / Serato dual-deck | Parity-path (desktop shell) | Tauri 2 `apps/autodj-app` wraps CLI analyze/mix + progress events; live dual-deck still Later |
 | Loudness / broadcast | EBU R 128 (−23 LUFS integrated; true-peak limits); radio-style continuous sets | Parity-path (measure+norm shipped) | `loudness.rs` + CLI `--lufs`; golden gate ±2 LU (`Docs/mix-quality-rubric.md`) |
 | Tempo blend | djay Sync + Tempo Blend | Parity-path | `stretch.rs` WSOLA + `tempo_blend_head`; MixReport `tempo_blend_applied` (gold 128→140) |
 | Spectral continuity eval | Mix-quality rubric adjacent flux | Parity-path | `eval.rs` hop-RMS ratio; MixReport `spectral_continuity_pass` |
@@ -34,6 +34,7 @@ Living gap matrix. Updated 2026-11-09 after Firecrawl research (raw notes in loc
 - Mixonset: no stable public API docs scraped this pass; keep train path synthetic-only until a lawful ingest path is documented.
 - YouTube full-set scrapes: **forbidden** per `Docs/legal-data-policy.md`.
 - Live 1001Tracklists / Beatport HTTP clients: **gated** (ToS / anti-bot / paid API); use offline JSON/CSV fixtures + curated citations only.
+- Tauri CI on ubuntu WebKit: **deferred** this pass — Mac-local `npm run tauri dev` / `cargo check -p` via `apps/autodj-app/src-tauri`; existing Rust/python CI unchanged.
 
 ## Persona re-rank (mix_impact × gap)
 
@@ -48,9 +49,10 @@ Formula note: `(competitor best − AutoDJ) × persona weight × mix_impact`. Be
 | **P4** | Solver energy arc + spectral continuity gate | **Shipped** — `ArcPhase` solver + `eval.rs` golden gate |
 | **P5** | Tracklist ingest → policy hints | **Shipped** — offline JSON/CSV aggregate + `--policy-hints` |
 | **P6** | Train stub / transition classifier | **Shipped** — SoftmaxLogReg + gold holdout + `--transition-model` |
-| Next | Tauri shell (#8) | thin desktop over CLI/core |
-| Later | Stems, live controller | v2 / gated |
+| **P7** | Tauri desktop shell | **Shipped** — `apps/autodj-app` playlist → progress → export over CLI |
+| Next | Feature extraction hardening (#3) | analysis accuracy on gold loops |
+| Later | Stems, live dual-deck / controller | v2 / gated |
 
 ## Re-rank bias
 
-Prefer agent-doable product code that closes remaining product gaps (Tauri) before brochure fluff. Core offline mix-quality loop + setcraft stats→hints + transition classifier path is in place.
+Prefer agent-doable product code that closes remaining mix-quality gaps (analysis hardening) before brochure fluff. Core offline mix loop + setcraft/train + desktop shell are in place.

@@ -1,15 +1,34 @@
-# autodj-app (Tauri 2 stub)
+# autodj-app (Tauri 2)
 
-Desktop shell that will queue a playlist, show analyze/mix progress, and export WAV via `autodj-cli` / `autodj-core`.
+Desktop shell: pick a playlist JSON, run analyze/mix via `autodj-cli`, watch progress, export WAV.
 
-**Status:** stub only — scaffold Tauri 2 in a dedicated PR after CLI MVP is green on CI.
+**UI language:** AutoDJ’s own (not RouteFinder GlassmorphicModifiers).
 
-Planned:
+## Dev (macOS Apple Silicon)
+
+From the AutoDJ repo root:
+
+```bash
+# Ensure CLI builds
+cargo build -p autodj-cli
+
+cd apps/autodj-app
+npm install
+npm run tauri dev
+```
+
+Resolution order for the CLI:
+
+1. `AUTODJ_BIN` env (absolute path to `autodj`)
+2. `autodj` on `PATH`
+3. `cargo run -p autodj-cli` from the repo root (auto-detected)
+
+Optional: `AUTODJ_REPO_ROOT` if the app cannot find the workspace.
+
+## Layout
 
 ```text
 apps/autodj-app/
-  src/           # web UI
-  src-tauri/     # Rust commands wrapping autodj-core
+  src/           # Vite + TypeScript UI
+  src-tauri/     # Tauri commands wrapping autodj-cli
 ```
-
-Do not depend on RouteFinder `GlassmorphicModifiers`; AutoDJ defines its own UI language.

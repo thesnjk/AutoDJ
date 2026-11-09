@@ -1,9 +1,9 @@
 # Architecture
 
 ```
-playlist / library
-        │
-        ▼
+playlist / library ──► apps/autodj-app (Tauri) ──┐
+        │                                         │
+        ▼                                         ▼
  autodj-io ──► autodj-core (analyze + sections) ──► SQLite feature cache
         │
         ▼
@@ -19,12 +19,13 @@ playlist / library
 autodj_train: synth → SoftmaxLogReg JSON + tracklist aggregate → policy_hints
 ```
 
-## Crates
+## Crates / app
 
 - **autodj-io** — PCM containers + `slice_secs`.
 - **autodj-core** — feature extraction, cue planner, EQ, WSOLA, R128, spectral continuity eval (`eval.rs`). Pure Rust; primary target macOS Apple Silicon.
 - **autodj-graph** — greedy NN solver with energy-arc phases + genre policy weights; `PolicyHintOverride` / `with_hints`; optional `TransitionModel` per-edge class.
 - **autodj-cli** — user-facing analyze/mix; `--policy-hints`; `--transition-model`; golden smoke for CI.
+- **autodj-app** — Tauri 2 desktop shell; invokes CLI via `AUTODJ_BIN` / PATH / `cargo run -p autodj-cli`; emits `autodj-progress` events. Excluded from the Cargo workspace (`workspace.exclude`).
 
 ## Train / runtime split
 

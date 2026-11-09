@@ -1,0 +1,231 @@
+@import url("https://fonts.googleapis.com/css2?family=Syne:wght@600;700&family=IBM+Plex+Sans:wght@400;500&family=IBM+Plex+Mono:wght@400;500&display=swap");
+
+:root {
+  --bg-0: #0c0e12;
+  --bg-1: #141820;
+  --ink: #e8e4dc;
+  --muted: #9a958a;
+  --accent: #c4a35a;
+  --accent-dim: #8a7340;
+  --line: rgba(232, 228, 220, 0.12);
+  --danger: #c45a5a;
+  --ok: #6a9a72;
+  --font-display: "Syne", sans-serif;
+  --font-body: "IBM Plex Sans", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+  color: var(--ink);
+  font-family: var(--font-body);
+  background: var(--bg-0);
+}
+
+.atmosphere {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 80% 50% at 20% -10%, rgba(196, 163, 90, 0.14), transparent 55%),
+    radial-gradient(ellipse 60% 40% at 100% 100%, rgba(40, 55, 70, 0.45), transparent 50%),
+    linear-gradient(165deg, #0c0e12 0%, #12161d 45%, #0a0c10 100%);
+}
+
+.shell {
+  position: relative;
+  z-index: 1;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 2.5rem 1.5rem 3rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.75rem;
+}
+
+.hero {
+  animation: rise 0.7s ease-out both;
+}
+
+.brand {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: clamp(2.75rem, 8vw, 3.75rem);
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+
+.tagline {
+  margin: 0.5rem 0 0;
+  color: var(--muted);
+  font-size: 1.05rem;
+  letter-spacing: 0.02em;
+}
+
+.controls {
+  display: grid;
+  gap: 0.85rem;
+  animation: rise 0.7s ease-out 0.08s both;
+}
+
+.controls label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+
+.controls label.optional {
+  opacity: 0.85;
+}
+
+.controls input,
+.controls select {
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--ink);
+  background: var(--bg-1);
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  padding: 0.65rem 0.75rem;
+  outline: none;
+}
+
+.controls input:focus,
+.controls select:focus {
+  border-color: var(--accent-dim);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-top: 0.4rem;
+}
+
+button {
+  font-family: var(--font-body);
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--ink);
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  padding: 0.65rem 1.1rem;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease, transform 0.15s ease;
+}
+
+button:hover:not(:disabled) {
+  border-color: var(--accent-dim);
+}
+
+button:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+button:disabled {
+  opacity: 0.45;
+  cursor: wait;
+}
+
+button.primary {
+  background: var(--accent);
+  color: #14110a;
+  border-color: var(--accent);
+}
+
+button.primary:hover:not(:disabled) {
+  background: #d4b56a;
+  border-color: #d4b56a;
+}
+
+.status {
+  animation: rise 0.7s ease-out 0.14s both;
+}
+
+.meta {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  color: var(--muted);
+  word-break: break-all;
+}
+
+.report {
+  margin: 0.75rem 0 0;
+  padding: 0.85rem 1rem;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  line-height: 1.45;
+  background: rgba(20, 24, 32, 0.85);
+  border-left: 2px solid var(--ok);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.report.error {
+  border-left-color: var(--danger);
+}
+
+.log-wrap {
+  animation: rise 0.7s ease-out 0.2s both;
+}
+
+.log-title {
+  margin: 0 0 0.5rem;
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.log {
+  margin: 0;
+  min-height: 8rem;
+  max-height: 14rem;
+  overflow: auto;
+  padding: 0.85rem 1rem;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  line-height: 1.4;
+  color: var(--muted);
+  background: rgba(8, 10, 14, 0.7);
+  border: 1px solid var(--line);
+  border-radius: 2px;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero,
+  .controls,
+  .status,
+  .log-wrap {
+    animation: none;
+  }
+}

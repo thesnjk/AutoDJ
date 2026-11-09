@@ -8,6 +8,7 @@ Living gap matrix. Updated 2026-11-09 after Firecrawl research (raw notes in loc
 |---------|----------------|---------------|----------|
 | Offline automix render | djay Automix (playlist → continuous blend; Mix Now / cue points) | Parity-path MVP | `autodj-cli` `mix`; `crates/autodj-core/src/render.rs` |
 | Harmonic suggestions | Rekordbox / DJ.Studio Camelot ordering | Parity MVP | `camelot.rs`; `autodj-graph` `prefers_harmonic_neighbor` |
+| Energy-arc setcraft | Club open→peak→cool programming | Parity-path | `ArcPhase` + `pair_cost_at` + quiet opener; MixReport order |
 | Transition type palette | djay Filter / Echo / Tremolo / Riser / Neural Mix; SetFlow six-core (EQ, bass swap, cut, blend) | Parity-path | `eq.rs` EqSwap / FilterSweep / EchoOut; house policy uses bass-swap |
 | Mix-in / mix-out cueing | VirtualDJ Smart automix (outro→intro ~4–8s); djay start/end points | Parity-path | `cue.rs` `plan_segment_cues`; CLI slices via `AudioBuffer::slice_secs`; MixReport `cue_phrase_aligned` |
 | Stems-aware transitions | Serato Stems (vocal / melody / bass / drums pads) | Gap | no stem DSP; deferred v2 |
@@ -16,6 +17,7 @@ Living gap matrix. Updated 2026-11-09 after Firecrawl research (raw notes in loc
 | Live / controller | VirtualDJ / Serato dual-deck | Gap | `apps/autodj-app` README stub only |
 | Loudness / broadcast | EBU R 128 (−23 LUFS integrated; true-peak limits); radio-style continuous sets | Parity-path (measure+norm shipped) | `loudness.rs` + CLI `--lufs`; golden gate ±2 LU (`Docs/mix-quality-rubric.md`) |
 | Tempo blend | djay Sync + Tempo Blend | Parity-path | `stretch.rs` WSOLA + `tempo_blend_head`; MixReport `tempo_blend_applied` (gold 128→140) |
+| Spectral continuity eval | Mix-quality rubric adjacent flux | Parity-path | `eval.rs` hop-RMS ratio; MixReport `spectral_continuity_pass` |
 
 ## Citations (paraphrase + link only)
 
@@ -42,8 +44,9 @@ Formula note: `(competitor best − AutoDJ) × persona weight × mix_impact`. Be
 | **P1** | Phrase / section-aware cue points | **Shipped** — `cue.rs` + energy section marks; keep `cue_phrase_aligned` in golden JSON |
 | **P2** | 3-band EQ / bass-swap transition classes | **Shipped** — `eq.rs` + renderer wiring; `macos-latest` CI + local Apple Silicon verify |
 | **P3** | Tempo blend / stretch | **Shipped** — WSOLA tempo blend on xfade heads; keep `tempo_blend_applied` on golden |
-| Later | Stems, live controller, setcraft learning, spectral continuity CI | v2 / gated |
+| **P4** | Solver energy arc + spectral continuity gate | **Shipped** — `ArcPhase` solver + `eval.rs` golden gate |
+| Later | Stems, live controller, setcraft learning, Tauri shell, tracklist ingest | v2 / gated |
 
 ## Re-rank bias
 
-Prefer agent-doable product code that closes remaining **mix_impact** gaps (spectral continuity metric, solver energy arc) before UI chrome. R128 + phrase cues + EQ swap + tempo blend are in place.
+Prefer agent-doable product code that closes remaining product gaps (tracklist stats ingest, train stub, Tauri) before brochure fluff. Core offline mix-quality loop (R128, cues, EQ, tempo, energy arc, spectral gate) is in place.

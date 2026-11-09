@@ -5,9 +5,10 @@ use std::path::{Path, PathBuf};
 
 use anyhow::{bail, Context, Result};
 use autodj_core::{
-    analyze_path, bars_per_phrase_for_genre, measure_loudness, mix_buffers_with_meta,
-    normalize_loudness, plan_segment_cues, within_lufs_tolerance, CamelotKey, CrossfadeParams,
-    MixPlan, MixSegment, TrackFeatures, TransitionClass, DEFAULT_TARGET_LUFS, LUFS_TOLERANCE_LU,
+    adjacent_flux_ratio, analyze_path, bars_per_phrase_for_genre, measure_loudness,
+    mix_buffers_with_meta, normalize_loudness, plan_segment_cues, spectral_continuity_pass,
+    within_lufs_tolerance, CamelotKey, CrossfadeParams, MixPlan, MixSegment, TrackFeatures,
+    TransitionClass, DEFAULT_MAX_FLUX_RATIO, DEFAULT_TARGET_LUFS, LUFS_TOLERANCE_LU,
 };
 use autodj_graph::{solve_order, GenrePolicy};
 use autodj_io::{read_wav, write_wav};
@@ -96,6 +97,10 @@ struct MixReport {
     cue_phrase_aligned: bool,
     /// True when any adjacent pair used WSOLA tempo blend (|ΔBPM| ≥ 0.5).
     tempo_blend_applied: bool,
+    /// Adjacent spectral-flux ratio (max/median); lower is smoother.
+    spectral_flux_ratio: f32,
+    /// Whether spectral continuity is within genre default bounds.
+    spectral_continuity_pass: bool,
 }
 
 #[derive(Debug, Serialize)]
@@ -199,7 +204,8 @@ fn cmd_mix(
         features.push(feats);
     }
 
-    let solution = solve_order(&features, &policy, Some(0));
+    // Free start → quiet opener within BPM band (energy-arc setcraft).
+    let solution = solve_order(&features, &policy, None);
     let phrase_bars = bars_per_phrase_for_genre(&policy.id);
     let mut segments = Vec::new();
     let mut cue_reports = Vec::new();
@@ -283,6 +289,16 @@ fn cmd_mix(
         }
     };
 
+    let spectral_flux_ratio = adjacent_flux_ratio(&mixed);
+    let spectral_ok = spectral_continuity_pass(spectral_flux_ratio, DEFAULT_MAX_FLUX_RATIO);
+    if !spectral_ok {
+        bail!(
+            "spectral continuity gate failed: flux ratio {:.2} > max {:.2}",
+            spectral_flux_ratio,
+            DEFAULT_MAX_FLUX_RATIO
+        );
+    }
+
     write_wav(out, &mixed)?;
 
     let report = MixReport {
@@ -306,6 +322,8 @@ fn cmd_mix(
         cues: cue_reports,
         cue_phrase_aligned: true,
         tempo_blend_applied,
+        spectral_flux_ratio,
+        spectral_continuity_pass: spectral_ok,
     };
     println!("{}", serde_json::to_string_pretty(&report)?);
     Ok(())

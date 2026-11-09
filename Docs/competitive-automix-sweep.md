@@ -8,7 +8,7 @@ Living gap matrix. Updated 2026-11-09 after Firecrawl research (raw notes in loc
 |---------|----------------|---------------|----------|
 | Offline automix render | djay Automix (playlist → continuous blend; Mix Now / cue points) | Parity-path MVP | `autodj-cli` `mix`; `crates/autodj-core/src/render.rs` |
 | Harmonic suggestions | Rekordbox / DJ.Studio Camelot ordering | Parity MVP | `camelot.rs`; `autodj-graph` `prefers_harmonic_neighbor` |
-| Transition type palette | djay Filter / Echo / Tremolo / Riser / Neural Mix; SetFlow six-core (EQ, bass swap, cut, blend) | Partial | `TransitionClass` enum in `analysis.rs`; renderer mostly equal-power crossfade |
+| Transition type palette | djay Filter / Echo / Tremolo / Riser / Neural Mix; SetFlow six-core (EQ, bass swap, cut, blend) | Parity-path | `eq.rs` EqSwap / FilterSweep / EchoOut; house policy uses bass-swap |
 | Mix-in / mix-out cueing | VirtualDJ Smart automix (outro→intro ~4–8s); djay start/end points | Parity-path | `cue.rs` `plan_segment_cues`; CLI slices via `AudioBuffer::slice_secs`; MixReport `cue_phrase_aligned` |
 | Stems-aware transitions | Serato Stems (vocal / melody / bass / drums pads) | Gap | no stem DSP; deferred v2 |
 | Phrase sync | Rekordbox phrase analysis | Partial | energy `SectionMarks` + 4/8-bar phrase snap; full phrase ML later |
@@ -40,10 +40,10 @@ Formula note: `(competitor best − AutoDJ) × persona weight × mix_impact`. Be
 |----------|-----|-----|
 | **P0** | EBU R128 normalize + CI loudness gate | **Shipped** — keep regression via golden `loudness_gate_pass` |
 | **P1** | Phrase / section-aware cue points | **Shipped** — `cue.rs` + energy section marks; keep `cue_phrase_aligned` in golden JSON |
-| **P2** | 3-band EQ / bass-swap transition classes | SetFlow + house/techno policy; cues now available to land EQ swaps |
+| **P2** | 3-band EQ / bass-swap transition classes | **Shipped** — `eq.rs` + renderer wiring; `macos-latest` CI + local Apple Silicon verify |
 | **P3** | Tempo blend / stretch | djay Sync+Tempo Blend; higher DSP risk |
 | Later | Stems, live controller, setcraft learning | v2 / gated |
 
 ## Re-rank bias
 
-Prefer agent-doable product code that closes **mix_impact** gaps (EQ swap DSP next) before UI chrome. R128 + phrase cues are in place.
+Prefer agent-doable product code that closes **mix_impact** gaps (tempo blend next) before UI chrome. R128 + phrase cues + EQ swap are in place.

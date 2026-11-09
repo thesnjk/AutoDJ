@@ -13,11 +13,13 @@ Automated gates (CI) plus listening checklist for v1+.
 | Beat-phase (v1) | Mean downbeat offset across transitions < 50 ms on gold loops — **partial**: unit coverage via `align_crossfade_to_downbeat` / `snap_to_phrase`; multi-BPM join metric TBD |
 | Spectral continuity (v1) | Adjacent-window flux ratio within genre policy bounds |
 | Solver unit tests | Harmonic neighbor preferred over distant key when BPM similar |
+| EQ / bass-swap DSP | `eq_swap_gains` + `apply_eq_swap_crossfade` unit tests; house golden uses `EqSwap` (evidence: `eq.rs`, `render.rs`) |
+| macOS native CI | Rust job on `macos-latest` (Apple Silicon hosted) plus `ubuntu-latest`; local `aarch64-apple-darwin` verify required when hosted Mac runners are unavailable |
 
 ## Listening checklist (human)
 
 - [ ] Transitions feel phrase-aware on real tracks (automated planner covers gold; listen for awkward early cuts)
-- [ ] Bass conflict avoided during EQ-swap style blends
+- [ ] Bass conflict avoided during EQ-swap blends (automated bass ducking in `eq.rs`; listen for mud on real vinyl rips)
 - [ ] Energy arc matches genre (house long blend vs DnB snap)
 - [ ] No obvious clicks/pops at join points
 - [ ] Subjective loudness even across the set (automated gate covers ±2 LU; listen for pumping / over-limiting)

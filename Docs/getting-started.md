@@ -2,9 +2,11 @@
 
 ## Prerequisites
 
+- **Primary platform:** macOS Apple Silicon (`aarch64-apple-darwin`). Offline DSP is pure Rust (no Linux-only audio backends).
 - Rust stable (1.75+)
 - Python 3.12+ (train package)
 - Optional: Tauri deps when building `apps/autodj-app`
+- CI also runs the Rust suite on `macos-latest` and `ubuntu-latest` (hosted Mac runners need Actions minutes on private repos).
 
 ## First mix
 

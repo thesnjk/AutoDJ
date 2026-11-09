@@ -6,6 +6,7 @@ use crate::analysis::TransitionClass;
 use crate::eq::{
     apply_echo_out_crossfade, apply_eq_swap_crossfade, apply_filter_sweep_crossfade,
 };
+use crate::stretch::{should_tempo_blend, tempo_blend_head};
 
 /// One segment in a rendered mix.
 #[derive(Debug, Clone)]
@@ -42,16 +43,34 @@ impl Default for CrossfadeParams {
     }
 }
 
+/// Result of rendering a mix, including whether tempo blend ran.
+#[derive(Debug, Clone)]
+pub struct MixRenderResult {
+    /// Interleaved stereo PCM.
+    pub buffer: AudioBuffer,
+    /// True if any crossfade applied WSOLA tempo blend (|ΔBPM| ≥ epsilon).
+    pub tempo_blend_applied: bool,
+}
+
 /// Render a [`MixPlan`] to an interleaved stereo buffer, then limit peaks.
 pub fn mix_buffers(plan: &MixPlan, params: CrossfadeParams) -> AudioBuffer {
+    mix_buffers_with_meta(plan, params).buffer
+}
+
+/// Render a mix and report whether tempo blend was applied.
+pub fn mix_buffers_with_meta(plan: &MixPlan, params: CrossfadeParams) -> MixRenderResult {
     let sr = plan.sample_rate;
     let mut out: Vec<f32> = Vec::new();
+    let mut tempo_blend_applied = false;
 
     if plan.segments.is_empty() {
-        return AudioBuffer {
-            sample_rate: sr,
-            channels: 2,
-            samples: out,
+        return MixRenderResult {
+            buffer: AudioBuffer {
+                sample_rate: sr,
+                channels: 2,
+                samples: out,
+            },
+            tempo_blend_applied: false,
         };
     }
 
@@ -84,10 +103,14 @@ pub fn mix_buffers(plan: &MixPlan, params: CrossfadeParams) -> AudioBuffer {
         if let Some(next_seg) = next {
             let next_mono = &monos[idx + 1];
             let a_tail = &mono[mono.len() - xfade..];
-            let b_head = &next_mono[..xfade];
+            let b_raw = &next_mono[..xfade];
+            if should_tempo_blend(seg.bpm, next_seg.bpm) {
+                tempo_blend_applied = true;
+            }
+            let b_head = tempo_blend_head(b_raw, sr, seg.bpm, next_seg.bpm);
             let wet = crossfade_mono(
                 a_tail,
-                b_head,
+                &b_head,
                 sr,
                 seg.transition,
                 params.equal_power,
@@ -112,10 +135,13 @@ pub fn mix_buffers(plan: &MixPlan, params: CrossfadeParams) -> AudioBuffer {
     }
 
     limit_inplace(&mut out, 0.99);
-    AudioBuffer {
-        sample_rate: sr,
-        channels: 2,
-        samples: out,
+    MixRenderResult {
+        buffer: AudioBuffer {
+            sample_rate: sr,
+            channels: 2,
+            samples: out,
+        },
+        tempo_blend_applied,
     }
 }
 
@@ -304,6 +330,39 @@ mod tests {
         let out = mix_buffers(&plan, CrossfadeParams::default());
         assert!(out.samples.iter().all(|s| s.is_finite()));
         let peak = out.samples.iter().copied().map(f32::abs).fold(0.0, f32::max);
+        assert!(peak <= 1.0);
+    }
+
+    #[test]
+    fn tempo_blend_mismatch_bpm_stays_finite() {
+        let sr = 44100;
+        let plan = MixPlan {
+            sample_rate: sr,
+            segments: vec![
+                MixSegment {
+                    buffer: tone(sr, 2.0, 220.0),
+                    bpm: 120.0,
+                    crossfade_secs: 1.0,
+                    transition: TransitionClass::LinearCrossfade,
+                },
+                MixSegment {
+                    buffer: tone(sr, 2.0, 330.0),
+                    bpm: 140.0,
+                    crossfade_secs: 0.0,
+                    transition: TransitionClass::HardCut,
+                },
+            ],
+        };
+        let result = mix_buffers_with_meta(&plan, CrossfadeParams::default());
+        assert!(result.tempo_blend_applied);
+        assert!(result.buffer.samples.iter().all(|s| s.is_finite()));
+        let peak = result
+            .buffer
+            .samples
+            .iter()
+            .copied()
+            .map(f32::abs)
+            .fold(0.0, f32::max);
         assert!(peak <= 1.0);
     }
 }

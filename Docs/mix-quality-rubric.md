@@ -10,7 +10,8 @@ Automated gates (CI) plus listening checklist for v1+.
 | Peak limit | True-peak proxy ≤ 0.99 full scale |
 | Integrated loudness (R128 / BS.1770) | After normalize, `integrated_lufs` within ±2 LU of `--lufs` (golden default −14 LUFS; use `--lufs -23` for classic EBU R 128). Evidence: `loudness.rs`, MixReport `loudness_gate_pass` |
 | Phrase / section cues | MixReport `cue_phrase_aligned: true`; cue windows from `plan_segment_cues` (evidence: `cue.rs`, unit snap tests). Crossfade durations snapped to whole beats. |
-| Beat-phase (v1) | Mean downbeat offset across transitions < 50 ms on gold loops — **partial**: unit coverage via `align_crossfade_to_downbeat` / `snap_to_phrase`; multi-BPM join metric TBD |
+| Beat-phase (v1) | Mean downbeat offset across transitions < 50 ms on gold loops — improved by WSOLA tempo blend on multi-BPM joins; unit coverage via `align_crossfade_to_downbeat` / `snap_to_phrase` / `stretch.rs` |
+| Tempo blend (multi-BPM) | Golden smoke (128→140) reports `tempo_blend_applied: true` (evidence: `stretch.rs`, `mix_buffers_with_meta`) |
 | Spectral continuity (v1) | Adjacent-window flux ratio within genre policy bounds |
 | Solver unit tests | Harmonic neighbor preferred over distant key when BPM similar |
 | EQ / bass-swap DSP | `eq_swap_gains` + `apply_eq_swap_crossfade` unit tests; house golden uses `EqSwap` (evidence: `eq.rs`, `render.rs`) |
@@ -23,5 +24,6 @@ Automated gates (CI) plus listening checklist for v1+.
 - [ ] Energy arc matches genre (house long blend vs DnB snap)
 - [ ] No obvious clicks/pops at join points
 - [ ] Subjective loudness even across the set (automated gate covers ±2 LU; listen for pumping / over-limiting)
+- [ ] Large BPM gaps (±15%+) — WSOLA may sound warbly; prefer solver avoid or listen-test |
 
 Fail any automated row → block merge. Listening fails → open follow-up issue, do not paper over with doc-only checkboxes.

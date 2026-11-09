@@ -13,6 +13,7 @@ Automated gates (CI) plus listening checklist for v1+.
 | Beat-phase (v1) | Mean same-tempo join offset &lt; 50 ms; MixReport `beat_phase_mean_ms` + `beat_phase_gate_pass` (hard-fail when `--deterministic`). Evidence: `TrackFeatures.beat_offset_secs`, `mean_beat_phase_offset_ms`, golden smoke |
 | Tempo blend (multi-BPM) | Golden smoke (128→140) reports `tempo_blend_applied: true` (evidence: `stretch.rs`, `mix_buffers_with_meta`) |
 | Spectral continuity (v1) | Adjacent hop-RMS ratio ≤ 4.0 (`DEFAULT_MAX_FLUX_RATIO`); MixReport `spectral_continuity_pass` (evidence: `eval.rs`). Buffers with fewer than 8 hops skip-with-pass |
+| Join continuity (clicks/pops) | Worst join-neighborhood hop-RMS ratio ≤ 6.0 (`DEFAULT_JOIN_FLUX_RATIO`); MixReport `max_join_flux_ratio` + `join_continuity_pass` (hard-fail when `--deterministic`). Hard cuts (`xfade=0`) skipped. Evidence: `eval.rs`, `MixRenderResult.join_sample_indices` |
 | Solver unit tests | Harmonic neighbor preferred; energy-arc quiet opener + rise/fall (`autodj-graph` tests) |
 | EQ / bass-swap DSP | `eq_swap_gains` + `apply_eq_swap_crossfade` unit tests; house golden uses `EqSwap` (evidence: `eq.rs`, `render.rs`) |
 | Transition classifier (train gate) | `autodj-train eval` accuracy ≥ 0.90 on `eval/gold/synthetic_holdout.jsonl` (evidence: `SoftmaxLogReg`, CI python job). Golden WAV still uses genre `preferred_transition` unless `--transition-model` is passed |
@@ -24,7 +25,7 @@ Automated gates (CI) plus listening checklist for v1+.
 - [ ] Transitions feel phrase-aware on real tracks (automated planner covers gold; listen for awkward early cuts)
 - [ ] Bass conflict avoided during EQ-swap blends (automated bass ducking in `eq.rs`; listen for mud on real vinyl rips)
 - [ ] Energy arc matches genre (house long blend vs DnB snap)
-- [ ] No obvious clicks/pops at join points
+- [ ] No obvious clicks/pops at join points (automated join-flux gate covers gold; listen for residual on real vinyl)
 - [ ] Subjective loudness even across the set (automated gate covers ±2 LU; listen for pumping / over-limiting)
 - [ ] Large BPM gaps (±15%+) — WSOLA may sound warbly; prefer solver avoid or listen-test |
 

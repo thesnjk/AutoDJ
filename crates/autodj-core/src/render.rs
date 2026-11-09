@@ -50,6 +50,10 @@ pub struct MixRenderResult {
     pub buffer: AudioBuffer,
     /// True if any crossfade applied WSOLA tempo blend (|ΔBPM| ≥ epsilon).
     pub tempo_blend_applied: bool,
+    /// Mono-frame indices where each non-trivial crossfade starts in the output timeline.
+    ///
+    /// Used by join-local continuity scoring. Hard cuts (`crossfade` length 0) are omitted.
+    pub join_sample_indices: Vec<usize>,
 }
 
 /// Render a [`MixPlan`] to an interleaved stereo buffer, then limit peaks.
@@ -63,6 +67,8 @@ pub fn mix_buffers_with_meta(plan: &MixPlan, params: CrossfadeParams) -> MixRend
     let mut out: Vec<f32> = Vec::new();
     let mut tempo_blend_applied = false;
 
+    let mut join_sample_indices = Vec::new();
+
     if plan.segments.is_empty() {
         return MixRenderResult {
             buffer: AudioBuffer {
@@ -71,6 +77,7 @@ pub fn mix_buffers_with_meta(plan: &MixPlan, params: CrossfadeParams) -> MixRend
                 samples: out,
             },
             tempo_blend_applied: false,
+            join_sample_indices,
         };
     }
 
@@ -102,6 +109,10 @@ pub fn mix_buffers_with_meta(plan: &MixPlan, params: CrossfadeParams) -> MixRend
 
         if let Some(next_seg) = next {
             let next_mono = &monos[idx + 1];
+            // Mono-frame index at the start of this crossfade in the output timeline.
+            if xfade > 0 {
+                join_sample_indices.push(out.len() / 2);
+            }
             let a_tail = &mono[mono.len() - xfade..];
             let b_raw = &next_mono[..xfade];
             if should_tempo_blend(seg.bpm, next_seg.bpm) {
@@ -142,6 +153,7 @@ pub fn mix_buffers_with_meta(plan: &MixPlan, params: CrossfadeParams) -> MixRend
             samples: out,
         },
         tempo_blend_applied,
+        join_sample_indices,
     }
 }
 
@@ -355,6 +367,8 @@ mod tests {
         };
         let result = mix_buffers_with_meta(&plan, CrossfadeParams::default());
         assert!(result.tempo_blend_applied);
+        assert_eq!(result.join_sample_indices.len(), 1);
+        assert!(result.join_sample_indices[0] < result.buffer.frames());
         assert!(result.buffer.samples.iter().all(|s| s.is_finite()));
         let peak = result
             .buffer

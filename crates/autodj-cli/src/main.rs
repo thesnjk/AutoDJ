@@ -6,10 +6,11 @@ use std::path::{Path, PathBuf};
 use anyhow::{bail, Context, Result};
 use autodj_core::{
     adjacent_flux_ratio, analyze_path, bars_per_phrase_for_genre, beat_phase_gate_pass,
-    mean_beat_phase_offset_ms, measure_loudness, mix_buffers_with_meta, normalize_loudness,
-    parse_rekordbox_xml, peak_gate_pass, plan_segment_cues, spectral_continuity_pass,
-    within_lufs_tolerance, BeatPhaseCue, CamelotKey, CrossfadeParams, MixPlan, MixSegment,
-    TrackFeatures, TransitionClass, DEFAULT_BEAT_PHASE_LIMIT_MS, DEFAULT_MAX_FLUX_RATIO,
+    join_continuity_pass, max_join_flux_ratio, mean_beat_phase_offset_ms, measure_loudness,
+    mix_buffers_with_meta, normalize_loudness, parse_rekordbox_xml, peak_gate_pass,
+    plan_segment_cues, spectral_continuity_pass, within_lufs_tolerance, BeatPhaseCue, CamelotKey,
+    CrossfadeParams, MixPlan, MixSegment, TrackFeatures, TransitionClass,
+    DEFAULT_BEAT_PHASE_LIMIT_MS, DEFAULT_JOIN_FLUX_RATIO, DEFAULT_MAX_FLUX_RATIO,
     DEFAULT_TARGET_LUFS, DEFAULT_TRUE_PEAK_LIMIT, LUFS_TOLERANCE_LU,
 };
 use autodj_graph::{
@@ -123,6 +124,10 @@ struct MixReport {
     spectral_flux_ratio: f32,
     /// Whether spectral continuity is within genre default bounds.
     spectral_continuity_pass: bool,
+    /// Worst join-local hop-RMS ratio across crossfade neighborhoods.
+    max_join_flux_ratio: f32,
+    /// Whether join-local flux is under [`DEFAULT_JOIN_FLUX_RATIO`].
+    join_continuity_pass: bool,
     /// Mean absolute downbeat join offset across same-tempo edges (ms).
     beat_phase_mean_ms: f32,
     /// Whether [`beat_phase_mean_ms`] is under the 50 ms rubric limit.
@@ -423,6 +428,7 @@ fn cmd_mix(
     let rendered = mix_buffers_with_meta(&plan, CrossfadeParams::default());
     let mut mixed = rendered.buffer;
     let tempo_blend_applied = rendered.tempo_blend_applied;
+    let join_sample_indices = rendered.join_sample_indices;
 
     let (integrated_lufs, loudness_gate_pass, true_peak) = if let Some(target) = target_lufs {
         let report = normalize_loudness(&mut mixed, target)
@@ -455,6 +461,16 @@ fn cmd_mix(
             "spectral continuity gate failed: flux ratio {:.2} > max {:.2}",
             spectral_flux_ratio,
             DEFAULT_MAX_FLUX_RATIO
+        );
+    }
+
+    let max_join_flux = max_join_flux_ratio(&mixed, &join_sample_indices);
+    let join_ok = join_continuity_pass(max_join_flux, DEFAULT_JOIN_FLUX_RATIO);
+    if deterministic && !join_ok {
+        bail!(
+            "join continuity gate failed: max join flux {:.2} > max {:.2}",
+            max_join_flux,
+            DEFAULT_JOIN_FLUX_RATIO
         );
     }
 
@@ -515,6 +531,8 @@ fn cmd_mix(
         tempo_blend_applied,
         spectral_flux_ratio,
         spectral_continuity_pass: spectral_ok,
+        max_join_flux_ratio: max_join_flux,
+        join_continuity_pass: join_ok,
         beat_phase_mean_ms,
         beat_phase_gate_pass: beat_ok,
         true_peak,

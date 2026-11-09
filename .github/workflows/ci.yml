@@ -27,6 +27,8 @@ jobs:
         run: cargo run -p autodj-cli -- mix --golden smoke --out /tmp/autodj-smoke.wav
       - name: Golden rekordbox
         run: cargo run -p autodj-cli -- mix --golden rekordbox --out /tmp/autodj-rekordbox.wav
+      - name: Golden transitions
+        run: cargo run -p autodj-cli -- mix --golden transitions --out /tmp/autodj-transitions.wav
 
   python:
     runs-on: ubuntu-latest

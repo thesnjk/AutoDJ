@@ -56,7 +56,7 @@ enum Commands {
         /// Genre policy id.
         #[arg(long, default_value = "house")]
         genre: String,
-        /// Built-in golden suite: `smoke` (JSON) or `rekordbox` (XML preserve-order).
+        /// Built-in golden suite: `smoke`, `rekordbox`, or `transitions`.
         #[arg(long)]
         golden: Option<String>,
         /// Feature DB (optional; analyzes on the fly if missing).
@@ -142,6 +142,19 @@ struct MixReport {
     max_bass_overlap: f32,
     /// Whether [`max_bass_overlap`] is under [`DEFAULT_BASS_OVERLAP_LIMIT`].
     bass_conflict_gate_pass: bool,
+    /// Per-edge transition decisions (empty for single-track mixes).
+    transitions: Vec<TransitionEdgeReport>,
+}
+
+#[derive(Debug, Serialize)]
+struct TransitionEdgeReport {
+    from: usize,
+    to: usize,
+    class: TransitionClass,
+    /// Policy / solver crossfade seconds before cue snap.
+    policy_crossfade_secs: f32,
+    /// Cue-planned crossfade seconds used for render.
+    crossfade_secs: f32,
 }
 
 #[derive(Debug, Serialize)]
@@ -206,11 +219,17 @@ fn main() -> Result<()> {
                         model.as_ref(),
                         deterministic,
                     ),
+                    "transitions" => cmd_golden_transitions(
+                        &out,
+                        golden_target,
+                        model.as_ref(),
+                        deterministic,
+                    ),
                     other => bail!("unknown golden suite: {other}"),
                 };
             }
             let playlist = playlist.context("--playlist is required unless --golden is set")?;
-            cmd_mix(
+            let report = cmd_mix(
                 &playlist,
                 playlist_name.as_deref(),
                 &out,
@@ -220,7 +239,9 @@ fn main() -> Result<()> {
                 model.as_ref(),
                 deterministic,
                 keep_order,
-            )
+            )?;
+            println!("{}", serde_json::to_string_pretty(&report)?);
+            Ok(())
         }
     }
 }
@@ -346,7 +367,7 @@ fn cmd_mix(
     model: Option<&TransitionModel>,
     deterministic: bool,
     keep_order: bool,
-) -> Result<()> {
+) -> Result<MixReport> {
     let pl = load_playlist_file(playlist, playlist_name)?;
     if let Some(g) = pl.genre.as_deref() {
         // Playlist genre wins identity; keep any bpm/xfade overrides already applied
@@ -540,7 +561,23 @@ fn cmd_mix(
 
     write_wav(out, &mixed)?;
 
-    let report = MixReport {
+    let transitions: Vec<TransitionEdgeReport> = solution
+        .transitions
+        .iter()
+        .enumerate()
+        .map(|(i, t)| TransitionEdgeReport {
+            from: t.from,
+            to: t.to,
+            class: t.class,
+            policy_crossfade_secs: t.crossfade_secs,
+            crossfade_secs: cue_reports
+                .get(i)
+                .map(|c| c.crossfade_secs)
+                .unwrap_or(t.crossfade_secs),
+        })
+        .collect();
+
+    Ok(MixReport {
         order: solution
             .order
             .iter()
@@ -572,9 +609,8 @@ fn cmd_mix(
         preserve_order: keep_order,
         max_bass_overlap,
         bass_conflict_gate_pass: bass_ok,
-    };
-    println!("{}", serde_json::to_string_pretty(&report)?);
-    Ok(())
+        transitions,
+    })
 }
 
 fn cmd_golden_smoke(
@@ -598,7 +634,7 @@ fn cmd_golden_smoke(
         });
         fs::write(&playlist, serde_json::to_string_pretty(&json)?)?;
     }
-    cmd_mix(
+    let report = cmd_mix(
         &playlist,
         None,
         out,
@@ -608,7 +644,9 @@ fn cmd_golden_smoke(
         model,
         deterministic,
         false,
-    )
+    )?;
+    println!("{}", serde_json::to_string_pretty(&report)?);
+    Ok(())
 }
 
 fn cmd_golden_rekordbox(
@@ -623,7 +661,7 @@ fn cmd_golden_rekordbox(
     if !playlist.exists() {
         bail!("missing Rekordbox golden fixture: {}", playlist.display());
     }
-    cmd_mix(
+    let report = cmd_mix(
         &playlist,
         Some("Gold Set"),
         out,
@@ -633,7 +671,80 @@ fn cmd_golden_rekordbox(
         model,
         deterministic,
         true,
-    )
+    )?;
+    println!("{}", serde_json::to_string_pretty(&report)?);
+    Ok(())
+}
+
+/// Multi-genre golden: assert each edge class matches genre `preferred_transition`.
+fn cmd_golden_transitions(
+    out: &Path,
+    target_lufs: Option<f64>,
+    model: Option<&TransitionModel>,
+    deterministic: bool,
+) -> Result<()> {
+    let root = workspace_testdata()?;
+    // Genre-less fixture so playlist genre cannot override CLI policy (unlike party.json).
+    let playlist = root.join("transitions_playlist.json");
+    if !playlist.exists() {
+        let json = serde_json::json!({
+            "tracks": [
+                {"path": "gold/loop_a_128.wav", "key": "8A", "bpm": 128.0},
+                {"path": "gold/loop_b_128.wav", "key": "9A", "bpm": 128.0},
+                {"path": "gold/loop_c_140.wav", "key": "10A", "bpm": 140.0}
+            ]
+        });
+        fs::write(&playlist, serde_json::to_string_pretty(&json)?)?;
+    }
+
+    const GENRES: &[&str] = &["house", "trance", "hip_hop", "drum_and_bass"];
+    let mut summaries = Vec::new();
+    for &genre_id in GENRES {
+        let policy = GenrePolicy::builtin(genre_id);
+        let expected = policy.preferred_transition;
+        let report = cmd_mix(
+            &playlist,
+            None,
+            out,
+            policy,
+            None,
+            target_lufs,
+            model,
+            deterministic,
+            true,
+        )?;
+        if report.genre != genre_id {
+            bail!(
+                "transitions golden: expected genre {genre_id}, got {}",
+                report.genre
+            );
+        }
+        if report.transitions.is_empty() {
+            bail!("transitions golden ({genre_id}): no edges in MixReport");
+        }
+        for edge in &report.transitions {
+            if edge.class != expected {
+                bail!(
+                    "transitions golden ({genre_id}): edge {}→{} class {:?} != preferred {:?}",
+                    edge.from,
+                    edge.to,
+                    edge.class,
+                    expected
+                );
+            }
+        }
+        summaries.push(serde_json::json!({
+            "genre": report.genre,
+            "preferred_transition": expected,
+            "transitions": report.transitions,
+            "preserve_order": report.preserve_order,
+            "bass_conflict_gate_pass": report.bass_conflict_gate_pass,
+            "join_continuity_pass": report.join_continuity_pass,
+            "loudness_gate_pass": report.loudness_gate_pass,
+        }));
+    }
+    println!("{}", serde_json::to_string_pretty(&summaries)?);
+    Ok(())
 }
 
 fn resolve_track_path(playlist_dir: &Path, path: &Path) -> PathBuf {

@@ -14,6 +14,8 @@
 cargo run -p autodj-cli -- mix --golden smoke --out /tmp/autodj-smoke.wav
 # Rekordbox XML path (preserve-order setlist from testdata/rekordbox/gold_playlist.xml)
 cargo run -p autodj-cli -- mix --golden rekordbox --out /tmp/autodj-rekordbox.wav
+# Multi-genre transition palette (house/trance/hip_hop/drum_and_bass preferred classes)
+cargo run -p autodj-cli -- mix --golden transitions --out /tmp/autodj-transitions.wav
 # Optional: classic EBU R 128 programme loudness
 # cargo run -p autodj-cli -- mix --golden smoke --lufs -23 --out /tmp/autodj-smoke.wav
 afplay /tmp/autodj-smoke.wav   # macOS
@@ -40,7 +42,7 @@ cargo run -p autodj-cli -- analyze --input /absolute/path --db features.sqlite
 cargo run -p autodj-cli -- mix --playlist party.json --db features.sqlite --out mix.wav --genre house
 # MixReport includes beat_phase_mean_ms / beat_phase_gate_pass / true_peak / peak_gate_pass
 #   + max_join_flux_ratio / join_continuity_pass / spectral_continuity_pass
-#   + max_bass_overlap / bass_conflict_gate_pass
+#   + max_bass_overlap / bass_conflict_gate_pass / transitions[{class,crossfade_secs}]
 # --deterministic (default true): fixed −14 LUFS target + hard-fail beat-phase/peak/join/bass gates
 
 # Rekordbox DJ_PLAYLISTS XML (user export). Keeps setlist order with --preserve-order.

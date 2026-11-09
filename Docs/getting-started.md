@@ -12,6 +12,8 @@
 
 ```bash
 cargo run -p autodj-cli -- mix --golden smoke --out /tmp/autodj-smoke.wav
+# Rekordbox XML path (preserve-order setlist from testdata/rekordbox/gold_playlist.xml)
+cargo run -p autodj-cli -- mix --golden rekordbox --out /tmp/autodj-rekordbox.wav
 # Optional: classic EBU R 128 programme loudness
 # cargo run -p autodj-cli -- mix --golden smoke --lufs -23 --out /tmp/autodj-smoke.wav
 afplay /tmp/autodj-smoke.wav   # macOS

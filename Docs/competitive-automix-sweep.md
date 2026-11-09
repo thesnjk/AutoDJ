@@ -10,7 +10,7 @@ Living gap matrix. Updated 2026-11-09 after Firecrawl research (raw notes in loc
 | Feature extraction (BPM/key/sections) | Rekordbox / djay prep analysis | Parity-path | `analysis.rs` `AnalysisQuality` + octave fold; gold `expected_analyze.json` regression |
 | Harmonic suggestions | Rekordbox / DJ.Studio Camelot ordering | Parity MVP | `camelot.rs`; `autodj-graph` `prefers_harmonic_neighbor` |
 | Energy-arc setcraft | Club open→peak→cool programming | Parity-path | `ArcPhase` + `pair_cost_at` + quiet opener; MixReport order |
-| Transition type palette | djay Filter / Echo / Tremolo / Riser / Neural Mix; SetFlow six-core (EQ, bass swap, cut, blend) | Parity-path | `eq.rs` + Softmax `TransitionModel`; MixReport `bass_conflict_gate_pass` on EqSwap |
+| Transition type palette | djay Filter / Echo / Tremolo / Riser / Neural Mix; SetFlow six-core (EQ, bass swap, cut, blend) | Parity-path | `eq.rs` + Softmax `TransitionModel`; MixReport `bass_conflict_gate_pass`; CI `--golden transitions` |
 | Mix-in / mix-out cueing | VirtualDJ Smart automix (outro→intro ~4–8s); djay start/end points | Parity-path | `cue.rs` `plan_segment_cues`; CLI slices via `AudioBuffer::slice_secs`; MixReport `cue_phrase_aligned` |
 | Library prep (Rekordbox XML) | Rekordbox playlist export → DJ.Studio | Parity-path | `rekordbox.rs` + `--playlist` `.xml`; BPM/key/grid/cue overrides; `--preserve-order`; CI `--golden rekordbox` |
 | Stems-aware transitions | Serato Stems (vocal / melody / bass / drums pads) | Gap | no stem DSP; deferred v2 |
@@ -59,9 +59,10 @@ Formula note: `(competitor best − AutoDJ) × persona weight × mix_impact`. Be
 | **P12** | Join-local continuity gate | **Shipped** — `join_sample_indices` + MixReport `join_continuity_pass` |
 | **P13** | Rekordbox full-mix CI golden | **Shipped** — `--golden rekordbox` + preserve-order integrity + CI step |
 | **P14** | EqSwap bass-overlap gate | **Shipped** — `max_bass_overlap` + MixReport `bass_conflict_gate_pass` |
-| Next | Multi-genre transition CI golden | else stems / live dual-deck (gated) |
+| **P15** | Multi-genre transition CI golden | **Shipped** — `--golden transitions` + MixReport `transitions` |
+| Next | Transition-model E2E mix CI golden | else stems / live dual-deck (gated) |
 | Later | Listening-rubric polish on real libraries | user-owned audio only |
 
 ## Re-rank bias
 
-Prefer agent-doable product code that closes remaining mix-quality gaps before brochure fluff. P0–P14 are in place; stems remain gated.
+Prefer agent-doable product code that closes remaining mix-quality gaps before brochure fluff. P0–P15 are in place; stems remain gated.

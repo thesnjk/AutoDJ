@@ -15,6 +15,7 @@ Automated gates (CI) plus listening checklist for v1+.
 | Phrase / section cues | MixReport `cue_phrase_aligned: true`; cue windows from `plan_segment_cues` (evidence: `cue.rs`, unit snap tests). Crossfade durations snapped to whole beats. |
 | Beat-phase (v1) | Mean same-tempo join offset &lt; 50 ms; MixReport `beat_phase_mean_ms` + `beat_phase_gate_pass` (hard-fail when `--deterministic`). Evidence: `TrackFeatures.beat_offset_secs`, `mean_beat_phase_offset_ms`, golden smoke |
 | Tempo blend (multi-BPM) | Golden smoke (128→140) reports `tempo_blend_applied: true` (evidence: `stretch.rs`, `mix_buffers_with_meta`) |
+| Tempo stretch clamp (warble) | Worst edge `stretch_clamp_excess` == 0 (ratio inside ±15%); MixReport `max_stretch_clamp_excess` + `tempo_stretch_gate_pass` (hard-fail when `--deterministic`). Solver costs clamp-excess edges. Evidence: `stretch.rs`, `pair_cost_edge` |
 | Spectral continuity (v1) | Adjacent hop-RMS ratio ≤ 4.0 (`DEFAULT_MAX_FLUX_RATIO`); MixReport `spectral_continuity_pass` (evidence: `eval.rs`). Buffers with fewer than 8 hops skip-with-pass |
 | Join continuity (clicks/pops) | Worst join-neighborhood hop-RMS ratio ≤ 6.0 (`DEFAULT_JOIN_FLUX_RATIO`); MixReport `max_join_flux_ratio` + `join_continuity_pass` (hard-fail when `--deterministic`). Hard cuts (`xfade=0`) skipped. Evidence: `eval.rs`, `MixRenderResult.join_sample_indices` |
 | Bass conflict (EqSwap) | Worst EqSwap concurrent low-band ownership ≤ 0.40 (`DEFAULT_BASS_OVERLAP_LIMIT`); MixReport `max_bass_overlap` + `bass_conflict_gate_pass` (hard-fail when `--deterministic`). Non-EqSwap joins skipped. Evidence: `eq.rs` `max_eq_swap_bass_overlap`, renderer |
@@ -31,6 +32,6 @@ Automated gates (CI) plus listening checklist for v1+.
 - [ ] Energy arc matches genre (house long blend vs DnB snap)
 - [ ] No obvious clicks/pops at join points (automated join-flux gate covers gold; listen for residual on real vinyl)
 - [ ] Subjective loudness even across the set (automated gate covers ±2 LU; listen for pumping / over-limiting)
-- [ ] Large BPM gaps (±15%+) — WSOLA may sound warbly; prefer solver avoid or listen-test |
+- [ ] Large BPM gaps (±15%+) — automated stretch-clamp gate covers gold; listen for residual warble on real sets |
 
 Fail any automated row → block merge. Listening fails → open follow-up issue, do not paper over with doc-only checkboxes.

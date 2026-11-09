@@ -14,7 +14,7 @@
 cargo run -p autodj-cli -- mix --golden smoke --out /tmp/autodj-smoke.wav
 # Rekordbox XML path (preserve-order setlist from testdata/rekordbox/gold_playlist.xml)
 cargo run -p autodj-cli -- mix --golden rekordbox --out /tmp/autodj-rekordbox.wav
-# Multi-genre transition palette (house/trance/hip_hop/drum_and_bass preferred classes)
+# Full builtin genre palette preferred classes (incl. uk_garage / open_format)
 cargo run -p autodj-cli -- mix --golden transitions --out /tmp/autodj-transitions.wav
 # Softmax artifact drives mix classes (committed transition_model.json)
 cargo run -p autodj-cli -- mix --golden transition_model --out /tmp/autodj-transition-model.wav

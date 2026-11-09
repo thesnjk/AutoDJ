@@ -106,6 +106,52 @@ pub fn bars_per_phrase_for_genre(genre_id: &str) -> u32 {
     }
 }
 
+const PHRASE_CANDIDATES: [u32; 3] = [4, 8, 16];
+
+/// Heuristic per-track phrase length from section spacing.
+///
+/// When marks are ordered and the track is long enough for a phrase, quantizes
+/// `(drop_start − intro_end) / bar` to `{4, 8, 16}`. Ties between 4 and 8 prefer
+/// 8 (conservative house default). Otherwise returns `genre_fallback`.
+pub fn estimate_bars_per_phrase(feats: &TrackFeatures, genre_fallback: u32) -> u32 {
+    let fallback = if PHRASE_CANDIDATES.contains(&genre_fallback) {
+        genre_fallback
+    } else {
+        8
+    };
+    if !sections_drop_ordered(&feats.sections) {
+        return fallback;
+    }
+    let bpm = feats.bpm.max(1.0);
+    let bar = bar_secs(bpm);
+    if bar <= 0.0 {
+        return fallback;
+    }
+    // Short loops stay on the beat-snap path inside `plan_segment_cues`; do not invent phrase.
+    let min_phrase = bar * fallback.max(1) as f64;
+    if feats.duration_secs < min_phrase * 0.9 {
+        return fallback;
+    }
+    let span = (feats.sections.drop_start - feats.sections.intro_end).max(0.0);
+    if span < bar * 0.5 {
+        return fallback;
+    }
+    let bars = span / bar;
+    // Prefer 8 on exact midway between 4 and 8 (distance tie).
+    let mut best = 8u32;
+    let mut best_dist = f64::MAX;
+    for &cand in &PHRASE_CANDIDATES {
+        let dist = (bars - cand as f64).abs();
+        let better = dist + 1e-9 < best_dist
+            || ((dist - best_dist).abs() < 1e-9 && cand == 8 && best != 8);
+        if better {
+            best_dist = dist;
+            best = cand;
+        }
+    }
+    best
+}
+
 /// Plan mix-in / mix-out cues for one track in a solved order.
 ///
 /// - Non-first tracks start near a phrase boundary inside the intro region,
@@ -249,7 +295,33 @@ mod tests {
             spectral_centroid_hz: 1000.0,
             beat_offset_secs: 0.0,
             quality: crate::analysis::AnalysisQuality::default(),
+            bars_per_phrase: 0,
         }
+    }
+
+    #[test]
+    fn estimate_phrase_from_section_span() {
+        let bpm = 128.0;
+        let bar = bar_secs(bpm);
+        // Exactly 16 bars intro→drop → candidate 16.
+        let a = feats_with_drop(bpm, 120.0, 0.0, bar * 16.0, 90.0);
+        assert_eq!(estimate_bars_per_phrase(&a, 8), 16);
+        // Exactly 8 bars → 8.
+        let b = feats_with_drop(bpm, 120.0, 0.0, bar * 8.0, 90.0);
+        assert_eq!(estimate_bars_per_phrase(&b, 4), 8);
+        // Exactly 4 bars → 4.
+        let c = feats_with_drop(bpm, 120.0, 0.0, bar * 4.0, 90.0);
+        assert_eq!(estimate_bars_per_phrase(&c, 8), 4);
+        // ~16s span @ 128 BPM ≈ 8.53 bars → nearest 8 (plan smoke case).
+        let s = feats_with_drop(bpm, 120.0, 0.0, 16.0, 90.0);
+        assert_eq!(estimate_bars_per_phrase(&s, 4), 8);
+        // Unordered sections → genre fallback.
+        let d = feats_with_drop(bpm, 120.0, 40.0, 10.0, 90.0);
+        assert!(!sections_drop_ordered(&d.sections));
+        assert_eq!(estimate_bars_per_phrase(&d, 4), 4);
+        // Short loop → fallback.
+        let e = feats_with_drop(bpm, 8.0, 1.0, 3.0, 6.0);
+        assert_eq!(estimate_bars_per_phrase(&e, 8), 8);
     }
 
     #[test]

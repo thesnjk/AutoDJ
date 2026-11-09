@@ -76,6 +76,9 @@ pub struct TrackFeatures {
     /// Confidence / sparse / octave-correction flags.
     #[serde(default)]
     pub quality: AnalysisQuality,
+    /// Phrase length in bars (`4`/`8`/`16`). `0` = unset; resolve at mix via estimator.
+    #[serde(default)]
+    pub bars_per_phrase: u32,
 }
 
 /// Coarse structural marks used for cueing.
@@ -154,6 +157,8 @@ pub fn analyze_mono(samples: &[f32], sample_rate: u32) -> anyhow::Result<TrackFe
             sparse_audio: sparse,
             bpm_octave_corrected,
         },
+        // Resolved at mix with genre fallback via `estimate_bars_per_phrase`.
+        bars_per_phrase: 0,
     })
 }
 

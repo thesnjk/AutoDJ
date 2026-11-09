@@ -488,6 +488,7 @@ mod tests {
             spectral_centroid_hz: 1000.0,
             beat_offset_secs: 0.0,
             quality: AnalysisQuality::default(),
+            bars_per_phrase: 0,
         }
     }
 

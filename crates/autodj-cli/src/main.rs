@@ -6,14 +6,14 @@ use std::path::{Path, PathBuf};
 use anyhow::{bail, Context, Result};
 use autodj_core::{
     adjacent_flux_ratio, analyze_path, bars_per_phrase_for_genre, bass_conflict_pass,
-    beat_phase_gate_pass, camelot_distance, join_continuity_pass, max_join_flux_ratio,
-    mean_beat_phase_offset_ms, measure_loudness, mix_buffers_with_meta, normalize_loudness,
-    parse_rekordbox_xml, peak_gate_pass, plan_segment_cues, sections_drop_ordered,
-    spectral_continuity_pass,
-    stretch_clamp_excess, tempo_stretch_gate_pass, within_lufs_tolerance, BeatPhaseCue,
-    CamelotKey, CrossfadeParams, MixPlan, MixSegment, TrackFeatures, TransitionClass,
-    DEFAULT_BASS_OVERLAP_LIMIT, DEFAULT_BEAT_PHASE_LIMIT_MS, DEFAULT_JOIN_FLUX_RATIO,
-    DEFAULT_MAX_FLUX_RATIO, DEFAULT_TARGET_LUFS, DEFAULT_TRUE_PEAK_LIMIT, LUFS_TOLERANCE_LU,
+    beat_phase_gate_pass, camelot_distance, estimate_bars_per_phrase, join_continuity_pass,
+    max_join_flux_ratio, mean_beat_phase_offset_ms, measure_loudness, mix_buffers_with_meta,
+    normalize_loudness, parse_rekordbox_xml, peak_gate_pass, plan_segment_cues,
+    sections_drop_ordered, spectral_continuity_pass, stretch_clamp_excess,
+    tempo_stretch_gate_pass, within_lufs_tolerance, BeatPhaseCue, CamelotKey, CrossfadeParams,
+    MixPlan, MixSegment, TrackFeatures, TransitionClass, DEFAULT_BASS_OVERLAP_LIMIT,
+    DEFAULT_BEAT_PHASE_LIMIT_MS, DEFAULT_JOIN_FLUX_RATIO, DEFAULT_MAX_FLUX_RATIO,
+    DEFAULT_TARGET_LUFS, DEFAULT_TRUE_PEAK_LIMIT, LUFS_TOLERANCE_LU,
 };
 use autodj_graph::{
     crossfade_secs_for_class, load_policy_hints_map, predict_transition_class, preserve_order,
@@ -109,6 +109,9 @@ struct PlaylistTrack {
     intro_end: Option<f64>,
     #[serde(default)]
     outro_start: Option<f64>,
+    /// Optional phrase length override (`4` / `8` / `16`).
+    #[serde(default)]
+    bars_per_phrase: Option<u32>,
 }
 
 /// Minimum analyzed BPM confidence for prep-trusted tracks without a BPM override.
@@ -132,6 +135,8 @@ struct MixReport {
     cue_phrase_aligned: bool,
     /// True when every edge used ordered section marks (`intro ≤ drop ≤ outro`).
     cue_drop_aware: bool,
+    /// True when every cue used a resolved phrase length in `{4,8,16}`.
+    per_track_phrase_applied: bool,
     /// Per-track analysis prep summary (confidence + override flags).
     prep_tracks: Vec<PrepTrackReport>,
     /// Whether every track is prep-trusted (analysis or BPM override).
@@ -202,6 +207,8 @@ struct CueReport {
     bpm: f32,
     /// BPM of the next track when a transition follows; else null.
     bpm_to: Option<f32>,
+    /// Resolved phrase length in bars used for cue snap.
+    bars_per_phrase: u32,
 }
 
 fn main() -> Result<()> {
@@ -367,6 +374,7 @@ fn load_playlist_file(
                     beat_offset_secs: t.beat_offset_secs,
                     intro_end: t.intro_end,
                     outro_start: t.outro_start,
+                    bars_per_phrase: None,
                 })
                 .collect(),
         })
@@ -394,6 +402,11 @@ fn apply_track_overrides(feats: &mut TrackFeatures, t: &PlaylistTrack) {
     if let Some(outro) = t.outro_start {
         feats.sections.outro_start = outro;
     }
+    if let Some(bars) = t.bars_per_phrase {
+        if matches!(bars, 4 | 8 | 16) {
+            feats.bars_per_phrase = bars;
+        }
+    }
     // Keep drop between intro and outro when marks rearrange sections.
     if feats.sections.drop_start < feats.sections.intro_end
         || feats.sections.drop_start > feats.sections.outro_start
@@ -401,6 +414,14 @@ fn apply_track_overrides(feats: &mut TrackFeatures, t: &PlaylistTrack) {
         feats.sections.drop_start =
             (feats.sections.intro_end + feats.sections.outro_start) * 0.5;
     }
+}
+
+fn resolve_track_phrase(feats: &mut TrackFeatures, genre_id: &str) {
+    if matches!(feats.bars_per_phrase, 4 | 8 | 16) {
+        return;
+    }
+    let fallback = bars_per_phrase_for_genre(genre_id);
+    feats.bars_per_phrase = estimate_bars_per_phrase(feats, fallback);
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -438,6 +459,7 @@ fn cmd_mix(
             analyze_path(&track_path)?
         };
         apply_track_overrides(&mut feats, t);
+        resolve_track_phrase(&mut feats, &policy.id);
         let bpm_overridden = t.bpm.is_some();
         let key_overridden = t.key.is_some();
         let beat_offset_overridden = t.beat_offset_secs.is_some();
@@ -492,7 +514,6 @@ fn cmd_mix(
         // Free start → quiet opener within BPM band (energy-arc setcraft).
         solve_order(&features, &policy, None, model)
     };
-    let phrase_bars = bars_per_phrase_for_genre(&policy.id);
     let mut segments = Vec::new();
     let mut cue_reports = Vec::new();
     let mut cue_drop_aware = true;
@@ -500,6 +521,7 @@ fn cmd_mix(
     let n = solution.order.len();
     for (i, &idx) in solution.order.iter().enumerate() {
         let feats = &features[idx];
+        let phrase_bars = feats.bars_per_phrase;
         let next_feats = solution
             .order
             .get(i + 1)
@@ -542,6 +564,7 @@ fn cmd_mix(
             crossfade_secs: cues.crossfade_secs,
             bpm: feats.bpm,
             bpm_to,
+            bars_per_phrase: phrase_bars,
         });
         segments.push(MixSegment {
             buffer,
@@ -701,6 +724,10 @@ fn cmd_mix(
         integrated_lufs,
         target_lufs,
         loudness_gate_pass,
+        per_track_phrase_applied: !cue_reports.is_empty()
+            && cue_reports
+                .iter()
+                .all(|c| matches!(c.bars_per_phrase, 4 | 8 | 16)),
         cues: cue_reports,
         cue_phrase_aligned: true,
         cue_drop_aware: cue_drop_aware && saw_edge,
@@ -764,6 +791,17 @@ fn cmd_golden_smoke(
     }
     if !report.prep_quality_gate_pass {
         bail!("smoke golden: expected prep_quality_gate_pass");
+    }
+    if !report.per_track_phrase_applied {
+        bail!("smoke golden: expected per_track_phrase_applied");
+    }
+    for cue in &report.cues {
+        if !matches!(cue.bars_per_phrase, 4 | 8 | 16) {
+            bail!(
+                "smoke golden: cue bars_per_phrase {} not in {{4,8,16}}",
+                cue.bars_per_phrase
+            );
+        }
     }
     println!("{}", serde_json::to_string_pretty(&report)?);
     Ok(())

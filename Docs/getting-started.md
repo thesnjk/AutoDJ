@@ -63,7 +63,7 @@ cargo run -p autodj-cli -- mix --playlist party.json --out mix.wav \
   --transition-model python/autodj_train/models/artifacts/transition_model.json
 ```
 
-Keys/BPM/`beat_offset_secs`/`intro_end`/`outro_start` in JSON (or Rekordbox TEMPO/Tonality/POSITION_MARK) override analyzer estimates when present. A playlist BPM override also satisfies the prep quality gate when analysis is sparse or low-confidence. Without `--preserve-order`, the solver may reorder for harmonic/energy-arc.
+Keys/BPM/`beat_offset_secs`/`intro_end`/`outro_start`/`bars_per_phrase` (`4`/`8`/`16`) in JSON (or Rekordbox TEMPO/Tonality/POSITION_MARK) override analyzer estimates when present. Without an override, mix resolves phrase length per track via `estimate_bars_per_phrase` (section span) with a genre fallback. A playlist BPM override also satisfies the prep quality gate when analysis is sparse or low-confidence. Without `--preserve-order`, the solver may reorder for harmonic/energy-arc.
 
 Train gate (CI):
 

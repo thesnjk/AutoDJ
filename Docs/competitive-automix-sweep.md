@@ -14,7 +14,7 @@ Living gap matrix. Updated 2026-11-09 after Firecrawl research (raw notes in loc
 | Mix-in / mix-out cueing | VirtualDJ Smart automix (outro→intro ~4–8s); djay start/end points | Parity-path | `cue.rs` `plan_segment_cues` + `drop_start`; MixReport `cue_phrase_aligned` + `cue_drop_aware` |
 | Library prep (Rekordbox XML) | Rekordbox playlist export → DJ.Studio | Parity-path | `rekordbox.rs` + `--playlist` `.xml`; BPM/key/grid/cue overrides; `--preserve-order`; CI `--golden rekordbox` |
 | Stems-aware transitions | Serato Stems (vocal / melody / bass / drums pads) | Gap | no stem DSP; deferred v2 |
-| Phrase sync | Rekordbox phrase analysis / djay BPM+Beats sync | Parity-path | `beat_offset_secs` + grid-aware cue snap + drop-aware windows; MixReport `beat_phase_gate_pass` + `cue_drop_aware`; full phrase ML later |
+| Phrase sync | Rekordbox phrase analysis / djay BPM+Beats sync | Parity-path | per-track `bars_per_phrase` heuristic + `beat_offset_secs` + drop-aware cues; MixReport `per_track_phrase_applied`; Softmax v2 / neural phrase Later |
 | Learning from setcraft | Mixonset / tracklist research tools | Parity-path | tracklist aggregates + SoftmaxLogReg; ordinary mix defaults Softmax; `autodj-train eval` ≥ 0.90; CI `--golden transition_model` (six genres) |
 | Live / controller | VirtualDJ / Serato dual-deck | Parity-path (desktop shell) | Tauri 2 MixReport QA panel (gate strip + transitions) + deterministic checkbox; live dual-deck still Later |
 | Loudness / broadcast | EBU R 128 (−23 LUFS integrated; true-peak limits); radio-style continuous sets | Parity-path (measure+norm shipped) | `loudness.rs` + CLI `--lufs`; golden gate ±2 LU (`Docs/mix-quality-rubric.md`) |
@@ -68,9 +68,10 @@ Formula note: `(competitor best − AutoDJ) × persona weight × mix_impact`. Be
 | **P21** | Drop/section-aware cue planning | **Shipped** — `plan_segment_cues` uses `drop_start`; MixReport `cue_drop_aware` |
 | **P22** | Class-aware crossfade durations | **Shipped** — `crossfade_secs_for_class`; HardCut 0; EchoOut short; golden policy asserts |
 | **P23** | Prep quality AnalysisQuality mix gates | **Shipped** — MixReport `prep_quality_gate_pass` + deterministic bail; Tauri prep pill |
+| **P24** | Per-track phrase length heuristic | **Shipped** — `estimate_bars_per_phrase`; MixReport `per_track_phrase_applied` + `cues[].bars_per_phrase` |
 | Next | Stems / live dual-deck | gated (rights-cleared stems path required) |
-| Later | Listening-rubric polish on real libraries | user-owned audio only |
+| Later | Softmax v2 / neural phrase ML; listening-rubric polish on real libraries | user-owned audio / train features |
 
 ## Re-rank bias
 
-Prefer agent-doable product code that closes remaining mix-quality gaps before brochure fluff. P0–P23 are in place; stems remain gated.
+Prefer agent-doable product code that closes remaining mix-quality gaps before brochure fluff. P0–P24 are in place; stems remain gated.

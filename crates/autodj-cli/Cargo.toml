@@ -1,0 +1,20 @@
+[package]
+name = "autodj-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "AutoDJ command-line interface"
+
+[[bin]]
+name = "autodj"
+path = "src/main.rs"
+
+[dependencies]
+autodj-core.workspace = true
+autodj-graph.workspace = true
+autodj-io.workspace = true
+anyhow.workspace = true
+clap.workspace = true
+rusqlite.workspace = true
+serde.workspace = true
+serde_json.workspace = true

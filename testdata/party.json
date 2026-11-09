@@ -1,0 +1,20 @@
+{
+  "genre": "house",
+  "tracks": [
+    {
+      "path": "gold/loop_a_128.wav",
+      "key": "8A",
+      "bpm": 128.0
+    },
+    {
+      "path": "gold/loop_b_128.wav",
+      "key": "9A",
+      "bpm": 128.0
+    },
+    {
+      "path": "gold/loop_c_140.wav",
+      "key": "10A",
+      "bpm": 140.0
+    }
+  ]
+}

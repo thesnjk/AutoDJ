@@ -1,0 +1,45 @@
+# Rust
+/target/
+**/*.rs.bk
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+dist/
+.mypy_cache/
+
+# Models / caches
+*.pt
+*.ckpt
+.cache/
+library-cache/
+*.sqlite
+*.sqlite-journal
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+
+# Research dumps
+.firecrawl/
+
+# OS / IDE
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# Tauri / node
+apps/autodj-app/node_modules/
+apps/autodj-app/dist/
+apps/autodj-app/src-tauri/target/
+
+# User audio (never commit)
+userdata/
+imports/

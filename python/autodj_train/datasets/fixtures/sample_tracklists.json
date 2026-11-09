@@ -1,0 +1,18 @@
+[
+  {
+    "source_url": "https://example.com/charts/house-demo",
+    "retrieved_at": "2026-11-09",
+    "genre": "house",
+    "bpm_values": [122, 124, 125, 126, 128],
+    "key_routes": ["8A->9A", "9A->10A", "10A->10B"],
+    "transition_density": 0.35
+  },
+  {
+    "source_url": "https://example.com/charts/dnb-demo",
+    "retrieved_at": "2026-11-09",
+    "genre": "drum_and_bass",
+    "bpm_values": [172, 174, 174, 175],
+    "key_routes": ["1A->1A", "1A->2A"],
+    "transition_density": 1.2
+  }
+]

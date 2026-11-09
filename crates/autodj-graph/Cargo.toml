@@ -1,0 +1,13 @@
+[package]
+name = "autodj-graph"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Mix graph solver for AutoDJ"
+
+[dependencies]
+autodj-core.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+
+[dev-dependencies]

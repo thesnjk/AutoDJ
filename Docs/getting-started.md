@@ -46,7 +46,8 @@ cargo run -p autodj-cli -- mix --playlist party.json --db features.sqlite --out 
 #   + max_join_flux_ratio / join_continuity_pass / spectral_continuity_pass
 #   + max_bass_overlap / bass_conflict_gate_pass / transitions[{class,crossfade_secs}]
 #   + max_stretch_clamp_excess / tempo_stretch_gate_pass
-# --deterministic (default true): fixed −14 LUFS + hard-fail beat-phase/peak/join/bass/stretch gates
+#   + prep_quality_gate_pass / prep_tracks (AnalysisQuality; BPM override trusts weak analyze)
+# --deterministic (default true): fixed −14 LUFS + hard-fail prep/beat-phase/peak/join/bass/stretch gates
 # --no-deterministic: relax hard gates (desktop QA checkbox off)
 
 # Rekordbox DJ_PLAYLISTS XML (user export). Keeps setlist order with --preserve-order.
@@ -62,7 +63,7 @@ cargo run -p autodj-cli -- mix --playlist party.json --out mix.wav \
   --transition-model python/autodj_train/models/artifacts/transition_model.json
 ```
 
-Keys/BPM/`beat_offset_secs`/`intro_end`/`outro_start` in JSON (or Rekordbox TEMPO/Tonality/POSITION_MARK) override analyzer estimates when present. Without `--preserve-order`, the solver may reorder for harmonic/energy-arc.
+Keys/BPM/`beat_offset_secs`/`intro_end`/`outro_start` in JSON (or Rekordbox TEMPO/Tonality/POSITION_MARK) override analyzer estimates when present. A playlist BPM override also satisfies the prep quality gate when analysis is sparse or low-confidence. Without `--preserve-order`, the solver may reorder for harmonic/energy-arc.
 
 Train gate (CI):
 

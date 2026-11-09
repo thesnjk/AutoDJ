@@ -7,7 +7,7 @@ Living gap matrix. Updated 2026-11-09 after Firecrawl research (raw notes in loc
 | Surface | Competitor cue | AutoDJ status | Evidence |
 |---------|----------------|---------------|----------|
 | Offline automix render | djay Automix (playlist → continuous blend; Mix Now / cue points) | Parity-path MVP | `autodj-cli` `mix`; `crates/autodj-core/src/render.rs` |
-| Feature extraction (BPM/key/sections) | Rekordbox / djay prep analysis | Parity-path | `analysis.rs` `AnalysisQuality` + octave fold; gold `expected_analyze.json` regression |
+| Feature extraction (BPM/key/sections) | Rekordbox / djay prep analysis | Parity-path | `analysis.rs` `AnalysisQuality` + octave fold; MixReport `prep_quality_gate_pass`; gold `expected_analyze.json` regression |
 | Harmonic suggestions | Rekordbox / DJ.Studio Camelot ordering | Parity MVP | `camelot.rs`; `autodj-graph` `prefers_harmonic_neighbor` |
 | Energy-arc setcraft | Club open→peak→cool programming | Parity-path | `ArcPhase` + `pair_cost_at` + quiet opener; MixReport order |
 | Transition type palette | djay Filter / Echo / Tremolo / Riser / Neural Mix; SetFlow six-core (EQ, bass swap, cut, blend) | Parity-path | `eq.rs` + Softmax `TransitionModel` + `crossfade_secs_for_class`; MixReport `bass_conflict_gate_pass`; CI `--golden transitions` (class + policy xfade) |
@@ -67,9 +67,10 @@ Formula note: `(competitor best − AutoDJ) × persona weight × mix_impact`. Be
 | **P20** | Default Softmax per-edge mixes | **Shipped** — ordinary mix auto-loads committed Softmax; `--no-transition-model`; six-genre `--golden transition_model` |
 | **P21** | Drop/section-aware cue planning | **Shipped** — `plan_segment_cues` uses `drop_start`; MixReport `cue_drop_aware` |
 | **P22** | Class-aware crossfade durations | **Shipped** — `crossfade_secs_for_class`; HardCut 0; EchoOut short; golden policy asserts |
+| **P23** | Prep quality AnalysisQuality mix gates | **Shipped** — MixReport `prep_quality_gate_pass` + deterministic bail; Tauri prep pill |
 | Next | Stems / live dual-deck | gated (rights-cleared stems path required) |
 | Later | Listening-rubric polish on real libraries | user-owned audio only |
 
 ## Re-rank bias
 
-Prefer agent-doable product code that closes remaining mix-quality gaps before brochure fluff. P0–P22 are in place; stems remain gated.
+Prefer agent-doable product code that closes remaining mix-quality gaps before brochure fluff. P0–P23 are in place; stems remain gated.

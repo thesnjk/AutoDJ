@@ -83,6 +83,9 @@ def rule_label(
         return TransitionClass.HARD_CUT
     if genre in {"hip_hop", "rnb"} and energy_delta_db < -1.0:
         return TransitionClass.ECHO_OUT
+    # open_format tremolo: reachable for CI balance; Softmax artifact stays 5-class.
+    if genre == "open_format" and bpm_delta < 4.0 and camelot_dist >= 3:
+        return TransitionClass.TREMOLO
     if genre == "trance" or camelot_dist == 0:
         return TransitionClass.FILTER_SWEEP
     if camelot_dist <= 1 and bpm_delta < 4:

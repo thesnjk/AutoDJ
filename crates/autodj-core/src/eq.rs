@@ -206,6 +206,40 @@ pub fn apply_echo_out_crossfade(
     out
 }
 
+/// Tremolo-out crossfade: beat-synced LFO amplitude on outgoing; incoming equal-power in.
+///
+/// Outgoing sample gain is `(0.5 + 0.5 * sin(2π · rate_hz · t_secs)) * ga` so depth is full
+/// while the equal-power fade still hands the mix to B.
+pub fn apply_tremolo_out_crossfade(
+    a_tail: &[f32],
+    b_head: &[f32],
+    sample_rate: u32,
+    equal_power: bool,
+    rate_hz: f32,
+) -> Vec<f32> {
+    let n = a_tail.len().min(b_head.len());
+    let mut out = Vec::with_capacity(n);
+    let sr = sample_rate.max(1) as f32;
+    let rate = rate_hz.max(0.1);
+    let two_pi = std::f32::consts::TAU;
+    for i in 0..n {
+        let t = if n <= 1 {
+            1.0
+        } else {
+            i as f32 / (n - 1) as f32
+        };
+        let t_secs = i as f32 / sr;
+        let lfo = 0.5 + 0.5 * (two_pi * rate * t_secs).sin();
+        let (ga, gb) = if equal_power {
+            ((1.0 - t).sqrt(), t.sqrt())
+        } else {
+            (1.0 - t, t)
+        };
+        out.push(a_tail[i] * lfo * ga + b_head[i] * gb);
+    }
+    out
+}
+
 /// Band-limited RMS of `samples` via a temporary splitter (test / diagnostics).
 pub fn band_rms(samples: &[f32], sample_rate: u32) -> (f32, f32, f32) {
     let mut split = ThreeBandSplitter::new(sample_rate);
@@ -351,6 +385,18 @@ mod tests {
         assert!(echo.iter().all(|s| s.is_finite()));
         let peak = echo.iter().copied().map(f32::abs).fold(0.0, f32::max);
         assert!(peak < 5.0); // before limiter; should not explode
+    }
+
+    #[test]
+    fn tremolo_out_is_finite() {
+        let sr = 44_100u32;
+        let a = tone(sr, 1.0, 220.0, 0.3);
+        let b = tone(sr, 1.0, 440.0, 0.3);
+        let trem = apply_tremolo_out_crossfade(&a, &b, sr, true, 2.0);
+        assert_eq!(trem.len(), a.len().min(b.len()));
+        assert!(trem.iter().all(|s| s.is_finite()));
+        let peak = trem.iter().copied().map(f32::abs).fold(0.0, f32::max);
+        assert!(peak < 5.0);
     }
 
     #[test]

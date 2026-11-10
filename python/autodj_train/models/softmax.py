@@ -17,8 +17,8 @@ from autodj_train.models.features import (
 )
 from autodj_train.transitions import ALL_CLASSES, TransitionClass
 
-# Softmax stays 6-class until a Riser retrain follow-up (P30 DSP ships Riser via policy).
-CLASS_ORDER = [c.value for c in ALL_CLASSES if c != TransitionClass.RISER]
+# All transition classes including Riser (committed Softmax is 7-class).
+CLASS_ORDER = [c.value for c in ALL_CLASSES]
 
 
 def _softmax(logits: np.ndarray) -> np.ndarray:

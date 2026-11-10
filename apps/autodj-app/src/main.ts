@@ -1,4 +1,4 @@
-import { invoke } from "@tauri-apps/api/core";
+import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { open, save } from "@tauri-apps/plugin-dialog";
 
@@ -171,6 +171,30 @@ function renderMixReport(r: MixReport, deterministic: boolean) {
     `stretch_excess ${fmt(r.max_stretch_clamp_excess, 4)}`,
   ].join(" · ");
 
+  const orderWrap = document.createElement("div");
+  orderWrap.className = "set-order";
+  const orderTitle = document.createElement("h3");
+  orderTitle.className = "transitions-title";
+  orderTitle.textContent = r.preserve_order
+    ? "Set order (playlist)"
+    : "Set order (AutoDJ)";
+  orderWrap.appendChild(orderTitle);
+  const orderUl = document.createElement("ol");
+  const tracks = r.order ?? [];
+  if (tracks.length === 0) {
+    const li = document.createElement("li");
+    li.textContent = "(none)";
+    orderUl.appendChild(li);
+  } else {
+    for (const path of tracks) {
+      const li = document.createElement("li");
+      li.textContent = basename(path);
+      li.title = path;
+      orderUl.appendChild(li);
+    }
+  }
+  orderWrap.appendChild(orderUl);
+
   const transitionsWrap = document.createElement("div");
   transitionsWrap.className = "transitions";
   const h = document.createElement("h3");
@@ -194,7 +218,21 @@ function renderMixReport(r: MixReport, deterministic: boolean) {
   }
   transitionsWrap.appendChild(ul);
 
-  panel.replaceChildren(summary, strip, metrics, transitionsWrap);
+  panel.replaceChildren(summary, strip, metrics, orderWrap, transitionsWrap);
+}
+
+/** Load the rendered mix into the HTML5 player; autoplay when requested. */
+async function loadMixPlayer(outPath: string, autoplay: boolean) {
+  const audio = $<HTMLAudioElement>("mix-player");
+  if (!audio || !outPath) return;
+  audio.src = convertFileSrc(outPath);
+  audio.load();
+  if (!autoplay) return;
+  try {
+    await audio.play();
+  } catch (e) {
+    appendLog(`autoplay blocked or failed: ${e}`);
+  }
 }
 
 async function refreshBin() {
@@ -335,7 +373,14 @@ window.addEventListener("DOMContentLoaded", async () => {
         },
       });
       renderMixReport(report, deterministic);
-      appendLog("mix complete");
+      const autoplay = $<HTMLInputElement>("autoplay")?.checked ?? true;
+      const playPath = report.out?.trim() || out;
+      await loadMixPlayer(playPath, autoplay);
+      appendLog(
+        autoplay
+          ? `mix complete — playing ${basename(playPath)}`
+          : `mix complete — loaded ${basename(playPath)} (autoplay off)`,
+      );
     } catch (e) {
       showPlainReport(String(e), true);
       appendLog(String(e));

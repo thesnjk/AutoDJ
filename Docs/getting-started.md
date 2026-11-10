@@ -91,4 +91,4 @@ npm install
 npm run tauri dev
 ```
 
-Use **Browse…** to pick a playlist JSON or Rekordbox XML (e.g. `testdata/rekordbox/gold_playlist.xml`), set an output WAV, optionally enable **Preserve playlist order**, a Rekordbox playlist NODE name, and **Strict QA gates (deterministic)** (default on). After Mix, the report panel shows a gate strip (loudness/join/bass/stretch/…) plus per-edge transitions. CLI resolution: `AUTODJ_BIN` → `autodj` on `PATH` → `cargo run -p autodj-cli` from the repo root.
+Use **Browse…** to pick a playlist JSON or Rekordbox XML (e.g. `testdata/rekordbox/gold_playlist.xml`), set an output WAV under `/tmp` or `$HOME`, optionally enable **Preserve playlist order**, a Rekordbox playlist NODE name, and **Strict QA gates (deterministic)** (default on). Leave Preserve-order unchecked so AutoDJ picks the set order. After Mix, **Autoplay after mix** (default on) plays the continuous WAV in the in-app player; the report panel shows **Set order (AutoDJ)**, a gate strip, and per-edge transitions. CLI resolution: `AUTODJ_BIN` → `autodj` on `PATH` → `cargo run -p autodj-cli` from the repo root.

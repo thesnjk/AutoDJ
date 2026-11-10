@@ -23,6 +23,8 @@ pub enum TransitionClass {
     FilterSweep,
     /// Echo / delay out on outgoing track.
     EchoOut,
+    /// Beat-synced amplitude tremolo on outgoing track.
+    Tremolo,
     /// Hard cut on a downbeat.
     HardCut,
 }

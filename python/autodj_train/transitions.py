@@ -10,6 +10,7 @@ class TransitionClass(str, Enum):
     EQ_SWAP = "eq_swap"
     FILTER_SWEEP = "filter_sweep"
     ECHO_OUT = "echo_out"
+    TREMOLO = "tremolo"
     HARD_CUT = "hard_cut"
 
 

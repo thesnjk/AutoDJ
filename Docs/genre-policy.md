@@ -13,7 +13,7 @@ Solver edge duration uses `crossfade_secs_for_class`: `HardCut` → 0s; `EchoOut
 | `hip_hop` | 90 | 8 | 1s | `echo_out` | 1.0 |
 | `uk_garage` | 132 | 5 | 8s | `eq_swap` | 1.0 |
 | `trance` | 138 | 4 | 16s | `filter_sweep` | 1.25 |
-| `open_format` | 120 | 20 | 4s | `linear_crossfade` | 0.5 |
+| `open_format` | 120 | 20 | 4s | `tremolo` | 0.5 |
 
 Aliases: `dnb` → drum_and_bass; `garage` → uk_garage; `rnb` → hip_hop.
 

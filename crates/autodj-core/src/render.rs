@@ -5,7 +5,7 @@ use autodj_io::AudioBuffer;
 use crate::analysis::TransitionClass;
 use crate::eq::{
     apply_echo_out_crossfade, apply_eq_swap_crossfade, apply_filter_sweep_crossfade,
-    apply_tremolo_out_crossfade, max_eq_swap_bass_overlap,
+    apply_riser_out_crossfade, apply_tremolo_out_crossfade, max_eq_swap_bass_overlap,
 };
 use crate::stretch::{should_tempo_blend, tempo_blend_head};
 
@@ -210,6 +210,9 @@ fn crossfade_mono(
             let rate_hz = (bpm.max(1.0) / 60.0).clamp(1.0, 8.0);
             apply_tremolo_out_crossfade(a_tail, b_head, sample_rate, equal_power, rate_hz)
         }
+        TransitionClass::Riser => {
+            apply_riser_out_crossfade(a_tail, b_head, sample_rate, equal_power)
+        }
         TransitionClass::HardCut | TransitionClass::LinearCrossfade => {
             let n = a_tail.len().min(b_head.len());
             let mut out = Vec::with_capacity(n);
@@ -240,7 +243,8 @@ fn gains_for(class: TransitionClass, t: f32, equal_power: bool) -> (f32, f32) {
         | TransitionClass::EqSwap
         | TransitionClass::FilterSweep
         | TransitionClass::EchoOut
-        | TransitionClass::Tremolo => {
+        | TransitionClass::Tremolo
+        | TransitionClass::Riser => {
             if equal_power {
                 ((1.0 - t).sqrt(), t.sqrt())
             } else {

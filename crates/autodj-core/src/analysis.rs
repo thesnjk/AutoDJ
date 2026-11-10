@@ -25,6 +25,8 @@ pub enum TransitionClass {
     EchoOut,
     /// Beat-synced amplitude tremolo on outgoing track.
     Tremolo,
+    /// Rising noise + high-pass energy build before swap (festival-style riser).
+    Riser,
     /// Hard cut on a downbeat.
     HardCut,
 }

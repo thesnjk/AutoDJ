@@ -10,7 +10,7 @@ Living gap matrix. Updated 2026-11-09 after Firecrawl research (raw notes in loc
 | Feature extraction (BPM/key/sections) | Rekordbox / djay prep analysis | Parity-path | `analysis.rs` `AnalysisQuality` + octave fold; MixReport `prep_quality_gate_pass`; gold `expected_analyze.json` regression |
 | Harmonic suggestions | Rekordbox / DJ.Studio Camelot ordering | Parity MVP | `camelot.rs`; `autodj-graph` `prefers_harmonic_neighbor` |
 | Energy-arc setcraft | Club open→peak→cool programming | Parity-path | `ArcPhase` + `pair_cost_at` + quiet opener; MixReport order |
-| Transition type palette | djay Filter / Echo / Tremolo / Riser / Neural Mix; SetFlow six-core (EQ, bass swap, cut, blend) | Parity-path | `eq.rs` Tremolo + Filter/Echo/EqSwap; Softmax 6-class incl. tremolo; `open_format` preferred Tremolo; CI `--golden transitions` / `transition_model`; Riser Later |
+| Transition type palette | djay Filter / Echo / Tremolo / Riser / Neural Mix; SetFlow six-core (EQ, bass swap, cut, blend) | Parity-path | `eq.rs` Riser + Tremolo + Filter/Echo/EqSwap; Softmax 6-class (riser excluded); `trance` preferred Riser / `open_format` Tremolo; CI `--golden transitions` / `transition_model`; Neural Mix / stems Later |
 | Mix-in / mix-out cueing | VirtualDJ Smart automix (outro→intro ~4–8s); djay start/end points | Parity-path | `cue.rs` `plan_segment_cues` + `drop_start`; MixReport `cue_phrase_aligned` + `cue_drop_aware` |
 | Library prep (Rekordbox XML) | Rekordbox playlist export → DJ.Studio | Parity-path | `rekordbox.rs` + `--playlist` `.xml`; BPM/key/grid/cue overrides; `--preserve-order`; CI `--golden rekordbox` |
 | Stems-aware transitions | Serato Stems (vocal / melody / bass / drums pads) | Gap | no stem DSP; deferred v2 |
@@ -74,9 +74,10 @@ Formula note: `(competitor best − AutoDJ) × persona weight × mix_impact`. Be
 | **P27** | Softmax v3 phrase bars features | **Shipped** — 15-dim vectorize; artifact `version: 3`; `transition_model_v2.json` snapshot; v1/v2 loaders |
 | **P28** | Tremolo transition FX | **Shipped** — `apply_tremolo_out_crossfade`; `open_format` preferred; Softmax stays 5-class |
 | **P29** | Softmax 6-class Tremolo | **Shipped** — `tremolo` in Softmax `classes`; holdout regen; ordinary mix can select Tremolo |
-| Next | Stems / live dual-deck | gated (rights-cleared stems path required) |
-| Later | Riser palette; neural phrase ML; listening-rubric polish | user-owned audio / train features |
+| **P30** | Riser transition FX | **Shipped** — `apply_riser_out_crossfade`; `trance` preferred; Softmax stays 6-class |
+| Next | Softmax 7-class Riser | ungated retrain + holdout |
+| Later | Stems / live dual-deck; neural phrase ML; listening-rubric polish | gated / user-owned audio |
 
 ## Re-rank bias
 
-Prefer agent-doable product code that closes remaining mix-quality gaps before brochure fluff. P0–P29 are in place; stems remain gated.
+Prefer agent-doable product code that closes remaining mix-quality gaps before brochure fluff. P0–P30 are in place; stems remain gated.

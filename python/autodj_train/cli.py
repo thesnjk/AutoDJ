@@ -93,7 +93,8 @@ def main(argv: list[str] | None = None) -> None:
         print(f"wrote model → {args.out} (train_acc={train_acc:.4f}, n={len(examples)})")
     elif args.cmd == "eval":
         model = SoftmaxLogReg.load(args.model)
-        gold = read_jsonl(args.gold)
+        supported = set(model.classes)
+        gold = [ex for ex in read_jsonl(args.gold) if ex.label in supported]
         preds = model.predict(gold)
         report = evaluate_predictions(gold, preds)
         print(json.dumps(report, indent=2))

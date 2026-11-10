@@ -24,6 +24,25 @@ pub struct CuePoints {
     pub crossfade_secs: f32,
 }
 
+/// Optional absolute mix-in / mix-out times from a playlist (VirtualDJ / djay style).
+///
+/// When set, overrides win over section heuristics. Endpoints are beat-snapped for
+/// phase honesty; phrase LCM join snap is skipped for overridden endpoints.
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
+pub struct CueOverrides {
+    /// Absolute mix-in within the source track (seconds).
+    pub mix_in_secs: Option<f64>,
+    /// Absolute mix-out within the source track (seconds).
+    pub mix_out_secs: Option<f64>,
+}
+
+impl CueOverrides {
+    /// True when either endpoint is overridden.
+    pub fn any(self) -> bool {
+        self.mix_in_secs.is_some() || self.mix_out_secs.is_some()
+    }
+}
+
 /// Duration of one 4/4 bar at `bpm` (four quarter notes).
 pub fn bar_secs(bpm: f32) -> f64 {
     let bpm = bpm.max(1.0) as f64;
@@ -252,6 +271,7 @@ pub fn estimate_bars_per_phrase(feats: &TrackFeatures, genre_fallback: u32) -> u
 ///   before the drop; short gold loops keep the existing collapse rescue.
 /// - Crossfade length is policy-driven, capped by available outro/intro, then
 ///   snapped to whole beats.
+/// - [`CueOverrides`] absolute mix-in/out win over section heuristics (beat-snap only).
 pub fn plan_segment_cues(
     feats: &TrackFeatures,
     next: Option<&TrackFeatures>,
@@ -259,6 +279,7 @@ pub fn plan_segment_cues(
     bars_per_phrase: u32,
     is_first: bool,
     is_last: bool,
+    overrides: CueOverrides,
 ) -> CuePoints {
     let dur = feats.duration_secs.max(0.0);
     let bpm = feats.bpm.max(1.0);
@@ -268,7 +289,11 @@ pub fn plan_segment_cues(
     let long_enough = dur >= phrase * 0.9;
 
     let offset = feats.beat_offset_secs;
-    let play_start = if is_first {
+    let play_start = if let Some(mix_in) = overrides.mix_in_secs.filter(|t| t.is_finite()) {
+        // User absolute mix-in: beat-snap only; honor on first track too.
+        let raw = mix_in.clamp(0.0, (dur - beat_secs(bpm)).max(0.0));
+        snap_to_beat_grid(raw, bpm, offset).clamp(0.0, dur)
+    } else if is_first {
         // Keep the head of the first track (short gold loops need the full buffer).
         0.0
     } else {
@@ -287,7 +312,15 @@ pub fn plan_segment_cues(
     };
 
     let (play_end, crossfade_secs) = match (is_last, next) {
-        (true, _) | (_, None) => (dur, 0.0f32),
+        (true, _) | (_, None) => {
+            if let Some(mix_out) = overrides.mix_out_secs.filter(|t| t.is_finite()) {
+                let raw = mix_out.clamp(play_start + beat_secs(bpm).min(0.05), dur);
+                let end = snap_to_beat_grid(raw, bpm, offset).clamp(play_start, dur);
+                (end, 0.0f32)
+            } else {
+                (dur, 0.0f32)
+            }
+        }
         (false, Some(next)) => {
             let next_bars = if matches!(next.bars_per_phrase, 4 | 8 | 16) {
                 next.bars_per_phrase
@@ -334,29 +367,40 @@ pub fn plan_segment_cues(
 
             xfade = align_crossfade_to_downbeat(xfade, bpm);
 
-            // End of play window: LCM (or own) phrase snap near outro_start + xfade.
-            let raw_end = (feats.sections.outro_start + xfade as f64).min(dur);
-            let mut play_end = snap_cue_time(raw_end, bpm, end_bars, offset, dur);
-            if play_end <= play_start + xfade as f64 {
-                // Rescue without re-collapsing onto the first grid point.
-                play_end = (play_start + xfade as f64 + bar_secs(bpm)).min(dur);
-                play_end = snap_to_beat_grid(play_end, bpm, offset).clamp(play_start + xfade as f64, dur);
-            }
+            let mut play_end = if let Some(mix_out) = overrides.mix_out_secs.filter(|t| t.is_finite())
+            {
+                // Absolute mix-out: beat-snap only (skip phrase LCM).
+                let raw = mix_out.clamp(play_start + beat_secs(bpm).min(0.05), dur);
+                snap_to_beat_grid(raw, bpm, offset).clamp(play_start, dur)
+            } else {
+                // End of play window: LCM (or own) phrase snap near outro_start + xfade.
+                let raw_end = (feats.sections.outro_start + xfade as f64).min(dur);
+                let mut end = snap_cue_time(raw_end, bpm, end_bars, offset, dur);
+                if end <= play_start + xfade as f64 {
+                    // Rescue without re-collapsing onto the first grid point.
+                    end = (play_start + xfade as f64 + bar_secs(bpm)).min(dur);
+                    end = snap_to_beat_grid(end, bpm, offset).clamp(play_start + xfade as f64, dur);
+                }
+                if end > dur {
+                    end = dur;
+                }
+                // Long tracks: do not cut the play window before the drop (caps beat LCM).
+                if long_enough && drop_ordered && end < feats.sections.drop_start {
+                    let floored = snap_cue_time(
+                        feats.sections.drop_start,
+                        bpm,
+                        end_bars,
+                        offset,
+                        dur,
+                    )
+                    .max(feats.sections.drop_start)
+                    .min(dur);
+                    end = floored.max(end);
+                }
+                end
+            };
             if play_end > dur {
                 play_end = dur;
-            }
-            // Long tracks: do not cut the play window before the drop (caps beat LCM).
-            if long_enough && drop_ordered && play_end < feats.sections.drop_start {
-                let floored = snap_cue_time(
-                    feats.sections.drop_start,
-                    bpm,
-                    end_bars,
-                    offset,
-                    dur,
-                )
-                .max(feats.sections.drop_start)
-                .min(dur);
-                play_end = floored.max(play_end);
             }
             // Ensure we still have room for the crossfade inside the window.
             if play_end - play_start < xfade as f64 {
@@ -435,7 +479,7 @@ mod tests {
         let a = feats_with_drop(120.0, 64.0, 7.5, 7.8, 48.0);
         let b = feats_with_drop(120.0, 64.0, 4.0, 16.0, 48.0);
         assert!(sections_drop_ordered(&a.sections));
-        let cues = plan_segment_cues(&a, Some(&b), 8.0, 4, false, false);
+        let cues = plan_segment_cues(&a, Some(&b), 8.0, 4, false, false, CueOverrides::default());
         assert!(
             cues.play_start_secs <= a.sections.drop_start + 1e-9,
             "play_start {} > drop {}",
@@ -451,7 +495,7 @@ mod tests {
         // make drop the binding cap vs a large policy xfade.
         let b = feats_with_drop(120.0, 64.0, 2.0, 3.0, 48.0);
         assert!(sections_drop_ordered(&b.sections));
-        let cues = plan_segment_cues(&a, Some(&b), 16.0, 8, true, false);
+        let cues = plan_segment_cues(&a, Some(&b), 16.0, 8, true, false, CueOverrides::default());
         assert!(
             cues.crossfade_secs as f64 <= b.sections.drop_start + beat_secs(120.0) + 1e-3,
             "xfade {} exceeds next drop {}",
@@ -466,7 +510,7 @@ mod tests {
         // with an early outro-like end by placing outro just after drop on a long track.
         let a = feats_with_drop(120.0, 64.0, 4.0, 32.0, 33.0);
         let b = feats_with_drop(120.0, 64.0, 4.0, 16.0, 48.0);
-        let cues = plan_segment_cues(&a, Some(&b), 1.0, 8, true, false);
+        let cues = plan_segment_cues(&a, Some(&b), 1.0, 8, true, false, CueOverrides::default());
         assert!(
             cues.play_end_secs + 1e-6 >= a.sections.drop_start,
             "play_end {} < drop {}",
@@ -509,7 +553,7 @@ mod tests {
         assert_eq!(align_crossfade_to_downbeat(0.0, 128.0), 0.0);
         let a = feats_with_drop(128.0, 8.0, 1.0, 3.0, 6.0);
         let b = feats_with_drop(128.0, 8.0, 1.0, 3.0, 6.0);
-        let cues = plan_segment_cues(&a, Some(&b), 0.0, 8, true, false);
+        let cues = plan_segment_cues(&a, Some(&b), 0.0, 8, true, false, CueOverrides::default());
         assert_eq!(cues.crossfade_secs, 0.0);
     }
 
@@ -517,7 +561,7 @@ mod tests {
     fn plans_outgoing_near_outro() {
         let a = feats(128.0, 32.0, 4.0, 24.0);
         let b = feats(128.0, 32.0, 4.0, 24.0);
-        let cues = plan_segment_cues(&a, Some(&b), 8.0, 8, true, false);
+        let cues = plan_segment_cues(&a, Some(&b), 8.0, 8, true, false, CueOverrides::default());
         assert!(cues.play_start_secs < 1.0);
         assert!(cues.play_end_secs >= a.sections.outro_start - 1.0);
         assert!(cues.crossfade_secs > 0.0);
@@ -552,7 +596,7 @@ mod tests {
         a.bars_per_phrase = 4;
         let mut b = feats_with_drop(bpm, 64.0, 4.0, 16.0, 48.0);
         b.bars_per_phrase = 8;
-        let cues = plan_segment_cues(&a, Some(&b), 8.0, 4, true, false);
+        let cues = plan_segment_cues(&a, Some(&b), 8.0, 4, true, false, CueOverrides::default());
         let shared = bar * 8.0;
         let rem = cues.play_end_secs % shared;
         assert!(
@@ -587,5 +631,58 @@ mod tests {
         assert!(!cue_edge_phrase_aligned(&a, &b, 1.0, 1.0));
         // Exact phrase boundary passes.
         assert!(cue_edge_phrase_aligned(&a, &b, 16.0, 16.0));
+    }
+
+    #[test]
+    fn mix_in_override_honored_on_first_track() {
+        let a = feats(128.0, 8.0, 1.0, 6.0);
+        let b = feats(128.0, 8.0, 1.0, 6.0);
+        let beat = beat_secs(128.0);
+        let ov = CueOverrides {
+            mix_in_secs: Some(1.0),
+            mix_out_secs: None,
+        };
+        let cues = plan_segment_cues(&a, Some(&b), 1.0, 8, true, false, ov);
+        let expected = snap_to_beat_grid(1.0, 128.0, 0.0);
+        assert!(
+            (cues.play_start_secs - expected).abs() < beat * 0.51,
+            "play_start {} vs expected {expected}",
+            cues.play_start_secs
+        );
+        assert!(cues.play_start_secs > 0.0, "first track should honor mix_in");
+    }
+
+    #[test]
+    fn mix_out_override_pins_play_end() {
+        let a = feats(128.0, 8.0, 1.0, 4.0);
+        let b = feats(128.0, 8.0, 1.0, 6.0);
+        let beat = beat_secs(128.0);
+        let ov = CueOverrides {
+            mix_in_secs: None,
+            mix_out_secs: Some(6.0),
+        };
+        let cues = plan_segment_cues(&a, Some(&b), 1.0, 8, false, false, ov);
+        let expected = snap_to_beat_grid(6.0, 128.0, 0.0);
+        assert!(
+            (cues.play_end_secs - expected).abs() < beat * 0.51,
+            "play_end {} vs expected {expected}",
+            cues.play_end_secs
+        );
+    }
+
+    #[test]
+    fn no_override_matches_default_first_start() {
+        let a = feats(128.0, 8.0, 1.0, 6.0);
+        let b = feats(128.0, 8.0, 1.0, 6.0);
+        let cues = plan_segment_cues(
+            &a,
+            Some(&b),
+            1.0,
+            8,
+            true,
+            false,
+            CueOverrides::default(),
+        );
+        assert_eq!(cues.play_start_secs, 0.0);
     }
 }

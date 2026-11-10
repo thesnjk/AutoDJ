@@ -11,7 +11,7 @@ Living gap matrix. Updated 2026-11-09 after Firecrawl research (raw notes in loc
 | Harmonic suggestions | Rekordbox / DJ.Studio Camelot ordering | Parity MVP | `camelot.rs`; `autodj-graph` `prefers_harmonic_neighbor` |
 | Energy-arc setcraft | Club open→peak→cool programming | Parity-path | `ArcPhase` + `pair_cost_at` + quiet opener; MixReport order |
 | Transition type palette | djay Filter / Echo / Tremolo / Riser / Neural Mix; SetFlow six-core (EQ, bass swap, cut, blend) | Parity-path | `eq.rs` Riser + Tremolo + Filter/Echo/EqSwap; Softmax 7-class incl. riser; `trance` preferred Riser / `open_format` Tremolo; CI `--golden transitions` / `transition_model`; Neural Mix / stems Later |
-| Mix-in / mix-out cueing | VirtualDJ Smart automix (outro→intro ~4–8s); djay start/end points | Parity-path | `cue.rs` `plan_segment_cues` + `drop_start`; MixReport `cue_phrase_aligned` + `cue_drop_aware` |
+| Mix-in / mix-out cueing | VirtualDJ Smart automix (outro→intro ~4–8s); djay start/end points | Parity-path | `cue.rs` `plan_segment_cues` + `CueOverrides` (`mix_in_secs`/`mix_out_secs`); MixReport `cue_mix_override_applied` + `cue_phrase_aligned`; CI `--golden cue_overrides` |
 | Library prep (Rekordbox XML) | Rekordbox playlist export → DJ.Studio | Parity-path | `rekordbox.rs` + `--playlist` `.xml`; BPM/key/grid/cue overrides; `--preserve-order`; CI `--golden rekordbox` |
 | Stems-aware transitions | Serato Stems (vocal / melody / bass / drums pads) | Gap | no stem DSP; deferred v2 |
 | Phrase sync | Rekordbox phrase analysis / djay BPM+Beats sync | Parity-path | per-track `bars_per_phrase` + LCM join snap + measured `cue_phrase_aligned` + Softmax v3 phrase bars/mismatch |
@@ -77,9 +77,10 @@ Formula note: `(competitor best − AutoDJ) × persona weight × mix_impact`. Be
 | **P30** | Riser transition FX | **Shipped** — `apply_riser_out_crossfade`; `trance` preferred; Softmax stays 6-class |
 | **P31** | Softmax 7-class Riser | **Shipped** — `riser` in Softmax `classes`; holdout regen; ordinary mix can select Riser |
 | **P32** | Bidirectional tempo blend | **Shipped** — `tempo_blend_tail` + head; outgoing morphs toward incoming BPM |
+| **P33** | Mix-in/out cue overrides | **Shipped** — playlist `mix_in_secs`/`mix_out_secs`; `--golden cue_overrides` |
 | Next | Stems / live dual-deck | gated (rights-cleared stems path required) |
-| Later | Mix-in/out cue overrides; neural phrase ML; listening-rubric polish | user-owned audio / playlist schema |
+| Later | Rekordbox absolute cue remap; neural phrase ML; listening-rubric polish | user-owned audio / RB semantics |
 
 ## Re-rank bias
 
-Prefer agent-doable product code that closes remaining mix-quality gaps before brochure fluff. P0–P32 are in place; stems remain gated.
+Prefer agent-doable product code that closes remaining mix-quality gaps before brochure fluff. P0–P33 are in place; stems remain gated.

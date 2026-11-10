@@ -9,9 +9,10 @@ use autodj_core::{
     beat_phase_gate_pass, camelot_distance, cue_edge_phrase_aligned, estimate_bars_per_phrase,
     join_continuity_pass, max_join_flux_ratio, mean_beat_phase_offset_ms, measure_loudness,
     mix_buffers_with_meta, normalize_loudness, parse_rekordbox_xml, peak_gate_pass,
-    plan_segment_cues, sections_drop_ordered, spectral_continuity_pass, stretch_clamp_excess,
-    tempo_stretch_gate_pass, within_lufs_tolerance, BeatPhaseCue, CamelotKey, CrossfadeParams,
-    MixPlan, MixSegment, TrackFeatures, TransitionClass, DEFAULT_BASS_OVERLAP_LIMIT,
+    plan_segment_cues, sections_drop_ordered, snap_to_beat_grid, spectral_continuity_pass,
+    stretch_clamp_excess, tempo_stretch_gate_pass, within_lufs_tolerance, BeatPhaseCue,
+    CamelotKey, CrossfadeParams, CueOverrides, MixPlan, MixSegment, TrackFeatures,
+    TransitionClass, DEFAULT_BASS_OVERLAP_LIMIT,
     DEFAULT_BEAT_PHASE_LIMIT_MS, DEFAULT_JOIN_FLUX_RATIO, DEFAULT_MAX_FLUX_RATIO,
     DEFAULT_TARGET_LUFS, DEFAULT_TRUE_PEAK_LIMIT, LUFS_TOLERANCE_LU,
 };
@@ -59,7 +60,7 @@ enum Commands {
         /// Genre policy id.
         #[arg(long, default_value = "house")]
         genre: String,
-        /// Built-in golden suite: `smoke`, `rekordbox`, `transitions`, or `transition_model`.
+        /// Built-in golden suite: `smoke`, `rekordbox`, `transitions`, `transition_model`, or `cue_overrides`.
         #[arg(long)]
         golden: Option<String>,
         /// Feature DB (optional; analyzes on the fly if missing).
@@ -109,6 +110,12 @@ struct PlaylistTrack {
     intro_end: Option<f64>,
     #[serde(default)]
     outro_start: Option<f64>,
+    /// Absolute mix-in within the track (seconds). Overrides section heuristics.
+    #[serde(default)]
+    mix_in_secs: Option<f64>,
+    /// Absolute mix-out within the track (seconds). Overrides section heuristics.
+    #[serde(default)]
+    mix_out_secs: Option<f64>,
     /// Optional phrase length override (`4` / `8` / `16`).
     #[serde(default)]
     bars_per_phrase: Option<u32>,
@@ -133,6 +140,8 @@ struct MixReport {
     cues: Vec<CueReport>,
     /// True when cue planner ran (phrase-aligned mix-in/out).
     cue_phrase_aligned: bool,
+    /// True when any playlist track supplied `mix_in_secs` / `mix_out_secs`.
+    cue_mix_override_applied: bool,
     /// True when every edge used ordered section marks (`intro ≤ drop ≤ outro`).
     cue_drop_aware: bool,
     /// True when every cue used a resolved phrase length in `{4,8,16}`.
@@ -274,6 +283,9 @@ fn main() -> Result<()> {
                     "transition_model" => {
                         cmd_golden_transition_model(&out, golden_target, deterministic)
                     }
+                    "cue_overrides" => {
+                        cmd_golden_cue_overrides(&out, golden_target, deterministic)
+                    }
                     other => bail!("unknown golden suite: {other}"),
                 };
             }
@@ -374,6 +386,8 @@ fn load_playlist_file(
                     beat_offset_secs: t.beat_offset_secs,
                     intro_end: t.intro_end,
                     outro_start: t.outro_start,
+                    mix_in_secs: None,
+                    mix_out_secs: None,
                     bars_per_phrase: None,
                 })
                 .collect(),
@@ -518,6 +532,7 @@ fn cmd_mix(
     let mut cue_reports = Vec::new();
     let mut cue_drop_aware = true;
     let mut saw_edge = false;
+    let mut cue_mix_override_applied = false;
     let n = solution.order.len();
     for (i, &idx) in solution.order.iter().enumerate() {
         let feats = &features[idx];
@@ -542,6 +557,14 @@ fn cmd_mix(
                 cue_drop_aware = false;
             }
         }
+        let track = &pl.tracks[idx];
+        let overrides = CueOverrides {
+            mix_in_secs: track.mix_in_secs,
+            mix_out_secs: track.mix_out_secs,
+        };
+        if overrides.any() {
+            cue_mix_override_applied = true;
+        }
         let cues = plan_segment_cues(
             feats,
             next_feats,
@@ -549,6 +572,7 @@ fn cmd_mix(
             phrase_bars,
             i == 0,
             i + 1 == n,
+            overrides,
         );
         let buffer = full.slice_secs(cues.play_start_secs, cues.play_end_secs);
         let transition = solution
@@ -746,6 +770,7 @@ fn cmd_mix(
                 .all(|c| matches!(c.bars_per_phrase, 4 | 8 | 16)),
         cues: cue_reports,
         cue_phrase_aligned,
+        cue_mix_override_applied,
         cue_drop_aware: cue_drop_aware && saw_edge,
         prep_tracks,
         prep_quality_gate_pass,
@@ -1044,6 +1069,75 @@ fn cmd_golden_transition_model(
     }
 
     println!("{}", serde_json::to_string_pretty(&summaries)?);
+    Ok(())
+}
+
+/// Golden: playlist absolute mix-in/out overrides pin CueReport play windows.
+fn cmd_golden_cue_overrides(
+    out: &Path,
+    target_lufs: Option<f64>,
+    deterministic: bool,
+) -> Result<()> {
+    let root = workspace_testdata()?;
+    let playlist_path = root.join("cue_overrides_playlist.json");
+    if !playlist_path.exists() {
+        bail!(
+            "missing cue_overrides golden fixture: {}",
+            playlist_path.display()
+        );
+    }
+    let pl = load_playlist_file(&playlist_path, None)?;
+    let policy = GenrePolicy::builtin("house");
+    let report = cmd_mix(
+        &playlist_path,
+        None,
+        out,
+        policy,
+        None,
+        target_lufs,
+        None,
+        deterministic,
+        true, // preserve order for stable cue indices
+    )?;
+    if !report.cue_mix_override_applied {
+        bail!("cue_overrides golden: expected cue_mix_override_applied");
+    }
+    if report.cues.len() != pl.tracks.len() {
+        bail!(
+            "cue_overrides golden: expected {} cues, got {}",
+            pl.tracks.len(),
+            report.cues.len()
+        );
+    }
+    // Beat-snap can move by ≤½ beat; assert within that tolerance of the requested override.
+    for (i, track) in pl.tracks.iter().enumerate() {
+        let cue = &report.cues[i];
+        let bpm = cue.bpm.max(1.0);
+        let half_beat = 30.0 / bpm as f64;
+        if let Some(mix_in) = track.mix_in_secs {
+            let expected = snap_to_beat_grid(mix_in, bpm, 0.0);
+            let delta = (cue.play_start_secs - expected).abs();
+            if delta > half_beat + 1e-3 {
+                bail!(
+                    "cue_overrides golden: track {i} play_start {:.4} != override snap {:.4} (Δ={delta:.4})",
+                    cue.play_start_secs,
+                    expected
+                );
+            }
+        }
+        if let Some(mix_out) = track.mix_out_secs {
+            let expected = snap_to_beat_grid(mix_out, bpm, 0.0);
+            let delta = (cue.play_end_secs - expected).abs();
+            if delta > half_beat + 1e-3 {
+                bail!(
+                    "cue_overrides golden: track {i} play_end {:.4} != override snap {:.4} (Δ={delta:.4})",
+                    cue.play_end_secs,
+                    expected
+                );
+            }
+        }
+    }
+    println!("{}", serde_json::to_string_pretty(&report)?);
     Ok(())
 }
 

@@ -31,6 +31,8 @@ jobs:
         run: cargo run -p autodj-cli -- mix --golden transitions --out /tmp/autodj-transitions.wav
       - name: Golden transition_model
         run: cargo run -p autodj-cli -- mix --golden transition_model --out /tmp/autodj-transition-model.wav
+      - name: Golden cue_overrides
+        run: cargo run -p autodj-cli -- mix --golden cue_overrides --out /tmp/autodj-cue-overrides.wav
 
   python:
     runs-on: ubuntu-latest

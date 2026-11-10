@@ -63,7 +63,13 @@ cargo run -p autodj-cli -- mix --playlist party.json --out mix.wav \
   --transition-model python/autodj_train/models/artifacts/transition_model.json
 ```
 
-Keys/BPM/`beat_offset_secs`/`intro_end`/`outro_start`/`bars_per_phrase` (`4`/`8`/`16`) in JSON (or Rekordbox TEMPO/Tonality/POSITION_MARK) override analyzer estimates when present. Without an override, mix resolves phrase length per track via `estimate_bars_per_phrase` (section span) with a genre fallback. A playlist BPM override also satisfies the prep quality gate when analysis is sparse or low-confidence. Without `--preserve-order`, the solver may reorder for harmonic/energy-arc.
+Keys/BPM/`beat_offset_secs`/`intro_end`/`outro_start`/`bars_per_phrase` (`4`/`8`/`16`) in JSON (or Rekordbox TEMPO/Tonality/POSITION_MARK) override analyzer estimates when present. Absolute mix windows: optional `mix_in_secs` / `mix_out_secs` pin play start/end (beat-snapped; win over section heuristics — unlike `intro_end`/`outro_start`, which only bias the planner). Without an override, mix resolves phrase length per track via `estimate_bars_per_phrase` (section span) with a genre fallback. A playlist BPM override also satisfies the prep quality gate when analysis is sparse or low-confidence. Without `--preserve-order`, the solver may reorder for harmonic/energy-arc.
+
+Cue-override golden:
+
+```bash
+cargo run -p autodj-cli -- mix --golden cue_overrides --out /tmp/autodj-cues.wav
+```
 
 Train gate (CI) — committed artifact is Softmax **v3** (15 dims, **7 classes** incl. riser):
 

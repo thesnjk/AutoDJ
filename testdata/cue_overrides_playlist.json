@@ -1,0 +1,28 @@
+{
+  "genre": "house",
+  "tracks": [
+    {
+      "path": "gold/loop_a_128.wav",
+      "key": "8A",
+      "bpm": 128.0,
+      "beat_offset_secs": 0.0,
+      "mix_in_secs": 0.46875,
+      "mix_out_secs": 6.09375
+    },
+    {
+      "path": "gold/loop_b_128.wav",
+      "key": "9A",
+      "bpm": 128.0,
+      "beat_offset_secs": 0.0,
+      "mix_in_secs": 0.9375,
+      "mix_out_secs": 6.5625
+    },
+    {
+      "path": "gold/loop_c_140.wav",
+      "key": "10A",
+      "bpm": 140.0,
+      "beat_offset_secs": 0.0,
+      "mix_in_secs": 0.4285714286
+    }
+  ]
+}

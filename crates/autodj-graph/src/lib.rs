@@ -78,7 +78,7 @@ impl GenrePolicy {
                 bpm_center: 132.0,
                 max_bpm_delta: 5.0,
                 default_crossfade_secs: 8.0,
-                preferred_transition: TransitionClass::EqSwap,
+                preferred_transition: TransitionClass::Dissolve,
                 energy_arc_weight: 1.0,
             },
             "open_format" => Self {
@@ -196,7 +196,7 @@ pub fn resolve_transition_class(
 ///
 /// - [`TransitionClass::HardCut`] → `0` (true abut cut)
 /// - [`TransitionClass::EchoOut`] → short tail (`min(policy, max(1s, 2 beats))`)
-/// - blends / EQ / filter / tremolo / riser → genre `default_crossfade_secs`
+/// - blends / EQ / filter / tremolo / riser / dissolve → genre `default_crossfade_secs`
 pub fn crossfade_secs_for_class(class: TransitionClass, policy: &GenrePolicy, bpm: f32) -> f32 {
     let policy_default = policy.default_crossfade_secs.max(0.0);
     match class {
@@ -210,7 +210,8 @@ pub fn crossfade_secs_for_class(class: TransitionClass, policy: &GenrePolicy, bp
         | TransitionClass::FilterSweep
         | TransitionClass::LinearCrossfade
         | TransitionClass::Tremolo
-        | TransitionClass::Riser => policy_default,
+        | TransitionClass::Riser
+        | TransitionClass::Dissolve => policy_default,
     }
 }
 
@@ -591,6 +592,8 @@ mod tests {
         assert_eq!(dnb.preferred_transition, TransitionClass::HardCut);
         assert_eq!(trance.preferred_transition, TransitionClass::Riser);
         assert_eq!(open.preferred_transition, TransitionClass::Tremolo);
+        let garage = GenrePolicy::builtin("uk_garage");
+        assert_eq!(garage.preferred_transition, TransitionClass::Dissolve);
         assert!(soft_style_penalty(&dnb, 8.0) >= 5.0);
         assert_eq!(soft_style_penalty(&dnb, 0.25), 0.0);
     }

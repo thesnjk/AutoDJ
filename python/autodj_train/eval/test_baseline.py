@@ -47,8 +47,8 @@ def test_balanced_synth_covers_all_classes():
 
 
 def test_softmax_recovers_rules_on_holdout():
-    train = synthesize(n=2000, seed=7, balance_labels=True)
-    model = SoftmaxLogReg(lr=0.35, epochs=800, seed=7)
+    train = synthesize(n=3500, seed=7, balance_labels=True)
+    model = SoftmaxLogReg(lr=0.3, epochs=4000, seed=7)
     model.fit(train)
     assert GOLD.exists(), "committed gold holdout missing"
     gold = read_jsonl(GOLD)
@@ -59,8 +59,8 @@ def test_softmax_recovers_rules_on_holdout():
 def test_committed_artifact_passes_holdout():
     assert ARTIFACT.exists()
     model = SoftmaxLogReg.load(ARTIFACT)
-    assert model.version >= 2
-    assert len(model.mean) == 13
+    assert model.version >= 3
+    assert len(model.mean) == 15
     gold = read_jsonl(GOLD)
     assert model.accuracy(gold) >= 0.90
 

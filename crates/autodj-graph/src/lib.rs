@@ -240,6 +240,35 @@ pub struct MixSolution {
     pub total_cost: f32,
 }
 
+/// Apply per-track transition class overrides onto a solved path.
+///
+/// `overrides` is aligned to **input feature indices** (not solved order). For each
+/// edge `i` with outgoing `order[i]`, if `overrides[order[i]]` is set, that class
+/// wins and [`crossfade_secs_for_class`] recomputes duration from the outgoing BPM.
+///
+/// Returns `true` when at least one edge was patched.
+pub fn apply_transition_overrides(
+    solution: &mut MixSolution,
+    overrides: &[Option<TransitionClass>],
+    tracks: &[TrackFeatures],
+    policy: &GenrePolicy,
+) -> bool {
+    let mut applied = false;
+    for (edge_i, decision) in solution.transitions.iter_mut().enumerate() {
+        let Some(&out_idx) = solution.order.get(edge_i) else {
+            continue;
+        };
+        let Some(Some(class)) = overrides.get(out_idx) else {
+            continue;
+        };
+        let bpm = tracks.get(out_idx).map(|t| t.bpm).unwrap_or(120.0);
+        decision.class = *class;
+        decision.crossfade_secs = crossfade_secs_for_class(*class, policy, bpm);
+        applied = true;
+    }
+    applied
+}
+
 /// Pairwise transition cost without arc context (Opening-equivalent energy term).
 pub fn pair_cost(a: &TrackFeatures, b: &TrackFeatures, policy: &GenrePolicy) -> f32 {
     pair_cost_at(a, b, policy, ArcPhase::Opening)
@@ -697,6 +726,23 @@ mod tests {
         assert!((house_echo - 1.0).abs() < 1e-5, "house echo got {house_echo}");
         let tracks = vec![feat(174.0, "8A", -12.0), feat(175.0, "8A", -11.0)];
         let sol = preserve_order(&tracks, &dnb, None);
+        assert_eq!(sol.transitions[0].crossfade_secs, 0.0);
+    }
+
+    #[test]
+    fn apply_transition_overrides_hard_cut_zero_xfade() {
+        let policy = GenrePolicy::builtin("house");
+        let tracks = vec![feat(128.0, "8A", -12.0), feat(128.0, "9A", -11.0)];
+        let mut sol = preserve_order(&tracks, &policy, None);
+        assert!(sol.transitions[0].crossfade_secs > 0.0);
+        let overrides = vec![Some(TransitionClass::HardCut), None];
+        assert!(apply_transition_overrides(
+            &mut sol,
+            &overrides,
+            &tracks,
+            &policy
+        ));
+        assert_eq!(sol.transitions[0].class, TransitionClass::HardCut);
         assert_eq!(sol.transitions[0].crossfade_secs, 0.0);
     }
 

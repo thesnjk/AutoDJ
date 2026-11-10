@@ -17,8 +17,8 @@ use autodj_core::{
     DEFAULT_TARGET_LUFS, DEFAULT_TRUE_PEAK_LIMIT, LUFS_TOLERANCE_LU,
 };
 use autodj_graph::{
-    crossfade_secs_for_class, load_policy_hints_map, predict_transition_class_edge,
-    preserve_order, solve_order, GenrePolicy, TransitionModel,
+    apply_transition_overrides, crossfade_secs_for_class, load_policy_hints_map,
+    predict_transition_class_edge, preserve_order, solve_order, GenrePolicy, TransitionModel,
 };
 use autodj_io::{read_wav, write_wav};
 use clap::{Parser, Subcommand};
@@ -60,7 +60,7 @@ enum Commands {
         /// Genre policy id.
         #[arg(long, default_value = "house")]
         genre: String,
-        /// Built-in golden suite: `smoke`, `rekordbox`, `transitions`, `transition_model`, or `cue_overrides`.
+        /// Built-in golden suite: `smoke`, `rekordbox`, `transitions`, `transition_model`, `cue_overrides`, or `transition_overrides`.
         #[arg(long)]
         golden: Option<String>,
         /// Feature DB (optional; analyzes on the fly if missing).
@@ -116,6 +116,9 @@ struct PlaylistTrack {
     /// Absolute mix-out within the track (seconds). Overrides section heuristics.
     #[serde(default)]
     mix_out_secs: Option<f64>,
+    /// Transition class for the edge from this track to the next (Softmax/policy override).
+    #[serde(default)]
+    transition_out: Option<TransitionClass>,
     /// Optional phrase length override (`4` / `8` / `16`).
     #[serde(default)]
     bars_per_phrase: Option<u32>,
@@ -142,6 +145,8 @@ struct MixReport {
     cue_phrase_aligned: bool,
     /// True when any playlist track supplied `mix_in_secs` / `mix_out_secs`.
     cue_mix_override_applied: bool,
+    /// True when any playlist track supplied `transition_out`.
+    transition_override_applied: bool,
     /// True when every edge used ordered section marks (`intro ≤ drop ≤ outro`).
     cue_drop_aware: bool,
     /// True when every cue used a resolved phrase length in `{4,8,16}`.
@@ -286,6 +291,9 @@ fn main() -> Result<()> {
                     "cue_overrides" => {
                         cmd_golden_cue_overrides(&out, golden_target, deterministic)
                     }
+                    "transition_overrides" => {
+                        cmd_golden_transition_overrides(&out, golden_target, deterministic)
+                    }
                     other => bail!("unknown golden suite: {other}"),
                 };
             }
@@ -388,6 +396,7 @@ fn load_playlist_file(
                     outro_start: t.outro_start,
                     mix_in_secs: None,
                     mix_out_secs: None,
+                    transition_out: None,
                     bars_per_phrase: None,
                 })
                 .collect(),
@@ -513,7 +522,7 @@ fn cmd_mix(
         );
     }
 
-    let solution = if keep_order {
+    let mut solution = if keep_order {
         let sol = preserve_order(&features, &policy, model);
         let expected: Vec<usize> = (0..features.len()).collect();
         if sol.order != expected {
@@ -528,6 +537,17 @@ fn cmd_mix(
         // Free start → quiet opener within BPM band (energy-arc setcraft).
         solve_order(&features, &policy, None, model)
     };
+    let transition_overrides: Vec<Option<TransitionClass>> = pl
+        .tracks
+        .iter()
+        .map(|t| t.transition_out)
+        .collect();
+    let transition_override_applied = apply_transition_overrides(
+        &mut solution,
+        &transition_overrides,
+        &features,
+        &policy,
+    );
     let mut segments = Vec::new();
     let mut cue_reports = Vec::new();
     let mut cue_drop_aware = true;
@@ -771,6 +791,7 @@ fn cmd_mix(
         cues: cue_reports,
         cue_phrase_aligned,
         cue_mix_override_applied,
+        transition_override_applied,
         cue_drop_aware: cue_drop_aware && saw_edge,
         prep_tracks,
         prep_quality_gate_pass,
@@ -1069,6 +1090,79 @@ fn cmd_golden_transition_model(
     }
 
     println!("{}", serde_json::to_string_pretty(&summaries)?);
+    Ok(())
+}
+
+/// Golden: playlist `transition_out` pins MixReport edge classes.
+fn cmd_golden_transition_overrides(
+    out: &Path,
+    target_lufs: Option<f64>,
+    deterministic: bool,
+) -> Result<()> {
+    let root = workspace_testdata()?;
+    let playlist_path = root.join("transition_overrides_playlist.json");
+    if !playlist_path.exists() {
+        bail!(
+            "missing transition_overrides golden fixture: {}",
+            playlist_path.display()
+        );
+    }
+    let pl = load_playlist_file(&playlist_path, None)?;
+    let policy = GenrePolicy::builtin("house");
+    // Softmax on so overrides must beat the committed model, not just preferred_transition.
+    let model_path = resolve_committed_transition_model()?;
+    let model = load_transition_model(Some(&model_path))?;
+    let report = cmd_mix(
+        &playlist_path,
+        None,
+        out,
+        policy.clone(),
+        None,
+        target_lufs,
+        model.as_ref(),
+        deterministic,
+        true, // preserve order for stable edge indices
+    )?;
+    if !report.transition_override_applied {
+        bail!("transition_overrides golden: expected transition_override_applied");
+    }
+    if report.transitions.len() != pl.tracks.len().saturating_sub(1) {
+        bail!(
+            "transition_overrides golden: expected {} edges, got {}",
+            pl.tracks.len().saturating_sub(1),
+            report.transitions.len()
+        );
+    }
+    for (i, track) in pl.tracks.iter().enumerate() {
+        let Some(expected) = track.transition_out else {
+            continue;
+        };
+        let Some(edge) = report.transitions.get(i) else {
+            bail!("transition_overrides golden: missing edge {i}");
+        };
+        if edge.class != expected {
+            bail!(
+                "transition_overrides golden: edge {i} class {:?} != override {:?}",
+                edge.class,
+                expected
+            );
+        }
+        if expected == TransitionClass::HardCut && edge.policy_crossfade_secs != 0.0 {
+            bail!(
+                "transition_overrides golden: HardCut edge {i} policy_crossfade_secs {:.4} != 0",
+                edge.policy_crossfade_secs
+            );
+        }
+        let expected_xf = crossfade_secs_for_class(expected, &policy, track.bpm.unwrap_or(128.0));
+        if (edge.policy_crossfade_secs - expected_xf).abs() > 1e-4 {
+            bail!(
+                "transition_overrides golden: edge {i} policy_crossfade_secs {:.4} != class-aware {:.4}",
+                edge.policy_crossfade_secs,
+                expected_xf
+            );
+        }
+    }
+    println!("{}", serde_json::to_string_pretty(&report)?);
     Ok(())
 }
 

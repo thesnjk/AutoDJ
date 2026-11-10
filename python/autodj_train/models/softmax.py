@@ -17,7 +17,7 @@ from autodj_train.models.features import (
 )
 from autodj_train.transitions import ALL_CLASSES, TransitionClass
 
-# All transition classes including Riser (committed Softmax is 7-class).
+# All transition classes including Dissolve (committed Softmax is 8-class).
 CLASS_ORDER = [c.value for c in ALL_CLASSES]
 
 

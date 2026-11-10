@@ -43,6 +43,7 @@ pub use rekordbox::{
 };
 pub use render::{mix_buffers, mix_buffers_with_meta, CrossfadeParams, MixPlan, MixRenderResult, MixSegment};
 pub use stretch::{
-    fit_length, should_tempo_blend, stretch_clamp_excess, tempo_blend_head, tempo_ratio,
-    tempo_stretch_gate_pass, wsola_stretch, STRETCH_MAX, STRETCH_MIN, TEMPO_BLEND_EPSILON_BPM,
+    fit_length, should_tempo_blend, stretch_clamp_excess, tempo_blend_head, tempo_blend_tail,
+    tempo_ratio, tempo_stretch_gate_pass, wsola_stretch, STRETCH_MAX, STRETCH_MIN,
+    TEMPO_BLEND_EPSILON_BPM,
 };

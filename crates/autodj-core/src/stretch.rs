@@ -186,31 +186,26 @@ pub fn fit_length(samples: &[f32], target_len: usize) -> Vec<f32> {
     out
 }
 
-/// Tempo-blend an incoming crossfade head from `bpm_a` (match outgoing) toward `bpm_b` (native).
-///
-/// Returns a buffer the same length as `b_head`. When `|bpm_a - bpm_b| < epsilon`, returns a copy.
-pub fn tempo_blend_head(b_head: &[f32], sample_rate: u32, bpm_a: f32, bpm_b: f32) -> Vec<f32> {
-    if b_head.is_empty() || !should_tempo_blend(bpm_a, bpm_b) {
-        return b_head.to_vec();
-    }
-
-    let target_len = b_head.len();
-    let start_factor = clamp_stretch(tempo_ratio(bpm_a, bpm_b));
-    let end_factor = 1.0f32;
-
-    // Piecewise WSOLA over 8 segments with ramped stretch factors.
+/// Piecewise WSOLA ramp over 8 segments from `start_factor` → `end_factor`, fitted to `samples.len()`.
+fn tempo_blend_ramp(
+    samples: &[f32],
+    sample_rate: u32,
+    start_factor: f32,
+    end_factor: f32,
+) -> Vec<f32> {
+    let target_len = samples.len();
     const SEGMENTS: usize = 8;
-    let seg_in = (b_head.len() / SEGMENTS).max(1);
-    let mut pieces: Vec<f32> = Vec::with_capacity(b_head.len() + seg_in);
+    let seg_in = (samples.len() / SEGMENTS).max(1);
+    let mut pieces: Vec<f32> = Vec::with_capacity(samples.len() + seg_in);
     for s in 0..SEGMENTS {
         let start = s * seg_in;
-        if start >= b_head.len() {
+        if start >= samples.len() {
             break;
         }
         let end = if s + 1 == SEGMENTS {
-            b_head.len()
+            samples.len()
         } else {
-            ((s + 1) * seg_in).min(b_head.len())
+            ((s + 1) * seg_in).min(samples.len())
         };
         let t = if SEGMENTS <= 1 {
             0.0
@@ -218,12 +213,36 @@ pub fn tempo_blend_head(b_head: &[f32], sample_rate: u32, bpm_a: f32, bpm_b: f32
             s as f32 / (SEGMENTS - 1) as f32
         };
         let factor = start_factor + (end_factor - start_factor) * t;
-        let chunk = &b_head[start..end];
+        let chunk = &samples[start..end];
         let stretched = wsola_stretch(chunk, sample_rate, factor, 30.0, 0.5);
         pieces.extend_from_slice(&stretched);
     }
-
     fit_length(&pieces, target_len)
+}
+
+/// Tempo-blend an incoming crossfade head from `bpm_a` (match outgoing) toward `bpm_b` (native).
+///
+/// Returns a buffer the same length as `b_head`. When `|bpm_a - bpm_b| < epsilon`, returns a copy.
+pub fn tempo_blend_head(b_head: &[f32], sample_rate: u32, bpm_a: f32, bpm_b: f32) -> Vec<f32> {
+    if b_head.is_empty() || !should_tempo_blend(bpm_a, bpm_b) {
+        return b_head.to_vec();
+    }
+    let start_factor = clamp_stretch(tempo_ratio(bpm_a, bpm_b));
+    let end_factor = 1.0f32;
+    tempo_blend_ramp(b_head, sample_rate, start_factor, end_factor)
+}
+
+/// Tempo-blend an outgoing crossfade tail from native `bpm_a` toward `bpm_b` (incoming).
+///
+/// Mirrors djay Automix Sync + Tempo Blend on the outgoing deck. Returns a buffer the same
+/// length as `a_tail`. When `|bpm_a - bpm_b| < epsilon`, returns a copy.
+pub fn tempo_blend_tail(a_tail: &[f32], sample_rate: u32, bpm_a: f32, bpm_b: f32) -> Vec<f32> {
+    if a_tail.is_empty() || !should_tempo_blend(bpm_a, bpm_b) {
+        return a_tail.to_vec();
+    }
+    let start_factor = 1.0f32;
+    let end_factor = clamp_stretch(tempo_ratio(bpm_b, bpm_a));
+    tempo_blend_ramp(a_tail, sample_rate, start_factor, end_factor)
 }
 
 #[cfg(test)]
@@ -280,6 +299,17 @@ mod tests {
         assert!(out.iter().all(|s| s.is_finite()));
         assert!(should_tempo_blend(128.0, 140.0));
         assert!(!should_tempo_blend(128.0, 128.2));
+    }
+
+    #[test]
+    fn tempo_blend_tail_128_to_140_keeps_length() {
+        let sr = 44_100u32;
+        let tail = tone(sr, 1.0, 220.0);
+        let out = tempo_blend_tail(&tail, sr, 128.0, 140.0);
+        assert_eq!(out.len(), tail.len());
+        assert!(out.iter().all(|s| s.is_finite()));
+        let noop = tempo_blend_tail(&tail, sr, 128.0, 128.2);
+        assert_eq!(noop, tail);
     }
 
     #[test]

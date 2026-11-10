@@ -7,7 +7,7 @@ use crate::eq::{
     apply_echo_out_crossfade, apply_eq_swap_crossfade, apply_filter_sweep_crossfade,
     apply_riser_out_crossfade, apply_tremolo_out_crossfade, max_eq_swap_bass_overlap,
 };
-use crate::stretch::{should_tempo_blend, tempo_blend_head};
+use crate::stretch::{should_tempo_blend, tempo_blend_head, tempo_blend_tail};
 
 /// One segment in a rendered mix.
 #[derive(Debug, Clone)]
@@ -118,21 +118,22 @@ pub fn mix_buffers_with_meta(plan: &MixPlan, params: CrossfadeParams) -> MixRend
             if xfade > 0 {
                 join_sample_indices.push(out.len() / 2);
             }
-            let a_tail = &mono[mono.len() - xfade..];
+            let a_raw = &mono[mono.len() - xfade..];
             let b_raw = &next_mono[..xfade];
             if should_tempo_blend(seg.bpm, next_seg.bpm) {
                 tempo_blend_applied = true;
             }
+            let a_tail = tempo_blend_tail(a_raw, sr, seg.bpm, next_seg.bpm);
             let b_head = tempo_blend_head(b_raw, sr, seg.bpm, next_seg.bpm);
             if matches!(seg.transition, TransitionClass::EqSwap) && xfade > 0 {
                 let overlap =
-                    max_eq_swap_bass_overlap(a_tail, &b_head, sr, params.equal_power);
+                    max_eq_swap_bass_overlap(&a_tail, &b_head, sr, params.equal_power);
                 if overlap > max_bass_overlap {
                     max_bass_overlap = overlap;
                 }
             }
             let wet = crossfade_mono(
-                a_tail,
+                &a_tail,
                 &b_head,
                 sr,
                 seg.transition,

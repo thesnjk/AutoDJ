@@ -17,8 +17,8 @@ from autodj_train.models.features import (
 )
 from autodj_train.transitions import ALL_CLASSES, TransitionClass
 
-# Softmax artifact stays 5-class until a dedicated retrain; Tremolo is policy-driven.
-CLASS_ORDER = [c.value for c in ALL_CLASSES if c != TransitionClass.TREMOLO]
+# All transition classes including Tremolo (committed Softmax is 6-class).
+CLASS_ORDER = [c.value for c in ALL_CLASSES]
 
 
 def _softmax(logits: np.ndarray) -> np.ndarray:
@@ -53,7 +53,6 @@ class SoftmaxLogReg:
 
     def fit(self, examples: list[TransitionExample]) -> SoftmaxLogReg:
         class_to_i = {c: i for i, c in enumerate(self.classes)}
-        # Drop policy-only classes (e.g. tremolo) not present in the Softmax artifact.
         examples = [ex for ex in examples if ex.label in class_to_i]
         if not examples:
             raise ValueError("no training examples with Softmax-supported labels")

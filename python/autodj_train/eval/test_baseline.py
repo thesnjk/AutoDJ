@@ -47,13 +47,12 @@ def test_balanced_synth_covers_all_classes():
 
 
 def test_softmax_recovers_rules_on_holdout():
-    # Balance all enum classes then drop Tremolo (Softmax stays 5-class).
-    raw = synthesize(n=6000, seed=7, balance_labels=True)
-    train = [ex for ex in raw if ex.label != "tremolo"]
-    model = SoftmaxLogReg(lr=0.3, epochs=5000, seed=7)
+    train = synthesize(n=6000, seed=7, balance_labels=True)
+    model = SoftmaxLogReg(lr=0.3, epochs=6000, seed=7)
     model.fit(train)
     assert GOLD.exists(), "committed gold holdout missing"
     gold = read_jsonl(GOLD)
+    assert RuleBaseline().accuracy(gold) == 1.0
     assert model.accuracy(gold) >= 0.90
 
 
@@ -62,6 +61,8 @@ def test_committed_artifact_passes_holdout():
     model = SoftmaxLogReg.load(ARTIFACT)
     assert model.version >= 3
     assert len(model.mean) == 15
+    assert len(model.classes) == 6
+    assert "tremolo" in model.classes
     gold = read_jsonl(GOLD)
     assert model.accuracy(gold) >= 0.90
 

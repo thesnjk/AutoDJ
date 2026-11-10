@@ -72,13 +72,14 @@ cargo run -p autodj-cli -- mix --golden cue_overrides --out /tmp/autodj-cues.wav
 cargo run -p autodj-cli -- mix --golden transition_overrides --out /tmp/autodj-to.wav
 ```
 
-Train gate (CI) — committed artifact is Softmax **v3** (15 dims, **7 classes** incl. riser):
+Train gate (CI) — committed artifact is Softmax **v3** (15 dims, **8 classes** incl. dissolve):
 
 ```bash
 cd python && pip install -e ".[dev]"
 autodj-train eval --model autodj_train/models/artifacts/transition_model.json
 # Retrain (optional; use enough epochs for ≥0.90):
-# autodj-train train --out autodj_train/models/artifacts/transition_model.json --n 12000 --seed 7 --epochs 12000 --lr 0.25
+# autodj-train train --out autodj_train/models/artifacts/transition_model.json --n 20000 --seed 7 --epochs 20000 --lr 0.25
+# Holdout regen (150×8): autodj-train synth --out autodj_train/eval/gold/synthetic_holdout.jsonl --n 1200 --seed 13 --balance
 ```
 
 ## Desktop shell (Tauri)

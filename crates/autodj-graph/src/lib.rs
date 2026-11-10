@@ -655,6 +655,11 @@ mod tests {
             "expected riser in Softmax classes {:?}",
             model.classes
         );
+        assert!(
+            model.classes.iter().any(|c| c == "dissolve"),
+            "expected dissolve in Softmax classes {:?}",
+            model.classes
+        );
         let dnb = predict_transition_class(&model, 174.0, 175.0, 1, 0.0, "drum_and_bass");
         assert_eq!(dnb, TransitionClass::HardCut);
         let house = predict_transition_class_with_spectral(

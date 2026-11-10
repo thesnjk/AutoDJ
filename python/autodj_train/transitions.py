@@ -12,6 +12,7 @@ class TransitionClass(str, Enum):
     ECHO_OUT = "echo_out"
     TREMOLO = "tremolo"
     RISER = "riser"
+    DISSOLVE = "dissolve"
     HARD_CUT = "hard_cut"
 
 

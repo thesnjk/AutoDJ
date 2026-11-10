@@ -86,9 +86,12 @@ def rule_label(
     # open_format tremolo: reachable for CI balance.
     if genre == "open_format" and bpm_delta < 4.0 and camelot_dist >= 3:
         return TransitionClass.TREMOLO
-    # trance riser: festival energy build; Softmax 7-class includes riser.
+    # trance riser: festival energy build; Softmax includes riser.
     if genre == "trance" and bpm_delta < 6.0 and camelot_dist <= 2:
         return TransitionClass.RISER
+    # uk_garage dissolve: evaporate outgoing bands; Softmax 8-class includes dissolve.
+    if genre in {"uk_garage", "garage"} and bpm_delta < 6.0 and camelot_dist <= 2:
+        return TransitionClass.DISSOLVE
     if genre == "trance" or camelot_dist == 0:
         return TransitionClass.FILTER_SWEEP
     if camelot_dist <= 1 and bpm_delta < 4:

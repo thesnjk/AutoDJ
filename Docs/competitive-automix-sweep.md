@@ -10,12 +10,12 @@ Living gap matrix. Updated 2026-11-09 after Firecrawl research (raw notes in loc
 | Feature extraction (BPM/key/sections) | Rekordbox / djay prep analysis | Parity-path | `analysis.rs` `AnalysisQuality` + octave fold; MixReport `prep_quality_gate_pass`; gold `expected_analyze.json` regression |
 | Harmonic suggestions | Rekordbox / DJ.Studio Camelot ordering | Parity MVP | `camelot.rs`; `autodj-graph` `prefers_harmonic_neighbor` |
 | Energy-arc setcraft | Club open→peak→cool programming | Parity-path | `ArcPhase` + `pair_cost_at` + quiet opener; MixReport order |
-| Transition type palette | djay Filter / Echo / Tremolo / Riser / Dissolve / Neural Mix; SetFlow six-core (EQ, bass swap, cut, blend) | Parity-path | `eq.rs` Dissolve + Riser + Tremolo + Filter/Echo/EqSwap; Softmax 7-class (Dissolve FX via preferred/`transition_out`); CI `--golden transitions` / `transition_model` / `transition_overrides`; Softmax Dissolve / Neural Mix / stems Later |
+| Transition type palette | djay Filter / Echo / Tremolo / Riser / Dissolve / Neural Mix; SetFlow six-core (EQ, bass swap, cut, blend) | Parity-path | `eq.rs` Dissolve + Riser + Tremolo + Filter/Echo/EqSwap; Softmax 8-class (incl. dissolve); playlist `transition_out`; CI `--golden transitions` / `transition_model` / `transition_overrides`; Neural Mix / stems Later |
 | Mix-in / mix-out cueing | VirtualDJ Smart automix (outro→intro ~4–8s); djay start/end points | Parity-path | `cue.rs` `plan_segment_cues` + `CueOverrides` (`mix_in_secs`/`mix_out_secs`); MixReport `cue_mix_override_applied` + `cue_phrase_aligned`; CI `--golden cue_overrides` |
 | Library prep (Rekordbox XML) | Rekordbox playlist export → DJ.Studio | Parity-path | `rekordbox.rs` + `--playlist` `.xml`; BPM/key/grid/cue overrides; `--preserve-order`; CI `--golden rekordbox` |
 | Stems-aware transitions | Serato Stems (vocal / melody / bass / drums pads) | Gap | no stem DSP; deferred v2 |
 | Phrase sync | Rekordbox phrase analysis / djay BPM+Beats sync | Parity-path | per-track `bars_per_phrase` + LCM join snap + measured `cue_phrase_aligned` + Softmax v3 phrase bars/mismatch |
-| Learning from setcraft | Mixonset / tracklist research tools | Parity-path | SoftmaxLogReg v3 15-dim + **7 classes** (incl. riser); `autodj-train eval` ≥ 0.90; CI `--golden transition_model`; v1/v2 JSON still load |
+| Learning from setcraft | Mixonset / tracklist research tools | Parity-path | SoftmaxLogReg v3 15-dim + **8 classes** (incl. dissolve); `autodj-train eval` ≥ 0.90; CI `--golden transition_model`; v1/v2 JSON still load |
 | Live / controller | VirtualDJ / Serato dual-deck | Parity-path (desktop shell) | Tauri 2 MixReport QA panel (gate strip + transitions) + deterministic checkbox; live dual-deck still Later |
 | Loudness / broadcast | EBU R 128 (−23 LUFS integrated; true-peak limits); radio-style continuous sets | Parity-path (measure+norm shipped) | `loudness.rs` + CLI `--lufs`; golden gate ±2 LU (`Docs/mix-quality-rubric.md`) |
 | Tempo blend | djay Sync + Tempo Blend | Parity-path | `stretch.rs` WSOLA `tempo_blend_head` + `tempo_blend_tail` (bidirectional); MixReport `tempo_blend_applied` + `tempo_stretch_gate_pass`; solver `stretch_clamp_excess` cost |
@@ -80,9 +80,10 @@ Formula note: `(competitor best − AutoDJ) × persona weight × mix_impact`. Be
 | **P33** | Mix-in/out cue overrides | **Shipped** — playlist `mix_in_secs`/`mix_out_secs`; `--golden cue_overrides` |
 | **P34** | Per-edge transition overrides | **Shipped** — playlist `transition_out`; `--golden transition_overrides` |
 | **P35** | Dissolve transition FX | **Shipped** — `apply_dissolve_out_crossfade`; `uk_garage` preferred; Softmax stays 7-class |
-| Next | Softmax 8-class Dissolve | ungated follow-up (holdout regen + artifact) |
+| **P36** | Softmax 8-class Dissolve | **Shipped** — `dissolve` in Softmax `classes`; holdout regen; ordinary mix can select Dissolve |
+| Next | FFT spectral centroid (replace ZCR proxy) | ungated analysis honesty for Softmax feature 6 |
 | Later | Stems / live dual-deck; Rekordbox absolute cue remap; neural phrase ML; listening-rubric polish | gated / user-owned audio / RB semantics |
 
 ## Re-rank bias
 
-Prefer agent-doable product code that closes remaining mix-quality gaps before brochure fluff. P0–P35 are in place; stems remain gated.
+Prefer agent-doable product code that closes remaining mix-quality gaps before brochure fluff. P0–P36 are in place; stems remain gated.

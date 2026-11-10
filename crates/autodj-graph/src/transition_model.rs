@@ -60,6 +60,7 @@ fn parse_class(name: &str) -> TransitionClass {
         "echo_out" => TransitionClass::EchoOut,
         "tremolo" => TransitionClass::Tremolo,
         "riser" => TransitionClass::Riser,
+        "dissolve" => TransitionClass::Dissolve,
         "hard_cut" => TransitionClass::HardCut,
         _ => TransitionClass::LinearCrossfade,
     }

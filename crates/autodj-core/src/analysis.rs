@@ -27,6 +27,8 @@ pub enum TransitionClass {
     Tremolo,
     /// Rising noise + high-pass energy build before swap (festival-style riser).
     Riser,
+    /// Staggered three-band kill that evaporates the outgoing track (djay-style Dissolve).
+    Dissolve,
     /// Hard cut on a downbeat.
     HardCut,
 }

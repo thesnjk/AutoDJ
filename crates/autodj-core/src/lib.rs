@@ -24,9 +24,9 @@ pub use cue::{
     CuePoints,
 };
 pub use eq::{
-    apply_echo_out_crossfade, apply_eq_swap_crossfade, apply_filter_sweep_crossfade,
-    apply_riser_out_crossfade, apply_tremolo_out_crossfade, band_rms, bass_conflict_pass,
-    eq_swap_gains, max_eq_swap_bass_overlap, BandGains, ThreeBandSplitter,
+    apply_dissolve_out_crossfade, apply_echo_out_crossfade, apply_eq_swap_crossfade,
+    apply_filter_sweep_crossfade, apply_riser_out_crossfade, apply_tremolo_out_crossfade, band_rms,
+    bass_conflict_pass, eq_swap_gains, max_eq_swap_bass_overlap, BandGains, ThreeBandSplitter,
     DEFAULT_BASS_OVERLAP_LIMIT,
 };
 pub use eval::{

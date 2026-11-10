@@ -240,6 +240,50 @@ pub fn apply_tremolo_out_crossfade(
     out
 }
 
+/// Linear band-kill envelope: gain `1→0` by normalized time `kill_by`.
+fn dissolve_band_gain(t: f32, kill_by: f32) -> f32 {
+    let kill_by = kill_by.max(1e-6);
+    if t >= kill_by {
+        0.0
+    } else {
+        (1.0 - t / kill_by).clamp(0.0, 1.0)
+    }
+}
+
+/// Dissolve-out crossfade: staggered three-band evaporate on outgoing; incoming equal-power in.
+///
+/// Bass dies by `t≈0.45`, mid by `t≈0.75`, high by `t=1`, then the equal-power fade hands
+/// the mix to B — distinct from [`apply_eq_swap_crossfade`] (bass handoff) and
+/// [`apply_filter_sweep_crossfade`] (HP/LP).
+pub fn apply_dissolve_out_crossfade(
+    a_tail: &[f32],
+    b_head: &[f32],
+    sample_rate: u32,
+    equal_power: bool,
+) -> Vec<f32> {
+    let n = a_tail.len().min(b_head.len());
+    let mut out = Vec::with_capacity(n);
+    let mut split_a = ThreeBandSplitter::new(sample_rate);
+    for i in 0..n {
+        let t = if n <= 1 {
+            1.0
+        } else {
+            i as f32 / (n - 1) as f32
+        };
+        let (la, ma, ha) = split_a.process(a_tail[i]);
+        let evaporated = la * dissolve_band_gain(t, 0.45)
+            + ma * dissolve_band_gain(t, 0.75)
+            + ha * dissolve_band_gain(t, 1.0);
+        let (ga, gb) = if equal_power {
+            ((1.0 - t).sqrt(), t.sqrt())
+        } else {
+            (1.0 - t, t)
+        };
+        out.push(evaporated * ga + b_head[i] * gb);
+    }
+    out
+}
+
 /// Riser-out crossfade: rising deterministic noise + outgoing high-pass; incoming equal-power in.
 ///
 /// Noise amplitude follows `t²` (peak gain ~0.2) so energy builds before the swap without
@@ -461,6 +505,66 @@ mod tests {
         assert!(
             late_rms > early_rms * 1.5,
             "expected riser energy build early_rms={early_rms} late_rms={late_rms}"
+        );
+    }
+
+    #[test]
+    fn dissolve_out_is_finite_and_evaporates() {
+        let sr = 44_100u32;
+        // Broadband-ish outgoing (low + high); silent B so residual is A only.
+        let a: Vec<f32> = (0..(sr as usize))
+            .map(|i| {
+                let t = i as f32 / sr as f32;
+                let low = (2.0 * std::f32::consts::PI * 80.0 * t).sin() * 0.4;
+                let high = (2.0 * std::f32::consts::PI * 4000.0 * t).sin() * 0.4;
+                low + high
+            })
+            .collect();
+        let b = vec![0.0f32; a.len()];
+        let dissolve = apply_dissolve_out_crossfade(&a, &b, sr, true);
+        assert_eq!(dissolve.len(), a.len());
+        assert!(dissolve.iter().all(|s| s.is_finite()));
+        let peak = dissolve.iter().copied().map(f32::abs).fold(0.0, f32::max);
+        assert!(peak < 5.0, "dissolve peak={peak}");
+
+        let n = dissolve.len();
+        let early = &dissolve[..n / 8];
+        let late = &dissolve[n * 7 / 8..];
+        let rms = |xs: &[f32]| {
+            let s: f64 = xs.iter().map(|&x| (x as f64) * (x as f64)).sum();
+            (s / xs.len().max(1) as f64).sqrt()
+        };
+        let early_rms = rms(early);
+        let late_rms = rms(late);
+        assert!(
+            late_rms < early_rms * 0.35,
+            "expected dissolve evaporate early_rms={early_rms} late_rms={late_rms}"
+        );
+
+        // High-band residual (post one-pole HP ~2.5 kHz) should also fall.
+        let mut early_hp = OnePole::lowpass(2500.0, sr);
+        let mut late_hp = OnePole::lowpass(2500.0, sr);
+        let early_hf: f64 = early
+            .iter()
+            .map(|&x| {
+                let h = early_hp.process_hp(x);
+                (h as f64) * (h as f64)
+            })
+            .sum::<f64>()
+            / early.len().max(1) as f64;
+        let late_hf: f64 = late
+            .iter()
+            .map(|&x| {
+                let h = late_hp.process_hp(x);
+                (h as f64) * (h as f64)
+            })
+            .sum::<f64>()
+            / late.len().max(1) as f64;
+        assert!(
+            late_hf.sqrt() < early_hf.sqrt() * 0.5,
+            "expected HF kill early_hf={} late_hf={}",
+            early_hf.sqrt(),
+            late_hf.sqrt()
         );
     }
 

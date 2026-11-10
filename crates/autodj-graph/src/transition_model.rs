@@ -59,6 +59,7 @@ fn parse_class(name: &str) -> TransitionClass {
         "filter_sweep" => TransitionClass::FilterSweep,
         "echo_out" => TransitionClass::EchoOut,
         "tremolo" => TransitionClass::Tremolo,
+        "riser" => TransitionClass::Riser,
         "hard_cut" => TransitionClass::HardCut,
         _ => TransitionClass::LinearCrossfade,
     }

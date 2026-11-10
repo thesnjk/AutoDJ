@@ -17,8 +17,8 @@ from autodj_train.models.features import (
 )
 from autodj_train.transitions import ALL_CLASSES, TransitionClass
 
-# All transition classes including Tremolo (committed Softmax is 6-class).
-CLASS_ORDER = [c.value for c in ALL_CLASSES]
+# Softmax stays 6-class until a Riser retrain follow-up (P30 DSP ships Riser via policy).
+CLASS_ORDER = [c.value for c in ALL_CLASSES if c != TransitionClass.RISER]
 
 
 def _softmax(logits: np.ndarray) -> np.ndarray:
@@ -98,6 +98,9 @@ class SoftmaxLogReg:
         return self.predict([ex])[0]
 
     def accuracy(self, examples: list[TransitionExample]) -> float:
+        # Score only Softmax-supported labels (e.g. exclude policy-only `riser`).
+        supported = set(self.classes)
+        examples = [ex for ex in examples if ex.label in supported]
         if not examples:
             return 0.0
         preds = self.predict(examples)

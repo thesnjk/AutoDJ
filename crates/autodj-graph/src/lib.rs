@@ -70,7 +70,7 @@ impl GenrePolicy {
                 bpm_center: 138.0,
                 max_bpm_delta: 4.0,
                 default_crossfade_secs: 16.0,
-                preferred_transition: TransitionClass::FilterSweep,
+                preferred_transition: TransitionClass::Riser,
                 energy_arc_weight: 1.25,
             },
             "uk_garage" | "garage" => Self {
@@ -196,7 +196,7 @@ pub fn resolve_transition_class(
 ///
 /// - [`TransitionClass::HardCut`] → `0` (true abut cut)
 /// - [`TransitionClass::EchoOut`] → short tail (`min(policy, max(1s, 2 beats))`)
-/// - blends / EQ / filter / tremolo → genre `default_crossfade_secs`
+/// - blends / EQ / filter / tremolo / riser → genre `default_crossfade_secs`
 pub fn crossfade_secs_for_class(class: TransitionClass, policy: &GenrePolicy, bpm: f32) -> f32 {
     let policy_default = policy.default_crossfade_secs.max(0.0);
     match class {
@@ -209,7 +209,8 @@ pub fn crossfade_secs_for_class(class: TransitionClass, policy: &GenrePolicy, bp
         TransitionClass::EqSwap
         | TransitionClass::FilterSweep
         | TransitionClass::LinearCrossfade
-        | TransitionClass::Tremolo => policy_default,
+        | TransitionClass::Tremolo
+        | TransitionClass::Riser => policy_default,
     }
 }
 
@@ -559,6 +560,7 @@ mod tests {
         assert!((trance.energy_arc_weight - 1.25).abs() < 1e-5);
         assert!((open.energy_arc_weight - 0.5).abs() < 1e-5);
         assert_eq!(dnb.preferred_transition, TransitionClass::HardCut);
+        assert_eq!(trance.preferred_transition, TransitionClass::Riser);
         assert_eq!(open.preferred_transition, TransitionClass::Tremolo);
         assert!(soft_style_penalty(&dnb, 8.0) >= 5.0);
         assert_eq!(soft_style_penalty(&dnb, 0.25), 0.0);
@@ -674,6 +676,9 @@ mod tests {
         );
         assert!(
             (crossfade_secs_for_class(TransitionClass::EqSwap, &house, 128.0) - 8.0).abs() < 1e-5
+        );
+        assert!(
+            (crossfade_secs_for_class(TransitionClass::Riser, &trance, 138.0) - 16.0).abs() < 1e-5
         );
         assert!(
             (crossfade_secs_for_class(TransitionClass::FilterSweep, &trance, 138.0) - 16.0).abs()

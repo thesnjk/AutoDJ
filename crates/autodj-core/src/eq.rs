@@ -240,6 +240,45 @@ pub fn apply_tremolo_out_crossfade(
     out
 }
 
+/// Riser-out crossfade: rising deterministic noise + outgoing high-pass; incoming equal-power in.
+///
+/// Noise amplitude follows `t²` (peak gain ~0.2) so energy builds before the swap without
+/// clipping gold loops. Outgoing HP cutoff rises 80 Hz → 10 kHz. Noise is an LCG keyed by
+/// sample index for golden-stable renders.
+pub fn apply_riser_out_crossfade(
+    a_tail: &[f32],
+    b_head: &[f32],
+    sample_rate: u32,
+    equal_power: bool,
+) -> Vec<f32> {
+    let n = a_tail.len().min(b_head.len());
+    let mut out = Vec::with_capacity(n);
+    let mut hp = OnePole::lowpass(80.0, sample_rate);
+    const NOISE_PEAK: f32 = 0.2;
+    for i in 0..n {
+        let t = if n <= 1 {
+            1.0
+        } else {
+            i as f32 / (n - 1) as f32
+        };
+        let hp_cut = 80.0 + t * 9920.0;
+        hp.set_cutoff(hp_cut, sample_rate);
+        let a = hp.process_hp(a_tail[i]);
+        // Deterministic LCG: x_{n+1} = (a x_n + c) mod 2^32 → [-1, 1].
+        let mut state = (i as u32).wrapping_mul(1664525).wrapping_add(1013904223);
+        state = state.wrapping_mul(1664525).wrapping_add(1013904223);
+        let noise = ((state >> 8) as f32 / (1u32 << 24) as f32) * 2.0 - 1.0;
+        let noise_gain = NOISE_PEAK * t * t;
+        let (ga, gb) = if equal_power {
+            ((1.0 - t).sqrt(), t.sqrt())
+        } else {
+            (1.0 - t, t)
+        };
+        out.push((a + noise * noise_gain) * ga + b_head[i] * gb);
+    }
+    out
+}
+
 /// Band-limited RMS of `samples` via a temporary splitter (test / diagnostics).
 pub fn band_rms(samples: &[f32], sample_rate: u32) -> (f32, f32, f32) {
     let mut split = ThreeBandSplitter::new(sample_rate);
@@ -397,6 +436,32 @@ mod tests {
         assert!(trem.iter().all(|s| s.is_finite()));
         let peak = trem.iter().copied().map(f32::abs).fold(0.0, f32::max);
         assert!(peak < 5.0);
+    }
+
+    #[test]
+    fn riser_out_is_finite_and_builds_energy() {
+        let sr = 44_100u32;
+        // Quiet outgoing so the noise bed dominates early-half energy growth.
+        let a = tone(sr, 1.0, 220.0, 0.02);
+        let b = tone(sr, 1.0, 440.0, 0.3);
+        let riser = apply_riser_out_crossfade(&a, &b, sr, true);
+        assert_eq!(riser.len(), a.len().min(b.len()));
+        assert!(riser.iter().all(|s| s.is_finite()));
+        let peak = riser.iter().copied().map(f32::abs).fold(0.0, f32::max);
+        assert!(peak < 5.0, "riser peak={peak}");
+        let mid = riser.len() / 2;
+        let early = &riser[..mid / 2];
+        let late_first_half = &riser[mid / 2..mid];
+        let rms = |xs: &[f32]| {
+            let s: f64 = xs.iter().map(|&x| (x as f64) * (x as f64)).sum();
+            (s / xs.len().max(1) as f64).sqrt()
+        };
+        let early_rms = rms(early);
+        let late_rms = rms(late_first_half);
+        assert!(
+            late_rms > early_rms * 1.5,
+            "expected riser energy build early_rms={early_rms} late_rms={late_rms}"
+        );
     }
 
     #[test]

@@ -11,6 +11,7 @@ class TransitionClass(str, Enum):
     FILTER_SWEEP = "filter_sweep"
     ECHO_OUT = "echo_out"
     TREMOLO = "tremolo"
+    RISER = "riser"
     HARD_CUT = "hard_cut"
 
 

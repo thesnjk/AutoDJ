@@ -28,7 +28,9 @@ def per_class_recall(y_true: list[str], y_pred: list[str]) -> dict[str, float]:
     out: dict[str, float] = {}
     for c in ALL_CLASSES:
         n = total[c.value]
-        out[c.value] = (hits[c.value] / n) if n else 0.0
+        if n == 0:
+            continue  # skip policy-only classes absent from this eval slice
+        out[c.value] = hits[c.value] / n
     return out
 
 

@@ -1,6 +1,6 @@
 # autodj-app (Tauri 2)
 
-Desktop shell: browse a playlist JSON or Rekordbox XML, run analyze/mix via `autodj-cli`, watch progress, export WAV. Supports **Preserve playlist order** and optional Rekordbox playlist NODE name.
+Desktop shell: browse a playlist JSON or Rekordbox XML, run analyze/mix via `autodj-cli`, watch progress, and **listen** to the continuous Automix in-app (`<audio>` + Autoplay after mix). Softmax + solver pick order when Preserve-order is off; the report panel lists **Set order (AutoDJ)**. Output WAV must be under `/tmp` or `$HOME` (asset protocol scope).
 
 **UI language:** AutoDJ’s own (not RouteFinder GlassmorphicModifiers).
 

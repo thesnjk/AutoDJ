@@ -86,14 +86,8 @@ def rule_label(
     # open_format tremolo: reachable for CI balance.
     if genre == "open_format" and bpm_delta < 4.0 and camelot_dist >= 3:
         return TransitionClass.TREMOLO
-    # Policy-only riser teacher for balance_labels; Softmax excludes riser until 7-class.
-    # Condition avoids rematching frozen 6-class holdout rows (RuleBaseline == 1.0).
-    if (
-        genre == "house"
-        and energy_delta_db > 4.5
-        and camelot_dist >= 5
-        and bpm_delta < 3.0
-    ):
+    # trance riser: festival energy build; Softmax 7-class includes riser.
+    if genre == "trance" and bpm_delta < 6.0 and camelot_dist <= 2:
         return TransitionClass.RISER
     if genre == "trance" or camelot_dist == 0:
         return TransitionClass.FILTER_SWEEP

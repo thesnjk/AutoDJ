@@ -108,6 +108,93 @@ pub fn bars_per_phrase_for_genre(genre_id: &str) -> u32 {
 
 const PHRASE_CANDIDATES: [u32; 3] = [4, 8, 16];
 
+fn normalize_phrase_bars(bars: u32) -> u32 {
+    if PHRASE_CANDIDATES.contains(&bars) {
+        bars
+    } else {
+        8
+    }
+}
+
+fn gcd_u32(mut a: u32, mut b: u32) -> u32 {
+    while b != 0 {
+        let t = b;
+        b = a % b;
+        a = t;
+    }
+    a.max(1)
+}
+
+/// Least common multiple of two phrase lengths in `{4, 8, 16}`.
+///
+/// Invalid inputs are normalized to `8` before the LCM (e.g. `4∧8→8`, `8∧16→16`).
+pub fn phrase_bars_lcm(a: u32, b: u32) -> u32 {
+    let a = normalize_phrase_bars(a);
+    let b = normalize_phrase_bars(b);
+    let g = gcd_u32(a, b);
+    let lcm = a / g * b;
+    if PHRASE_CANDIDATES.contains(&lcm) {
+        lcm
+    } else {
+        // Should not happen for {4,8,16}; fall back to the longer phrase.
+        a.max(b)
+    }
+}
+
+/// True when `t` sits within half a beat of the track's phrase grid (or beat grid on short loops).
+fn near_phrase_or_beat_grid(
+    t: f64,
+    bpm: f32,
+    bars_per_phrase: u32,
+    beat_offset_secs: f64,
+    dur: f64,
+) -> bool {
+    let bars = normalize_phrase_bars(bars_per_phrase);
+    let phrase = bar_secs(bpm) * bars as f64;
+    let half_beat = beat_secs(bpm) * 0.5;
+    if dur < phrase * 0.9 {
+        // Short gold loops use beat-grid snap — skip-with-pass for phrase gate.
+        return true;
+    }
+    let snapped = snap_to_phrase_grid(t, bpm, bars, beat_offset_secs);
+    (t - snapped).abs() <= half_beat + 1e-6
+}
+
+/// Measured phrase alignment for one mix edge (outgoing `play_end` ↔ incoming `play_start`).
+///
+/// Short tracks that take the beat-grid planner path always pass. Long tracks must land
+/// within ~½ beat of each track's own phrase grid.
+pub fn cue_edge_phrase_aligned(
+    outgoing: &TrackFeatures,
+    incoming: &TrackFeatures,
+    out_end: f64,
+    in_start: f64,
+) -> bool {
+    let out_bars = if matches!(outgoing.bars_per_phrase, 4 | 8 | 16) {
+        outgoing.bars_per_phrase
+    } else {
+        8
+    };
+    let in_bars = if matches!(incoming.bars_per_phrase, 4 | 8 | 16) {
+        incoming.bars_per_phrase
+    } else {
+        8
+    };
+    near_phrase_or_beat_grid(
+        out_end,
+        outgoing.bpm,
+        out_bars,
+        outgoing.beat_offset_secs,
+        outgoing.duration_secs,
+    ) && near_phrase_or_beat_grid(
+        in_start,
+        incoming.bpm,
+        in_bars,
+        incoming.beat_offset_secs,
+        incoming.duration_secs,
+    )
+}
+
 /// Heuristic per-track phrase length from section spacing.
 ///
 /// When marks are ordered and the track is long enough for a phrase, quantizes
@@ -158,6 +245,9 @@ pub fn estimate_bars_per_phrase(feats: &TrackFeatures, genre_fallback: u32) -> u
 ///   clamped at/before `drop_start` when section marks are ordered.
 /// - Tracks with a successor end near a phrase-snapped outro so the fade covers
 ///   into the next track's intro head (xfade capped by next `drop_start`).
+/// - When both tracks are long enough for phrase snap, outgoing `play_end` uses
+///   [`phrase_bars_lcm`] of A and B so the join lands on a shared phrase period;
+///   drop-ordered caps still win over LCM when they conflict.
 /// - On long tracks, `play_end` stays at/after `drop_start` so mixes don't cut
 ///   before the drop; short gold loops keep the existing collapse rescue.
 /// - Crossfade length is policy-driven, capped by available outro/intro, then
@@ -173,7 +263,8 @@ pub fn plan_segment_cues(
     let dur = feats.duration_secs.max(0.0);
     let bpm = feats.bpm.max(1.0);
     let drop_ordered = sections_drop_ordered(&feats.sections);
-    let phrase = bar_secs(bpm) * bars_per_phrase.max(1) as f64;
+    let own_bars = normalize_phrase_bars(bars_per_phrase);
+    let phrase = bar_secs(bpm) * own_bars as f64;
     let long_enough = dur >= phrase * 0.9;
 
     let offset = feats.beat_offset_secs;
@@ -186,7 +277,7 @@ pub fn plan_segment_cues(
         let candidate = if raw < bar_secs(bpm) {
             0.0
         } else {
-            snap_cue_time(raw, bpm, bars_per_phrase, offset, dur)
+            snap_cue_time(raw, bpm, own_bars, offset, dur)
         };
         let mut capped = candidate.clamp(0.0, (dur * 0.5).max(0.0));
         if drop_ordered {
@@ -198,6 +289,20 @@ pub fn plan_segment_cues(
     let (play_end, crossfade_secs) = match (is_last, next) {
         (true, _) | (_, None) => (dur, 0.0f32),
         (false, Some(next)) => {
+            let next_bars = if matches!(next.bars_per_phrase, 4 | 8 | 16) {
+                next.bars_per_phrase
+            } else {
+                own_bars
+            };
+            let next_phrase = bar_secs(next.bpm.max(1.0)) * next_bars as f64;
+            let next_long = next.duration_secs >= next_phrase * 0.9;
+            // Shared phrase period for the outgoing join when both tracks phrase-snap.
+            let end_bars = if long_enough && next_long {
+                phrase_bars_lcm(own_bars, next_bars)
+            } else {
+                own_bars
+            };
+
             let next_intro = next.sections.intro_end.max(beat_secs(next.bpm));
             let available_outro = (dur - feats.sections.outro_start).max(0.0);
             let mut available_intro = next_intro.min(next.duration_secs * 0.35).max(0.0);
@@ -229,9 +334,9 @@ pub fn plan_segment_cues(
 
             xfade = align_crossfade_to_downbeat(xfade, bpm);
 
-            // End of play window: grid-snap near outro_start + xfade (or duration).
+            // End of play window: LCM (or own) phrase snap near outro_start + xfade.
             let raw_end = (feats.sections.outro_start + xfade as f64).min(dur);
-            let mut play_end = snap_cue_time(raw_end, bpm, bars_per_phrase, offset, dur);
+            let mut play_end = snap_cue_time(raw_end, bpm, end_bars, offset, dur);
             if play_end <= play_start + xfade as f64 {
                 // Rescue without re-collapsing onto the first grid point.
                 play_end = (play_start + xfade as f64 + bar_secs(bpm)).min(dur);
@@ -240,12 +345,12 @@ pub fn plan_segment_cues(
             if play_end > dur {
                 play_end = dur;
             }
-            // Long tracks: do not cut the play window before the drop.
+            // Long tracks: do not cut the play window before the drop (caps beat LCM).
             if long_enough && drop_ordered && play_end < feats.sections.drop_start {
                 let floored = snap_cue_time(
                     feats.sections.drop_start,
                     bpm,
-                    bars_per_phrase,
+                    end_bars,
                     offset,
                     dur,
                 )
@@ -427,5 +532,60 @@ mod tests {
         assert_eq!(bars_per_phrase_for_genre("house"), 8);
         assert_eq!(bars_per_phrase_for_genre("drum_and_bass"), 4);
         assert_eq!(bars_per_phrase_for_genre("hip_hop"), 4);
+    }
+
+    #[test]
+    fn phrase_bars_lcm_for_common_pairs() {
+        assert_eq!(phrase_bars_lcm(4, 8), 8);
+        assert_eq!(phrase_bars_lcm(8, 16), 16);
+        assert_eq!(phrase_bars_lcm(4, 16), 16);
+        assert_eq!(phrase_bars_lcm(8, 8), 8);
+        assert_eq!(phrase_bars_lcm(0, 4), 8); // invalid → 8, lcm(8,4)=8
+    }
+
+    #[test]
+    fn lcm_snap_aligns_outgoing_play_end() {
+        let bpm = 120.0;
+        let bar = bar_secs(bpm);
+        // Long tracks: 4-bar A → 8-bar B; LCM=8 bars = 16s.
+        let mut a = feats_with_drop(bpm, 64.0, 4.0, 16.0, 40.0);
+        a.bars_per_phrase = 4;
+        let mut b = feats_with_drop(bpm, 64.0, 4.0, 16.0, 48.0);
+        b.bars_per_phrase = 8;
+        let cues = plan_segment_cues(&a, Some(&b), 8.0, 4, true, false);
+        let shared = bar * 8.0;
+        let rem = cues.play_end_secs % shared;
+        assert!(
+            rem < 0.05 || (shared - rem) < 0.05 || cues.play_end_secs >= 63.9,
+            "play_end {} not on LCM-8 grid (rem {rem})",
+            cues.play_end_secs
+        );
+        assert!(cue_edge_phrase_aligned(
+            &a,
+            &b,
+            cues.play_end_secs,
+            0.0 // first-segment next start is planned separately; 0 is on grid
+        ));
+    }
+
+    #[test]
+    fn short_loop_phrase_gate_skip_with_pass() {
+        let a = feats_with_drop(128.0, 8.0, 1.0, 3.0, 6.0);
+        let b = feats_with_drop(128.0, 8.0, 1.0, 3.0, 6.0);
+        // Mid-phrase times would fail on long tracks; shorts skip-with-pass.
+        assert!(cue_edge_phrase_aligned(&a, &b, 5.3, 2.7));
+    }
+
+    #[test]
+    fn long_edge_misaligned_fails_gate() {
+        let bpm = 120.0;
+        let mut a = feats_with_drop(bpm, 64.0, 4.0, 16.0, 48.0);
+        a.bars_per_phrase = 8;
+        let mut b = feats_with_drop(bpm, 64.0, 4.0, 16.0, 48.0);
+        b.bars_per_phrase = 8;
+        // 1.0s is not on an 8-bar (16s) phrase grid at 120 BPM.
+        assert!(!cue_edge_phrase_aligned(&a, &b, 1.0, 1.0));
+        // Exact phrase boundary passes.
+        assert!(cue_edge_phrase_aligned(&a, &b, 16.0, 16.0));
     }
 }

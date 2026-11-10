@@ -6,10 +6,10 @@ use std::path::{Path, PathBuf};
 use anyhow::{bail, Context, Result};
 use autodj_core::{
     adjacent_flux_ratio, analyze_path, bars_per_phrase_for_genre, bass_conflict_pass,
-    beat_phase_gate_pass, camelot_distance, estimate_bars_per_phrase, join_continuity_pass,
-    max_join_flux_ratio, mean_beat_phase_offset_ms, measure_loudness, mix_buffers_with_meta,
-    normalize_loudness, parse_rekordbox_xml, peak_gate_pass, plan_segment_cues,
-    sections_drop_ordered, spectral_continuity_pass, stretch_clamp_excess,
+    beat_phase_gate_pass, camelot_distance, cue_edge_phrase_aligned, estimate_bars_per_phrase,
+    join_continuity_pass, max_join_flux_ratio, mean_beat_phase_offset_ms, measure_loudness,
+    mix_buffers_with_meta, normalize_loudness, parse_rekordbox_xml, peak_gate_pass,
+    plan_segment_cues, sections_drop_ordered, spectral_continuity_pass, stretch_clamp_excess,
     tempo_stretch_gate_pass, within_lufs_tolerance, BeatPhaseCue, CamelotKey, CrossfadeParams,
     MixPlan, MixSegment, TrackFeatures, TransitionClass, DEFAULT_BASS_OVERLAP_LIMIT,
     DEFAULT_BEAT_PHASE_LIMIT_MS, DEFAULT_JOIN_FLUX_RATIO, DEFAULT_MAX_FLUX_RATIO,
@@ -574,6 +574,22 @@ fn cmd_mix(
         });
     }
 
+    // Measured phrase alignment across edges (short loops skip-with-pass inside helper).
+    let cue_phrase_aligned = if cue_reports.len() < 2 {
+        true
+    } else {
+        (0..cue_reports.len() - 1).all(|i| {
+            let out_i = solution.order[i];
+            let in_i = solution.order[i + 1];
+            cue_edge_phrase_aligned(
+                &features[out_i],
+                &features[in_i],
+                cue_reports[i].play_end_secs,
+                cue_reports[i + 1].play_start_secs,
+            )
+        })
+    };
+
     let sr = segments
         .first()
         .map(|s| s.buffer.sample_rate)
@@ -729,7 +745,7 @@ fn cmd_mix(
                 .iter()
                 .all(|c| matches!(c.bars_per_phrase, 4 | 8 | 16)),
         cues: cue_reports,
-        cue_phrase_aligned: true,
+        cue_phrase_aligned,
         cue_drop_aware: cue_drop_aware && saw_edge,
         prep_tracks,
         prep_quality_gate_pass,

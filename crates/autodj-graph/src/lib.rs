@@ -604,11 +604,11 @@ mod tests {
         let raw = std::fs::read_to_string(path).expect("committed transition_model.json");
         let model = TransitionModel::from_json(&raw).unwrap();
         assert!(
-            model.version >= 2,
-            "expected Softmax v2 artifact, got version {}",
+            model.version >= 3,
+            "expected Softmax v3 artifact, got version {}",
             model.version
         );
-        assert_eq!(model.mean.len(), 7 + model.genres.len());
+        assert_eq!(model.mean.len(), 9 + model.genres.len());
         let dnb = predict_transition_class(&model, 174.0, 175.0, 1, 0.0, "drum_and_bass");
         assert_eq!(dnb, TransitionClass::HardCut);
         let house = predict_transition_class_with_spectral(
@@ -619,6 +619,8 @@ mod tests {
             0.5,
             "house",
             100.0,
+            8,
+            8,
         );
         assert!(
             matches!(

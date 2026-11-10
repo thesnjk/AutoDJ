@@ -13,7 +13,13 @@ class RuleBaseline:
 
     def predict_one(self, ex: TransitionExample) -> str:
         return rule_label(
-            ex.bpm_a, ex.bpm_b, ex.camelot_dist, ex.energy_delta_db, ex.genre
+            ex.bpm_a,
+            ex.bpm_b,
+            ex.camelot_dist,
+            ex.energy_delta_db,
+            ex.genre,
+            ex.bars_per_phrase_a,
+            ex.bars_per_phrase_b,
         ).value
 
     def accuracy(self, examples: list[TransitionExample]) -> float:

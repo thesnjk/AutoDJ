@@ -33,6 +33,16 @@ GENRE_CENTROID_BANDS: dict[str, tuple[float, float]] = {
     "open_format": (700.0, 2600.0),
 }
 
+# Genre-weighted phrase lengths matching autodj_core::bars_per_phrase_for_genre.
+GENRE_PHRASE_WEIGHTS: dict[str, list[tuple[int, float]]] = {
+    "drum_and_bass": [(4, 0.75), (8, 0.20), (16, 0.05)],
+    "hip_hop": [(4, 0.70), (8, 0.25), (16, 0.05)],
+    "house": [(8, 0.65), (16, 0.25), (4, 0.10)],
+    "trance": [(8, 0.50), (16, 0.40), (4, 0.10)],
+    "uk_garage": [(8, 0.70), (4, 0.20), (16, 0.10)],
+    "open_format": [(8, 0.50), (4, 0.30), (16, 0.20)],
+}
+
 
 @dataclass
 class TransitionExample:
@@ -46,6 +56,15 @@ class TransitionExample:
     label: str
     spectral_centroid_hz_a: float = 1500.0
     spectral_centroid_hz_b: float = 1500.0
+    bars_per_phrase_a: int = 8
+    bars_per_phrase_b: int = 8
+
+
+def _sample_phrase_bars(rng: random.Random, genre: str) -> int:
+    weights = GENRE_PHRASE_WEIGHTS.get(genre, [(8, 0.6), (4, 0.25), (16, 0.15)])
+    vals = [v for v, _ in weights]
+    probs = [p for _, p in weights]
+    return int(rng.choices(vals, weights=probs, k=1)[0])
 
 
 def rule_label(
@@ -54,9 +73,12 @@ def rule_label(
     camelot_dist: int,
     energy_delta_db: float,
     genre: str,
+    bars_a: int = 8,
+    bars_b: int = 8,
 ) -> TransitionClass:
     """Deterministic rule teacher used to bootstrap the classifier."""
     bpm_delta = abs(bpm_a - bpm_b)
+    phrase_mismatch = abs(int(bars_a) - int(bars_b))
     if genre in {"drum_and_bass", "dnb"} or bpm_delta > 12:
         return TransitionClass.HARD_CUT
     if genre in {"hip_hop", "rnb"} and energy_delta_db < -1.0:
@@ -64,8 +86,16 @@ def rule_label(
     if genre == "trance" or camelot_dist == 0:
         return TransitionClass.FILTER_SWEEP
     if camelot_dist <= 1 and bpm_delta < 4:
-        return TransitionClass.EQ_SWAP
-    return TransitionClass.LINEAR_CROSSFADE
+        base = TransitionClass.EQ_SWAP
+    else:
+        base = TransitionClass.LINEAR_CROSSFADE
+    # Large phrase mismatch (e.g. 4↔16) → shorter exit instead of a long blend.
+    if phrase_mismatch >= 12 and base in {
+        TransitionClass.EQ_SWAP,
+        TransitionClass.LINEAR_CROSSFADE,
+    }:
+        return TransitionClass.ECHO_OUT
+    return base
 
 
 def _sample_one(rng: random.Random, genre: str | None = None) -> TransitionExample:
@@ -80,7 +110,11 @@ def _sample_one(rng: random.Random, genre: str | None = None) -> TransitionExamp
     clo, chi = GENRE_CENTROID_BANDS.get(genre, (700.0, 2600.0))
     spectral_centroid_hz_a = rng.uniform(clo, chi)
     spectral_centroid_hz_b = rng.uniform(clo, chi)
-    label = rule_label(bpm_a, bpm_b, camelot_dist, energy_delta_db, genre)
+    bars_a = _sample_phrase_bars(rng, genre)
+    bars_b = _sample_phrase_bars(rng, genre)
+    label = rule_label(
+        bpm_a, bpm_b, camelot_dist, energy_delta_db, genre, bars_a, bars_b
+    )
     return TransitionExample(
         bpm_a=round(bpm_a, 2),
         bpm_b=round(bpm_b, 2),
@@ -90,6 +124,8 @@ def _sample_one(rng: random.Random, genre: str | None = None) -> TransitionExamp
         label=label.value,
         spectral_centroid_hz_a=round(spectral_centroid_hz_a, 1),
         spectral_centroid_hz_b=round(spectral_centroid_hz_b, 1),
+        bars_per_phrase_a=bars_a,
+        bars_per_phrase_b=bars_b,
     )
 
 
@@ -147,6 +183,9 @@ def read_jsonl(path: Path) -> list[TransitionExample]:
             row = json.loads(line)
             ca = float(row.get("spectral_centroid_hz_a", 1500.0))
             cb = float(row.get("spectral_centroid_hz_b", ca))
+            # Holdout without phrase fields → equal 8/8 (delta 0).
+            ba = int(row.get("bars_per_phrase_a", 8))
+            bb = int(row.get("bars_per_phrase_b", 8))
             examples.append(
                 TransitionExample(
                     bpm_a=float(row["bpm_a"]),
@@ -157,6 +196,8 @@ def read_jsonl(path: Path) -> list[TransitionExample]:
                     label=str(row["label"]),
                     spectral_centroid_hz_a=ca,
                     spectral_centroid_hz_b=cb,
+                    bars_per_phrase_a=ba,
+                    bars_per_phrase_b=bb,
                 )
             )
     return examples

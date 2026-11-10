@@ -26,6 +26,7 @@ Automated gates (CI) plus listening checklist for v1+.
 | Dissolve FX DSP | `apply_dissolve_out_crossfade` staggered band-kill unit test; uk_garage golden uses `Dissolve` (evidence: `eq.rs`, `render.rs`) |
 | Transition classifier (train gate) | `autodj-train eval` accuracy ≥ 0.90 on `eval/gold/synthetic_holdout.jsonl` (evidence: SoftmaxLogReg v3 15-dim **8-class** incl. dissolve, CI python job). Ordinary `mix` defaults to committed Softmax; v1/v2 JSON still load; smoke/rekordbox/transitions goldens keep `preferred_transition` (`--no-transition-model`) |
 | Gold analyze (BPM/key/sections) | `testdata/gold/*.wav` BPM within ±1 of `expected_analyze.json`; frozen key string; `intro_end < drop_start < outro_start`; not sparse (evidence: `analysis::tests::gold_analyze_matches_expected`) |
+| Spectral centroid (FFT) | Hop-averaged magnitude centroid (Hann 2048 / hop 1024 via `realfft`); 440 Hz tone within ±8%; silence → 0 (evidence: `analysis::tests::spectral_centroid_*`) |
 | Prep quality (AnalysisQuality) | MixReport `prep_quality_gate_pass` + `prep_tracks[]`; each track trusted when `!sparse && bpm_confidence ≥ 0.25` **or** playlist BPM override (JSON / Rekordbox). Hard-fail when `--deterministic`. Evidence: `cmd_mix`, golden smoke/rekordbox |
 | macOS native CI | Rust job on `macos-latest` (Apple Silicon hosted) plus `ubuntu-latest`; local `aarch64-apple-darwin` verify required when hosted Mac runners are unavailable |
 

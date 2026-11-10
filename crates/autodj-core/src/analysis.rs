@@ -74,7 +74,7 @@ pub struct TrackFeatures {
     pub sample_rate: u32,
     /// Coarse section boundaries in seconds: intro end, drop start, outro start.
     pub sections: SectionMarks,
-    /// Mean spectral centroid proxy (Hz).
+    /// Mean spectral centroid (Hz) from hop-averaged FFT magnitude spectrum.
     pub spectral_centroid_hz: f32,
     /// Beat-grid phase offset in seconds (`[0, beat)`): first downbeat relative to t=0.
     #[serde(default)]
@@ -454,19 +454,71 @@ fn estimate_key(samples: &[f32], sample_rate: u32) -> (u8, bool, f32) {
     (best as u8, minor, confidence)
 }
 
+/// Hop-averaged magnitude spectral centroid (Hz).
+///
+/// Hann-windowed real FFT (size 2048, hop 1024). Per hop:
+/// `Σ(f_k · |X_k|) / Σ|X_k|` over bins `1..=N/2` (DC skipped). Empty/silent → `0.0`.
 fn spectral_centroid(samples: &[f32], sample_rate: u32) -> f32 {
-    // Zero-crossing / brightness proxy for MVP (true FFT later).
-    if samples.len() < 2 {
+    const FFT_SIZE: usize = 2048;
+    const HOP: usize = 1024;
+    if samples.len() < FFT_SIZE || sample_rate == 0 {
         return 0.0;
     }
-    let mut zc = 0usize;
-    for w in samples.windows(2) {
-        if w[0].signum() != w[1].signum() {
-            zc += 1;
+
+    let mut planner = realfft::RealFftPlanner::<f32>::new();
+    let r2c = planner.plan_fft_forward(FFT_SIZE);
+    let mut spectrum = r2c.make_output_vec();
+    let mut scratch = r2c.make_scratch_vec();
+    let nyquist = sample_rate as f32 / 2.0;
+    let bin_hz = sample_rate as f32 / FFT_SIZE as f32;
+
+    // Hann window coefficients.
+    let window: Vec<f32> = (0..FFT_SIZE)
+        .map(|i| {
+            0.5 - 0.5 * (std::f32::consts::TAU * i as f32 / (FFT_SIZE as f32 - 1.0)).cos()
+        })
+        .collect();
+
+    let mut sum_centroids = 0.0f64;
+    let mut hops = 0usize;
+    let mut start = 0usize;
+    while start + FFT_SIZE <= samples.len() {
+        let mut frame: Vec<f32> = samples[start..start + FFT_SIZE]
+            .iter()
+            .zip(window.iter())
+            .map(|(s, w)| s * w)
+            .collect();
+        if r2c
+            .process_with_scratch(&mut frame, &mut spectrum, &mut scratch)
+            .is_err()
+        {
+            break;
         }
+
+        let mut weighted = 0.0f64;
+        let mut mag_sum = 0.0f64;
+        // Skip DC (bin 0); include up through Nyquist bin.
+        for (k, bin) in spectrum.iter().enumerate().skip(1) {
+            let mag = (bin.re * bin.re + bin.im * bin.im).sqrt() as f64;
+            if mag <= 0.0 {
+                continue;
+            }
+            let freq = (k as f32 * bin_hz).min(nyquist) as f64;
+            weighted += freq * mag;
+            mag_sum += mag;
+        }
+        if mag_sum > 1e-12 {
+            sum_centroids += weighted / mag_sum;
+            hops += 1;
+        }
+        start += HOP;
     }
-    let zcr = zc as f32 * sample_rate as f32 / samples.len() as f32;
-    (zcr * 0.5).clamp(0.0, sample_rate as f32 / 2.0)
+
+    if hops == 0 {
+        0.0
+    } else {
+        ((sum_centroids / hops as f64) as f32).clamp(0.0, nyquist)
+    }
 }
 
 #[cfg(test)]
@@ -614,6 +666,31 @@ mod tests {
             "outro_start={}",
             feats.sections.outro_start
         );
+    }
+
+    #[test]
+    fn spectral_centroid_tone_near_fundamental() {
+        let sr = 44_100u32;
+        let n = sr as usize; // ~1 s
+        let freq = 440.0f32;
+        let tone: Vec<f32> = (0..n)
+            .map(|i| {
+                let t = i as f32 / sr as f32;
+                (std::f32::consts::TAU * freq * t).sin() * 0.5
+            })
+            .collect();
+        let c = spectral_centroid(&tone, sr);
+        assert!(
+            (c - freq).abs() <= freq * 0.08,
+            "centroid {c} Hz not within ±8% of {freq}"
+        );
+    }
+
+    #[test]
+    fn spectral_centroid_silence_is_zero() {
+        assert_eq!(spectral_centroid(&[], 44_100), 0.0);
+        assert_eq!(spectral_centroid(&[0.0; 100], 44_100), 0.0);
+        assert_eq!(spectral_centroid(&[0.0; 4096], 44_100), 0.0);
     }
 
     #[test]

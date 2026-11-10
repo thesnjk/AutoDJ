@@ -12,6 +12,7 @@ serde.workspace = true
 thiserror.workspace = true
 quick-xml.workspace = true
 ebur128 = "0.1.11"
+realfft = "3.5.1"
 
 [dev-dependencies]
 tempfile.workspace = true

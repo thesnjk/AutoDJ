@@ -7,7 +7,7 @@ Living gap matrix. Updated 2026-11-09 after Firecrawl research (raw notes in loc
 | Surface | Competitor cue | AutoDJ status | Evidence |
 |---------|----------------|---------------|----------|
 | Offline automix render | djay Automix (playlist → continuous blend; Mix Now / cue points) | Parity-path MVP | `autodj-cli` `mix`; `crates/autodj-core/src/render.rs` |
-| Feature extraction (BPM/key/sections) | Rekordbox / djay prep analysis | Parity-path | `analysis.rs` `AnalysisQuality` + octave fold; MixReport `prep_quality_gate_pass`; gold `expected_analyze.json` regression |
+| Feature extraction (BPM/key/sections) | Rekordbox / djay prep analysis | Parity-path | `analysis.rs` `AnalysisQuality` + octave fold; FFT hop spectral centroid (`spectral_centroid_hz`); MixReport `prep_quality_gate_pass`; gold `expected_analyze.json` regression |
 | Harmonic suggestions | Rekordbox / DJ.Studio Camelot ordering | Parity MVP | `camelot.rs`; `autodj-graph` `prefers_harmonic_neighbor` |
 | Energy-arc setcraft | Club open→peak→cool programming | Parity-path | `ArcPhase` + `pair_cost_at` + quiet opener; MixReport order |
 | Transition type palette | djay Filter / Echo / Tremolo / Riser / Dissolve / Neural Mix; SetFlow six-core (EQ, bass swap, cut, blend) | Parity-path | `eq.rs` Dissolve + Riser + Tremolo + Filter/Echo/EqSwap; Softmax 8-class (incl. dissolve); playlist `transition_out`; CI `--golden transitions` / `transition_model` / `transition_overrides`; Neural Mix / stems Later |
@@ -82,9 +82,10 @@ Formula note: `(competitor best − AutoDJ) × persona weight × mix_impact`. Be
 | **P35** | Dissolve transition FX | **Shipped** — `apply_dissolve_out_crossfade`; `uk_garage` preferred; Softmax stays 7-class |
 | **P36** | Softmax 8-class Dissolve | **Shipped** — `dissolve` in Softmax `classes`; holdout regen; ordinary mix can select Dissolve |
 | **P37** | Mix & Listen autoplay | **Shipped** — HTML5 player + `convertFileSrc`; Autoplay after mix; Set order (AutoDJ) |
-| Next | FFT spectral centroid (replace ZCR proxy) | ungated analysis honesty for Softmax feature 6 |
+| **P38** | FFT spectral centroid | **Shipped** — hop FFT magnitude centroid replaces ZCR proxy; Softmax dim 6 honesty |
+| Next | Automix queue / matching UX polish | ungated Tauri listen follow-ups |
 | Later | Stems / live dual-deck; Rekordbox absolute cue remap; neural phrase ML; listening-rubric polish | gated / user-owned audio / RB semantics |
 
 ## Re-rank bias
 
-Prefer agent-doable product code that closes remaining mix-quality gaps before brochure fluff. P0–P37 are in place; stems remain gated.
+Prefer agent-doable product code that closes remaining mix-quality gaps before brochure fluff. P0–P38 are in place; stems remain gated.

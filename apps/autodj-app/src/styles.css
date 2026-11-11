@@ -396,11 +396,19 @@ button.primary:hover:not(:disabled) {
 }
 
 .report-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
   font-family: var(--font-mono);
   font-size: 0.78rem;
   line-height: 1.4;
   color: var(--ink);
   word-break: break-word;
+}
+
+.report-summary .report-reveal {
+  flex: 0 0 auto;
 }
 
 .gate-strip {

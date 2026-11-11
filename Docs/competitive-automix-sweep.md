@@ -6,7 +6,7 @@ Living gap matrix. Updated 2026-11-09 after Firecrawl research (raw notes in loc
 
 | Surface | Competitor cue | AutoDJ status | Evidence |
 |---------|----------------|---------------|----------|
-| Offline automix render | djay Automix (playlist → continuous blend; Mix Now / cue points) | Parity-path MVP | `autodj-cli` `mix`; MixReport sidecar `{out}.mixreport.json`; `crates/autodj-core/src/render.rs` |
+| Offline automix render | djay Automix (playlist → continuous blend; Mix Now / cue points) | Parity-path MVP | `autodj-cli` `mix`; MixReport sidecar `{out}.mixreport.json` + Tauri Reveal MixReport; `crates/autodj-core/src/render.rs` |
 | Feature extraction (BPM/key/sections) | Rekordbox / djay prep analysis | Parity-path | `analysis.rs` `AnalysisQuality` + octave fold; FFT hop spectral centroid (`spectral_centroid_hz`); MixReport `prep_quality_gate_pass`; gold `expected_analyze.json` regression |
 | Harmonic suggestions | Rekordbox / DJ.Studio Camelot ordering | Parity MVP | `camelot.rs`; `key_pair_cost` / `suggest_next_keys`; `prefers_harmonic_neighbor` |
 | Energy-arc setcraft | Club open→peak→cool programming | Parity-path | `ArcPhase` + `pair_cost_at` + quiet opener; MixReport order |
@@ -105,9 +105,10 @@ Formula note: `(competitor best − AutoDJ) × persona weight × mix_impact`. Be
 | **P58** | Tauri policy-hints discoverability | **Shipped** — Browse… + Load demo → `demo_policy_hints.json` |
 | **P59** | Automix Editor `bars_per_phrase` | **Shipped** — seed + 4/8/16 select → temp playlist pin |
 | **P60** | Export Automix Editor playlist JSON | **Shipped** — Save playlist… → CLI-compatible JSON |
-| Next | Tauri MixReport sidecar reveal/save | surface P57 `{out}.mixreport.json` in shell |
+| **P61** | Tauri MixReport sidecar reveal | **Shipped** — log + Reveal MixReport… (`revealItemInDir`) |
+| Next | Load editor-exported playlist into Advanced | fill `#playlist` from Save playlist… |
 | Later | Stems / live dual-deck; neural phrase ML | gated / user-owned audio |
 
 ## Re-rank bias
 
-Prefer agent-doable product code that closes remaining mix-quality gaps before brochure fluff. P0–P60 are in place; stems remain gated.
+Prefer agent-doable product code that closes remaining mix-quality gaps before brochure fluff. P0–P61 are in place; stems remain gated.

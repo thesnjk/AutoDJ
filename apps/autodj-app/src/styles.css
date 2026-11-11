@@ -128,6 +128,17 @@ body {
   margin: 0;
 }
 
+.player-hint kbd {
+  display: inline-block;
+  padding: 0.05rem 0.35rem;
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  background: rgba(20, 24, 32, 0.85);
+  font-family: var(--font-mono);
+  font-size: 0.72em;
+  color: var(--ink);
+}
+
 .controls {
   display: grid;
   gap: 0.85rem;

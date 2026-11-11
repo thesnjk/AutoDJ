@@ -21,7 +21,7 @@
           <div id="join-markers" class="join-markers" aria-hidden="true"></div>
         </div>
         <div class="player-actions">
-          <button type="button" id="btn-mix-now" class="browse">Mix Now</button>
+          <button type="button" id="btn-mix-now" class="browse" aria-keyshortcuts="N">Mix Now</button>
           <label class="check">
             <span class="check-row">
               <input id="autoplay" type="checkbox" checked />
@@ -30,7 +30,7 @@
             <span class="hint">Plays the continuous Automix WAV when Mix succeeds</span>
           </label>
         </div>
-        <p class="hint player-hint">Join ticks mark transitions · click a tick, Transition row, or Set order track to seek · Mix Now jumps to the next join</p>
+        <p class="hint player-hint">Join ticks mark transitions · click a tick, Transition row, or Set order track to seek · <kbd>N</kbd> / Mix Now → next join · <kbd>Shift</kbd>+<kbd>N</kbd> → previous</p>
         <div id="matches-panel" class="matches-panel" hidden>
           <h3 class="matches-title">Next matches (from now playing)</h3>
           <ul id="matches-list" class="matches-list"></ul>

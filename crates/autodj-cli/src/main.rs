@@ -185,6 +185,8 @@ struct MixReport {
     max_stretch_clamp_excess: f32,
     /// Whether [`max_stretch_clamp_excess`] is zero (no silent ±15% clip).
     tempo_stretch_gate_pass: bool,
+    /// Mix-timeline seconds of each transition join (incl. hard cuts), for Mix Now seek.
+    join_timeline_secs: Vec<f64>,
 }
 
 #[derive(Debug, Serialize)]
@@ -223,6 +225,10 @@ struct CueReport {
     bpm_to: Option<f32>,
     /// Resolved phrase length in bars used for cue snap.
     bars_per_phrase: u32,
+    /// Seconds into the rendered mix WAV where this track begins (solved order).
+    mix_timeline_start_secs: f64,
+    /// Seconds into the rendered mix WAV where this track ends (next join or mix end).
+    mix_timeline_end_secs: f64,
 }
 
 fn main() -> Result<()> {
@@ -609,6 +615,9 @@ fn cmd_mix(
             bpm: feats.bpm,
             bpm_to,
             bars_per_phrase: phrase_bars,
+            // Filled after render from segment_start_indices.
+            mix_timeline_start_secs: 0.0,
+            mix_timeline_end_secs: 0.0,
         });
         segments.push(MixSegment {
             buffer,
@@ -646,7 +655,32 @@ fn cmd_mix(
     let mut mixed = rendered.buffer;
     let tempo_blend_applied = rendered.tempo_blend_applied;
     let join_sample_indices = rendered.join_sample_indices;
+    let segment_start_indices = rendered.segment_start_indices;
     let max_bass_overlap = rendered.max_bass_overlap;
+    let mix_duration_secs = if mixed.sample_rate > 0 {
+        mixed.frames() as f64 / mixed.sample_rate as f64
+    } else {
+        0.0
+    };
+    let sr_f = sr as f64;
+    let join_timeline_secs: Vec<f64> = segment_start_indices
+        .iter()
+        .skip(1)
+        .map(|&i| i as f64 / sr_f)
+        .collect();
+    for (i, cue) in cue_reports.iter_mut().enumerate() {
+        let start = segment_start_indices
+            .get(i)
+            .copied()
+            .unwrap_or(0) as f64
+            / sr_f;
+        let end = segment_start_indices
+            .get(i + 1)
+            .map(|&j| j as f64 / sr_f)
+            .unwrap_or(mix_duration_secs);
+        cue.mix_timeline_start_secs = start;
+        cue.mix_timeline_end_secs = end;
+    }
 
     let (integrated_lufs, loudness_gate_pass, true_peak) = if let Some(target) = target_lufs {
         let report = normalize_loudness(&mut mixed, target)
@@ -810,6 +844,7 @@ fn cmd_mix(
         transitions,
         max_stretch_clamp_excess,
         tempo_stretch_gate_pass: stretch_ok,
+        join_timeline_secs,
     })
 }
 

@@ -10,6 +10,18 @@ type TransitionEdge = {
   crossfade_secs?: number;
 };
 
+type CueReport = {
+  track: string;
+  play_start_secs: number;
+  play_end_secs: number;
+  crossfade_secs: number;
+  bpm: number;
+  bpm_to?: number | null;
+  bars_per_phrase: number;
+  mix_timeline_start_secs: number;
+  mix_timeline_end_secs: number;
+};
+
 type MixReport = {
   order?: string[];
   genre?: string;
@@ -36,7 +48,12 @@ type MixReport = {
   prep_quality_gate_pass?: boolean;
   cue_drop_aware?: boolean;
   transitions?: TransitionEdge[];
+  cues?: CueReport[];
+  join_timeline_secs?: number[];
 };
+
+/** Last successful MixReport — drives now-playing highlight + Mix Now. */
+let lastMixReport: MixReport | null = null;
 
 const $ = <T extends HTMLElement>(id: string) =>
   document.getElementById(id) as T | null;
@@ -54,6 +71,7 @@ function setBusy(busy: boolean) {
     "btn-analyze",
     "btn-mix",
     "btn-automix-folder",
+    "btn-mix-now",
     "btn-browse-playlist",
     "btn-browse-folder",
     "btn-browse-out",
@@ -182,18 +200,37 @@ function renderMixReport(r: MixReport, deterministic: boolean) {
     : "Set order (AutoDJ)";
   orderWrap.appendChild(orderTitle);
   const orderUl = document.createElement("ol");
+  orderUl.id = "set-order-list";
   const tracks = r.order ?? [];
+  const cues = r.cues ?? [];
   if (tracks.length === 0) {
     const li = document.createElement("li");
     li.textContent = "(none)";
     orderUl.appendChild(li);
   } else {
-    for (const path of tracks) {
+    tracks.forEach((path, i) => {
       const li = document.createElement("li");
+      li.dataset.index = String(i);
+      const cue = cues[i];
+      if (cue) {
+        li.dataset.start = String(cue.mix_timeline_start_secs);
+        li.dataset.end = String(cue.mix_timeline_end_secs);
+        li.title = `${path} · ${fmt(cue.mix_timeline_start_secs, 1)}s–${fmt(cue.mix_timeline_end_secs, 1)}s`;
+      } else {
+        li.title = path;
+      }
       li.textContent = basename(path);
-      li.title = path;
+      li.tabIndex = 0;
+      li.setAttribute("role", "button");
+      li.addEventListener("click", () => seekToTrack(i));
+      li.addEventListener("keydown", (ev) => {
+        if (ev.key === "Enter" || ev.key === " ") {
+          ev.preventDefault();
+          seekToTrack(i);
+        }
+      });
       orderUl.appendChild(li);
-    }
+    });
   }
   orderWrap.appendChild(orderUl);
 
@@ -235,6 +272,56 @@ async function loadMixPlayer(outPath: string, autoplay: boolean) {
   } catch (e) {
     appendLog(`autoplay blocked or failed: ${e}`);
   }
+}
+
+function seekToTrack(index: number) {
+  const audio = $<HTMLAudioElement>("mix-player");
+  const cue = lastMixReport?.cues?.[index];
+  if (!audio || !cue) return;
+  audio.currentTime = Math.max(0, cue.mix_timeline_start_secs);
+  void audio.play().catch(() => undefined);
+  highlightPlayingTrack(index);
+}
+
+function mixNowSeek() {
+  const audio = $<HTMLAudioElement>("mix-player");
+  const joins = lastMixReport?.join_timeline_secs ?? [];
+  if (!audio || joins.length === 0) {
+    appendLog("Mix Now: no joins in last mix");
+    return;
+  }
+  const t = audio.currentTime;
+  const next = joins.find((j) => j > t + 0.05);
+  if (next === undefined) {
+    appendLog("Mix Now: already past last transition");
+    return;
+  }
+  audio.currentTime = next;
+  void audio.play().catch(() => undefined);
+  appendLog(`Mix Now → ${fmt(next, 2)}s`);
+  updateNowPlayingHighlight();
+}
+
+function highlightPlayingTrack(index: number) {
+  const list = $<HTMLOListElement>("set-order-list");
+  if (!list) return;
+  list.querySelectorAll("li").forEach((li, i) => {
+    li.classList.toggle("playing", i === index);
+  });
+}
+
+function updateNowPlayingHighlight() {
+  const audio = $<HTMLAudioElement>("mix-player");
+  const cues = lastMixReport?.cues;
+  if (!audio || !cues || cues.length === 0) return;
+  const t = audio.currentTime;
+  let idx = 0;
+  for (let i = 0; i < cues.length; i++) {
+    if (t + 1e-3 >= cues[i].mix_timeline_start_secs) {
+      idx = i;
+    }
+  }
+  highlightPlayingTrack(idx);
 }
 
 async function refreshBin() {
@@ -289,10 +376,12 @@ async function finishMixReport(
   out: string,
   deterministic: boolean,
 ) {
+  lastMixReport = report;
   renderMixReport(report, deterministic);
   const autoplay = $<HTMLInputElement>("autoplay")?.checked ?? true;
   const playPath = report.out?.trim() || out;
   await loadMixPlayer(playPath, autoplay);
+  updateNowPlayingHighlight();
   appendLog(
     autoplay
       ? `mix complete — playing ${basename(playPath)}`
@@ -309,6 +398,14 @@ window.addEventListener("DOMContentLoaded", async () => {
 
   const outEl = $<HTMLInputElement>("out");
   if (outEl) outEl.value = "/tmp/autodj-mix.wav";
+
+  const audio = $<HTMLAudioElement>("mix-player");
+  audio?.addEventListener("timeupdate", () => updateNowPlayingHighlight());
+  audio?.addEventListener("seeked", () => updateNowPlayingHighlight());
+
+  $<HTMLButtonElement>("btn-mix-now")?.addEventListener("click", () => {
+    mixNowSeek();
+  });
 
   $<HTMLButtonElement>("btn-browse-playlist")?.addEventListener(
     "click",

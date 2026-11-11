@@ -252,6 +252,8 @@ struct EditorTrack {
     transition_out: Option<String>,
     key: Option<String>,
     bpm: Option<f64>,
+    /// Phrase length pin (`4` / `8` / `16`); omitted = heuristic.
+    bars_per_phrase: Option<u32>,
 }
 
 #[derive(serde::Deserialize)]
@@ -309,6 +311,11 @@ fn write_temp_playlist_overrides(
         }
         if let Some(bpm) = t.bpm {
             map.insert("bpm".into(), serde_json::json!(bpm));
+        }
+        if let Some(bars) = t.bars_per_phrase {
+            if matches!(bars, 4 | 8 | 16) {
+                map.insert("bars_per_phrase".into(), serde_json::json!(bars));
+            }
         }
         objs.push(serde_json::Value::Object(map));
     }

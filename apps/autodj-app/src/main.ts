@@ -1,6 +1,7 @@
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { open, save } from "@tauri-apps/plugin-dialog";
+import { openPath, revealItemInDir } from "@tauri-apps/plugin-opener";
 
 type TransitionEdge = {
   from: number;
@@ -268,6 +269,38 @@ function gateLabel(v: boolean | null | undefined): string {
   return "n/a";
 }
 
+/** Default MixReport sidecar beside WAV (mirrors CLI `{out}.mixreport.json`). */
+function mixReportSidecarPath(wavOut: string): string {
+  return `${wavOut}.mixreport.json`;
+}
+
+async function revealMixReportSidecar(wavOut: string | undefined | null) {
+  const out = wavOut?.trim();
+  if (!out) {
+    showPlainReport("No mix output path for MixReport sidecar", true);
+    return;
+  }
+  const sidecar = mixReportSidecarPath(out);
+  const exists = await invoke<boolean>("path_exists", { path: sidecar });
+  if (!exists) {
+    showPlainReport(`MixReport sidecar missing: ${sidecar}`, true);
+    appendLog(`MixReport sidecar missing: ${sidecar}`);
+    return;
+  }
+  try {
+    await revealItemInDir(sidecar);
+    appendLog(`Revealed MixReport → ${sidecar}`);
+  } catch (e) {
+    try {
+      await openPath(sidecar);
+      appendLog(`Opened MixReport → ${sidecar}`);
+    } catch (e2) {
+      showPlainReport(String(e2 ?? e), true);
+      appendLog(String(e2 ?? e));
+    }
+  }
+}
+
 function basename(path: string | undefined): string {
   if (!path) return "?";
   const parts = path.split(/[/\\]/);
@@ -435,13 +468,27 @@ function renderMixReport(r: MixReport, deterministic: boolean) {
 
   const summary = document.createElement("div");
   summary.className = "report-summary";
-  summary.textContent = [
+  const summaryText = document.createElement("span");
+  summaryText.textContent = [
     `genre: ${r.genre ?? "?"}`,
     `preserve_order: ${String(r.preserve_order ?? false)}`,
     `tracks: ${(r.order ?? []).length}`,
     `cost: ${fmt(r.total_cost, 2)}`,
     `out: ${basename(r.out)}`,
   ].join(" · ");
+  summary.appendChild(summaryText);
+  const wavOut = r.out?.trim();
+  if (wavOut) {
+    const revealBtn = document.createElement("button");
+    revealBtn.type = "button";
+    revealBtn.className = "browse report-reveal";
+    revealBtn.textContent = "Reveal MixReport…";
+    revealBtn.title = mixReportSidecarPath(wavOut);
+    revealBtn.addEventListener("click", () => {
+      void revealMixReportSidecar(wavOut);
+    });
+    summary.appendChild(revealBtn);
+  }
 
   const infoFlags = new Set([
     "cue-override",
@@ -1232,6 +1279,17 @@ async function finishMixReport(
       ? `mix complete — playing ${basename(playPath)}`
       : `mix complete — loaded ${basename(playPath)} (autoplay off)`,
   );
+  const sidecar = mixReportSidecarPath(playPath);
+  try {
+    const exists = await invoke<boolean>("path_exists", { path: sidecar });
+    if (exists) {
+      appendLog(`MixReport sidecar → ${sidecar}`);
+    } else {
+      appendLog(`MixReport sidecar missing (expected ${sidecar})`);
+    }
+  } catch (e) {
+    appendLog(`MixReport sidecar check failed: ${String(e)}`);
+  }
 }
 
 /** Apply Automix Editor overrides via mix --preserve-order. */

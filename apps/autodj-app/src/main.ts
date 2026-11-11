@@ -470,6 +470,38 @@ function mixNowSeek() {
   updateNowPlayingHighlight();
 }
 
+/** Seek to the previous join before the playhead (Shift+N). */
+function mixNowSeekPrev() {
+  const audio = $<HTMLAudioElement>("mix-player");
+  const joins = lastMixReport?.join_timeline_secs ?? [];
+  if (!audio || joins.length === 0) {
+    appendLog("Mix Now: no joins in last mix");
+    return;
+  }
+  const t = audio.currentTime;
+  let prev: number | undefined;
+  for (const j of joins) {
+    if (j < t - 0.05) prev = j;
+    else break;
+  }
+  if (prev === undefined) {
+    appendLog("Mix Now: already before first transition");
+    return;
+  }
+  audio.currentTime = prev;
+  void audio.play().catch(() => undefined);
+  appendLog(`Mix Now ← ${fmt(prev, 2)}s`);
+  updateNowPlayingHighlight();
+}
+
+function isTypingTarget(el: EventTarget | null): boolean {
+  if (!(el instanceof HTMLElement)) return false;
+  const tag = el.tagName;
+  if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return true;
+  if (el.isContentEditable) return true;
+  return Boolean(el.closest("input, textarea, select, [contenteditable='true']"));
+}
+
 function highlightPlayingTrack(index: number) {
   const list = $<HTMLOListElement>("set-order-list");
   if (!list) return;
@@ -718,6 +750,15 @@ window.addEventListener("DOMContentLoaded", async () => {
 
   $<HTMLButtonElement>("btn-mix-now")?.addEventListener("click", () => {
     mixNowSeek();
+  });
+
+  window.addEventListener("keydown", (ev) => {
+    if (ev.metaKey || ev.ctrlKey || ev.altKey) return;
+    if (isTypingTarget(ev.target)) return;
+    if (ev.key !== "n" && ev.key !== "N") return;
+    ev.preventDefault();
+    if (ev.shiftKey) mixNowSeekPrev();
+    else mixNowSeek();
   });
 
   $<HTMLButtonElement>("btn-browse-playlist")?.addEventListener(

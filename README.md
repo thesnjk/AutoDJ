@@ -4,7 +4,7 @@ Automatic DJ mix engine and learning pipeline. Analyze a library or playlist, so
 
 ## Status
 
-**P0–P70 shipped** on `main` — Folder Automix, Softmax 8-class FX palette, Rekordbox XML + absolute cues, FLAC decode/encode, MixReport gates, Tauri Mix & Listen / Matching / Editor, and a full professional project writeup (Analysis→Evaluation). Narrative: [`Docs/project-writeup.md`](Docs/project-writeup.md). Full matrix: [`Docs/competitive-automix-sweep.md`](Docs/competitive-automix-sweep.md). Later/gated: stems, live dual-deck, neural phrase ML.
+**P0–P72 shipped** on `main` — Folder Automix, Softmax 8-class FX palette, Rekordbox XML + absolute cues, FLAC decode/encode, MixReport gates, Tauri Mix & Listen / Matching / Editor, and a deepened professional project writeup (Analysis→Evaluation with diagrams, algorithms, evidence tables). Narrative: [`Docs/project-writeup.md`](Docs/project-writeup.md). Full matrix: [`Docs/competitive-automix-sweep.md`](Docs/competitive-automix-sweep.md). Later/gated: stems, live dual-deck, neural phrase ML.
 
 ## Quick start
 

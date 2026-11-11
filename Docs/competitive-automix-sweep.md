@@ -116,8 +116,9 @@ Formula note: `(competitor best − AutoDJ) × persona weight × mix_impact`. Be
 | **P68** | UI reliability + Docs completeness | **Shipped** — busy guards, honest autoplay, folder infer for matches, Doc accuracy |
 | **P69** | Living project writeup | **Shipped** — `Docs/project-writeup.md` + README refresh; append-on-ship hygiene |
 | **P70** | NEA-style professional writeup | **Shipped** — Analysis→Evaluation structure; persona + developer-led eval |
+| **P72** | Deepen NEA-style writeup | **Shipped** — mermaid diagrams; algorithm depth; CI/unit evidence tables; Appendix E placeholders |
 | Later | Stems / live dual-deck; neural phrase ML | gated / user-owned audio |
 
 ## Re-rank bias
 
-Prefer agent-doable product code that closes remaining mix-quality gaps before brochure fluff. P0–P70 are in place; stems remain gated.
+Prefer agent-doable product code that closes remaining mix-quality gaps before brochure fluff. P0–P72 are in place; stems remain gated.

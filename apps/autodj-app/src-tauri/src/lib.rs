@@ -171,6 +171,9 @@ struct MixArgs {
     genre: String,
     policy_hints: Option<String>,
     transition_model: Option<String>,
+    /// Skip Softmax; use genre `preferred_transition` (CLI `--no-transition-model`).
+    #[serde(default)]
+    no_transition_model: bool,
     /// Feature DB path (optional; analyzes on the fly when omitted).
     db: Option<String>,
     /// Keep playlist order (Rekordbox setlist fidelity).
@@ -192,6 +195,9 @@ struct AutomixFolderArgs {
     genre: String,
     policy_hints: Option<String>,
     transition_model: Option<String>,
+    /// Skip Softmax; use genre `preferred_transition` (CLI `--no-transition-model`).
+    #[serde(default)]
+    no_transition_model: bool,
     /// Feature DB; when set, analyze folder into DB before mix.
     db: Option<String>,
     preserve_order: Option<bool>,
@@ -266,6 +272,9 @@ struct MixEditorRemixArgs {
     tracks: Vec<EditorTrack>,
     policy_hints: Option<String>,
     transition_model: Option<String>,
+    /// Skip Softmax; use genre `preferred_transition` (CLI `--no-transition-model`).
+    #[serde(default)]
+    no_transition_model: bool,
     db: Option<String>,
     #[serde(default = "default_deterministic")]
     deterministic: bool,
@@ -373,12 +382,36 @@ fn mix_editor_remix(app: AppHandle, args: MixEditorRemixArgs) -> Result<serde_js
         &args.genre,
         hints.as_deref(),
         model.as_deref(),
+        args.no_transition_model,
         db.as_deref(),
         true, // lock MixReport.order
         None,
         args.deterministic,
         args.lufs,
     )
+}
+
+/// Append Softmax path, committed default, or `--no-transition-model`.
+fn push_transition_model_args(
+    owned: &mut Vec<String>,
+    no_transition_model: bool,
+    transition_model: Option<&str>,
+) {
+    if no_transition_model {
+        owned.push("--no-transition-model".into());
+        return;
+    }
+    let resolved_default;
+    if let Some(m) = transition_model.filter(|s| !s.is_empty()) {
+        owned.push("--transition-model".into());
+        owned.push(m.into());
+    } else {
+        resolved_default = resolve_committed_transition_model_path().ok();
+        if let Some(ref path) = resolved_default {
+            owned.push("--transition-model".into());
+            owned.push(path.clone());
+        }
+    }
 }
 
 fn run_mix_cli(
@@ -388,6 +421,7 @@ fn run_mix_cli(
     genre: &str,
     policy_hints: Option<&str>,
     transition_model: Option<&str>,
+    no_transition_model: bool,
     db: Option<&str>,
     preserve_order: bool,
     playlist_name: Option<&str>,
@@ -418,17 +452,7 @@ fn run_mix_cli(
         owned.push("--db".into());
         owned.push(d.into());
     }
-    let resolved_default;
-    if let Some(m) = transition_model.filter(|s| !s.is_empty()) {
-        owned.push("--transition-model".into());
-        owned.push(m.into());
-    } else {
-        resolved_default = resolve_committed_transition_model_path().ok();
-        if let Some(ref path) = resolved_default {
-            owned.push("--transition-model".into());
-            owned.push(path.clone());
-        }
-    }
+    push_transition_model_args(&mut owned, no_transition_model, transition_model);
     if deterministic {
         owned.push("--deterministic".into());
     } else {
@@ -466,6 +490,7 @@ fn mix(app: AppHandle, args: MixArgs) -> Result<serde_json::Value, String> {
         &args.genre,
         hints.as_deref(),
         model.as_deref(),
+        args.no_transition_model,
         db.as_deref(),
         args.preserve_order.unwrap_or(false),
         playlist_name.as_deref(),
@@ -484,6 +509,9 @@ struct SuggestMatchesArgs {
     genre: String,
     policy_hints: Option<String>,
     transition_model: Option<String>,
+    /// Skip Softmax; use genre `preferred_transition` (CLI `--no-transition-model`).
+    #[serde(default)]
+    no_transition_model: bool,
     db: Option<String>,
     #[serde(default)]
     position: usize,
@@ -505,6 +533,9 @@ struct RemixQueueArgs {
     genre: String,
     policy_hints: Option<String>,
     transition_model: Option<String>,
+    /// Skip Softmax; use genre `preferred_transition` (CLI `--no-transition-model`).
+    #[serde(default)]
+    no_transition_model: bool,
     db: Option<String>,
     #[serde(default = "default_deterministic")]
     deterministic: bool,
@@ -540,17 +571,8 @@ fn suggest_matches(app: AppHandle, args: SuggestMatchesArgs) -> Result<serde_jso
         owned.push("--db".into());
         owned.push(d);
     }
-    let resolved_default;
-    if let Some(m) = args.transition_model.filter(|s| !s.is_empty()) {
-        owned.push("--transition-model".into());
-        owned.push(m);
-    } else {
-        resolved_default = resolve_committed_transition_model_path().ok();
-        if let Some(ref path) = resolved_default {
-            owned.push("--transition-model".into());
-            owned.push(path.clone());
-        }
-    }
+    let model = args.transition_model.filter(|s| !s.is_empty());
+    push_transition_model_args(&mut owned, args.no_transition_model, model.as_deref());
     let refs: Vec<&str> = owned.iter().map(|s| s.as_str()).collect();
     let (ok, stdout, stderr) = run_autodj(&app, &refs)?;
     if !ok {
@@ -604,17 +626,8 @@ fn remix_queue_next(app: AppHandle, args: RemixQueueArgs) -> Result<serde_json::
         owned.push("--db".into());
         owned.push(d);
     }
-    let resolved_default;
-    if let Some(m) = args.transition_model.filter(|s| !s.is_empty()) {
-        owned.push("--transition-model".into());
-        owned.push(m);
-    } else {
-        resolved_default = resolve_committed_transition_model_path().ok();
-        if let Some(ref path) = resolved_default {
-            owned.push("--transition-model".into());
-            owned.push(path.clone());
-        }
-    }
+    let model = args.transition_model.filter(|s| !s.is_empty());
+    push_transition_model_args(&mut owned, args.no_transition_model, model.as_deref());
     if args.deterministic {
         owned.push("--deterministic".into());
     } else {
@@ -686,6 +699,7 @@ fn automix_folder(app: AppHandle, args: AutomixFolderArgs) -> Result<serde_json:
         &args.genre,
         hints.as_deref(),
         model.as_deref(),
+        args.no_transition_model,
         db.as_deref(),
         args.preserve_order.unwrap_or(false),
         None,

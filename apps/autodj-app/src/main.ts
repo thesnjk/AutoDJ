@@ -367,6 +367,33 @@ function syncLufsControl() {
     : "Target integrated loudness for normalize";
 }
 
+/** Softmax path vs CLI `--no-transition-model` (checkbox wins). */
+function transitionModelInvokeArgs(): {
+  transitionModel: string | null;
+  noTransitionModel: boolean;
+} {
+  const noTransitionModel =
+    $<HTMLInputElement>("no-transition-model")?.checked ?? false;
+  if (noTransitionModel) {
+    return { transitionModel: null, noTransitionModel: true };
+  }
+  return {
+    transitionModel:
+      $<HTMLInputElement>("transition-model")?.value.trim() || null,
+    noTransitionModel: false,
+  };
+}
+
+function syncTransitionModelControls() {
+  const skip = $<HTMLInputElement>("no-transition-model")?.checked ?? false;
+  const path = $<HTMLInputElement>("transition-model");
+  const browse = $<HTMLButtonElement>("btn-browse-transition-model");
+  const load = $<HTMLButtonElement>("btn-load-committed-transition-model");
+  if (path) path.disabled = skip;
+  if (browse) browse.disabled = skip;
+  if (load) load.disabled = skip;
+}
+
 /** Short pass criteria from Docs/mix-quality-rubric.md (automated table). */
 const GATE_RUBRIC: Record<string, string> = {
   prep: "Trusted when !sparse && bpm_conf ≥ 0.25 (or playlist BPM override). Hard-fail under Strict QA.",
@@ -1120,8 +1147,7 @@ async function refreshMatchesForCue(cueIndex: number) {
   const genre = $<HTMLSelectElement>("genre")?.value ?? "house";
   const policyHints =
     $<HTMLInputElement>("policy-hints")?.value.trim() || null;
-  const transitionModel =
-    $<HTMLInputElement>("transition-model")?.value.trim() || null;
+  const { transitionModel, noTransitionModel } = transitionModelInvokeArgs();
   const db = $<HTMLInputElement>("db")?.value.trim() || null;
   try {
     const report = await invoke<SuggestReport>("suggest_matches", {
@@ -1132,6 +1158,7 @@ async function refreshMatchesForCue(cueIndex: number) {
         genre,
         policyHints,
         transitionModel,
+        noTransitionModel,
         db,
         position: cueIndex,
         setLen: order.length,
@@ -1165,8 +1192,7 @@ async function queueRemix(nextPath: string) {
   const genre = $<HTMLSelectElement>("genre")?.value ?? "house";
   const policyHints =
     $<HTMLInputElement>("policy-hints")?.value.trim() || null;
-  const transitionModel =
-    $<HTMLInputElement>("transition-model")?.value.trim() || null;
+  const { transitionModel, noTransitionModel } = transitionModelInvokeArgs();
   const db = $<HTMLInputElement>("db")?.value.trim() || null;
   const deterministic =
     $<HTMLInputElement>("deterministic")?.checked ?? true;
@@ -1183,6 +1209,7 @@ async function queueRemix(nextPath: string) {
         genre,
         policyHints,
         transitionModel,
+        noTransitionModel,
         db,
         deterministic,
         lufs,
@@ -1377,8 +1404,7 @@ async function applyEditorRemix() {
   const genre = $<HTMLSelectElement>("genre")?.value ?? "house";
   const policyHints =
     $<HTMLInputElement>("policy-hints")?.value.trim() || null;
-  const transitionModel =
-    $<HTMLInputElement>("transition-model")?.value.trim() || null;
+  const { transitionModel, noTransitionModel } = transitionModelInvokeArgs();
   const db = $<HTMLInputElement>("db")?.value.trim() || null;
   const deterministic =
     $<HTMLInputElement>("deterministic")?.checked ?? true;
@@ -1394,6 +1420,7 @@ async function applyEditorRemix() {
         tracks,
         policyHints,
         transitionModel,
+        noTransitionModel,
         db,
         deterministic,
         lufs,
@@ -1473,8 +1500,12 @@ window.addEventListener("DOMContentLoaded", async () => {
   if (outEl) outEl.value = "/tmp/autodj-mix.wav";
 
   syncLufsControl();
+  syncTransitionModelControls();
   $<HTMLInputElement>("deterministic")?.addEventListener("change", () => {
     syncLufsControl();
+  });
+  $<HTMLInputElement>("no-transition-model")?.addEventListener("change", () => {
+    syncTransitionModelControls();
   });
 
   const audio = $<HTMLAudioElement>("mix-player");
@@ -1656,8 +1687,7 @@ window.addEventListener("DOMContentLoaded", async () => {
       const genre = $<HTMLSelectElement>("genre")?.value ?? "house";
       const policyHints =
         $<HTMLInputElement>("policy-hints")?.value.trim() || null;
-      const transitionModel =
-        $<HTMLInputElement>("transition-model")?.value.trim() || null;
+      const { transitionModel, noTransitionModel } = transitionModelInvokeArgs();
       const db = $<HTMLInputElement>("db")?.value.trim() || null;
       const preserveOrder =
         $<HTMLInputElement>("preserve-order")?.checked ?? false;
@@ -1678,6 +1708,7 @@ window.addEventListener("DOMContentLoaded", async () => {
             genre,
             policyHints,
             transitionModel,
+            noTransitionModel,
             db,
             preserveOrder,
             deterministic,
@@ -1720,8 +1751,7 @@ window.addEventListener("DOMContentLoaded", async () => {
     const out = $<HTMLInputElement>("out")?.value.trim() ?? "";
     const genre = $<HTMLSelectElement>("genre")?.value ?? "house";
     const policyHints = $<HTMLInputElement>("policy-hints")?.value.trim() || null;
-    const transitionModel =
-      $<HTMLInputElement>("transition-model")?.value.trim() || null;
+    const { transitionModel, noTransitionModel } = transitionModelInvokeArgs();
     const db = $<HTMLInputElement>("db")?.value.trim() || null;
     const preserveOrder =
       $<HTMLInputElement>("preserve-order")?.checked ?? false;
@@ -1747,6 +1777,7 @@ window.addEventListener("DOMContentLoaded", async () => {
           genre,
           policyHints,
           transitionModel,
+          noTransitionModel,
           db,
           preserveOrder,
           playlistName,

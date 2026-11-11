@@ -93,9 +93,10 @@ Formula note: `(competitor best − AutoDJ) × persona weight × mix_impact`. Be
 | **P46** | Mix Now keyboard shortcut | **Shipped** — `N` / `Shift+N` next/prev join seek (djay listen parity) |
 | **P47** | Gate→hint listening rubric | **Shipped** — gate pill tooltips + Strict QA fail callout + Listen while playing checklist |
 | **P48** | MixReport override-flag parity | **Shipped** — cue/transition/phrase flags in gate strip; `bars_per_phrase` on Set order |
+| **P49** | Tauri LUFS target control | **Shipped** — Streaming −14 / Broadcast −23 presets; Strict QA locks −14 |
 | Next | User-library listening polish | needs real audio |
 | Later | Stems / live dual-deck; Rekordbox absolute cue remap; neural phrase ML | gated / user-owned audio / RB semantics |
 
 ## Re-rank bias
 
-Prefer agent-doable product code that closes remaining mix-quality gaps before brochure fluff. P0–P48 are in place; stems remain gated.
+Prefer agent-doable product code that closes remaining mix-quality gaps before brochure fluff. P0–P49 are in place; stems remain gated.

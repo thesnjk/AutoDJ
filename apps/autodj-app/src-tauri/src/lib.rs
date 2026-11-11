@@ -156,6 +156,8 @@ struct MixArgs {
     /// Strict MixReport hard gates (CLI default).
     #[serde(default = "default_deterministic")]
     deterministic: bool,
+    /// Target LUFS when non-deterministic (CLI `--lufs`); ignored under Strict QA.
+    lufs: Option<f64>,
 }
 
 #[derive(serde::Deserialize)]
@@ -171,6 +173,8 @@ struct AutomixFolderArgs {
     preserve_order: Option<bool>,
     #[serde(default = "default_deterministic")]
     deterministic: bool,
+    /// Target LUFS when non-deterministic (CLI `--lufs`); ignored under Strict QA.
+    lufs: Option<f64>,
 }
 
 /// Collect wav/flac paths in a folder (sorted), mirroring CLI `collect_audio`.
@@ -226,6 +230,7 @@ fn run_mix_cli(
     preserve_order: bool,
     playlist_name: Option<&str>,
     deterministic: bool,
+    lufs: Option<f64>,
 ) -> Result<serde_json::Value, String> {
     let mut owned: Vec<String> = vec![
         "mix".into(),
@@ -266,6 +271,11 @@ fn run_mix_cli(
         owned.push("--deterministic".into());
     } else {
         owned.push("--no-deterministic".into());
+        // CLI ignores --lufs under --deterministic; only forward when Strict QA is off.
+        // Use `--lufs=-23` form so clap does not treat a leading '-' as a flag.
+        if let Some(target) = lufs {
+            owned.push(format!("--lufs={target}"));
+        }
     }
 
     let refs: Vec<&str> = owned.iter().map(|s| s.as_str()).collect();
@@ -298,6 +308,7 @@ fn mix(app: AppHandle, args: MixArgs) -> Result<serde_json::Value, String> {
         args.preserve_order.unwrap_or(false),
         playlist_name.as_deref(),
         args.deterministic,
+        args.lufs,
     )
 }
 
@@ -335,6 +346,8 @@ struct RemixQueueArgs {
     db: Option<String>,
     #[serde(default = "default_deterministic")]
     deterministic: bool,
+    /// Target LUFS when non-deterministic (CLI `--lufs`); ignored under Strict QA.
+    lufs: Option<f64>,
 }
 
 /// Rank next-track matches for the now-playing track (CLI `suggest`).
@@ -444,6 +457,9 @@ fn remix_queue_next(app: AppHandle, args: RemixQueueArgs) -> Result<serde_json::
         owned.push("--deterministic".into());
     } else {
         owned.push("--no-deterministic".into());
+        if let Some(target) = args.lufs {
+            owned.push(format!("--lufs={target}"));
+        }
     }
     let refs: Vec<&str> = owned.iter().map(|s| s.as_str()).collect();
     let (ok, stdout, stderr) = run_autodj(&app, &refs)?;
@@ -512,6 +528,7 @@ fn automix_folder(app: AppHandle, args: AutomixFolderArgs) -> Result<serde_json:
         args.preserve_order.unwrap_or(false),
         None,
         args.deterministic,
+        args.lufs,
     )
 }
 

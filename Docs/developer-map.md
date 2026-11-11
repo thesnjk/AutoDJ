@@ -18,7 +18,7 @@ Thin index for humans and agents. Prefer linking one Doc at a time.
 
 ## Platform
 
-Primary runtime: **macOS Apple Silicon**. Offline path uses pure Rust (`eq.rs`, `loudness.rs`, `render.rs`) — no Core Audio / cpal required for export. GitHub Actions runs Rust on `macos-latest` and `ubuntu-latest`. Tauri verify is Mac-local (WebKit CI deferred).
+Primary runtime: **macOS Apple Silicon**. Offline path uses pure Rust (`eq.rs`, `loudness.rs`, `render.rs`) — no Core Audio / cpal required for export. GitHub Actions runs Rust on `macos-latest` and `ubuntu-latest`, plus `cargo check --manifest-path apps/autodj-app/src-tauri/Cargo.toml` on `macos-latest` only. Full `tauri dev` / WebKit remain Mac-local (Ubuntu WebKit CI deferred).
 
 ## Tests
 

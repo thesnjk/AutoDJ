@@ -149,6 +149,21 @@
             </span>
             <span class="hint">CLI <code>--no-transition-model</code>; ignores path / committed Softmax</span>
           </label>
+          <label class="optional">
+            MixReport path (optional)
+            <span class="path-row">
+              <input id="report-out" type="text" spellcheck="false" placeholder="{out}.mixreport.json" />
+              <button type="button" id="btn-browse-report-out" class="browse">Browse…</button>
+            </span>
+            <span class="hint">CLI <code>--report-out</code>; empty = sidecar beside output audio</span>
+          </label>
+          <label class="check optional">
+            <span class="check-row">
+              <input id="no-loudness-norm" type="checkbox" />
+              <span>Peak limit only (no LUFS normalize)</span>
+            </span>
+            <span class="hint">CLI <code>--no-loudness-norm</code>; skips integrated normalize</span>
+          </label>
           <div class="actions">
             <button type="button" id="btn-analyze">Analyze</button>
             <button type="button" id="btn-mix">Mix playlist</button>

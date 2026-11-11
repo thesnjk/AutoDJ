@@ -114,4 +114,4 @@ cargo run -p autodj-cli -- remix --folder /path/to/tracks \
   --prefix /path/a.wav --prefix /path/b.wav --next /path/c.wav --out /tmp/remix.wav
 ```
 
-Shared with `mix`: `--db`, `--genre`, `--policy-hints`, `--transition-model`, `--no-transition-model`, `--report-out`. `remix` also accepts `--deterministic` / `--no-deterministic`, `--lufs`, `--no-loudness-norm`. CLI-only (no Tauri UI yet): `--report-out`, `--no-loudness-norm`.
+Shared with `mix`: `--db`, `--genre`, `--policy-hints`, `--transition-model`, `--no-transition-model`, `--report-out`. `remix` also accepts `--deterministic` / `--no-deterministic`, `--lufs`, `--no-loudness-norm`. Tauri Advanced mirrors `--report-out` (MixReport path Browse) and `--no-loudness-norm` (Peak limit only) on mix / Automix folder / Queue & remix / Editor Apply.

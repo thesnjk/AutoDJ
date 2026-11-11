@@ -1143,6 +1143,26 @@ async function browseOut() {
   }
 }
 
+async function browsePolicyHints() {
+  const selected = await open({
+    multiple: false,
+    directory: false,
+    title: "Select policy hints JSON",
+    filters: [{ name: "Policy hints", extensions: ["json"] }],
+  });
+  if (typeof selected === "string") {
+    const el = $<HTMLInputElement>("policy-hints");
+    if (el) el.value = selected;
+  }
+}
+
+async function loadDemoPolicyHints() {
+  const path = await invoke<string>("resolve_demo_policy_hints");
+  const el = $<HTMLInputElement>("policy-hints");
+  if (el) el.value = path;
+  appendLog(`policy hints: loaded demo ${basename(path)}`);
+}
+
 async function finishMixReport(
   report: MixReport,
   out: string,
@@ -1293,6 +1313,30 @@ window.addEventListener("DOMContentLoaded", async () => {
       appendLog(String(e));
     }
   });
+
+  $<HTMLButtonElement>("btn-browse-policy-hints")?.addEventListener(
+    "click",
+    async () => {
+      try {
+        await browsePolicyHints();
+      } catch (e) {
+        showPlainReport(String(e), true);
+        appendLog(String(e));
+      }
+    },
+  );
+
+  $<HTMLButtonElement>("btn-load-demo-policy-hints")?.addEventListener(
+    "click",
+    async () => {
+      try {
+        await loadDemoPolicyHints();
+      } catch (e) {
+        showPlainReport(String(e), true);
+        appendLog(String(e));
+      }
+    },
+  );
 
   $<HTMLButtonElement>("btn-version")?.addEventListener("click", async () => {
     setBusy(true);

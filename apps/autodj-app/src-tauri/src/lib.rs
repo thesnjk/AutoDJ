@@ -40,6 +40,28 @@ fn resolve_committed_transition_model() -> Result<String, String> {
     Err("committed transition_model.json not found".into())
 }
 
+/// Locate committed demo policy-hints JSON for Advanced → Load demo.
+fn resolve_demo_policy_hints_path() -> Result<String, String> {
+    let rel = Path::new("python/autodj_train/datasets/aggregates/demo_policy_hints.json");
+    let mut candidates = Vec::new();
+    if let Ok(root) = find_repo_root() {
+        candidates.push(root.join(rel));
+    }
+    if let Ok(cwd) = std::env::current_dir() {
+        candidates.push(cwd.join(rel));
+    }
+    let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    candidates.push(manifest_dir.join("../../..").join(rel));
+    for c in candidates {
+        if c.exists() {
+            return Ok(c.canonicalize().unwrap_or(c).to_string_lossy().into_owned());
+        }
+    }
+    Err(
+        "demo_policy_hints.json not found (dev checkout or set AUTODJ_REPO_ROOT)".into(),
+    )
+}
+
 fn find_repo_root() -> Result<PathBuf, String> {
     if let Ok(env) = std::env::var("AUTODJ_REPO_ROOT") {
         let p = PathBuf::from(env);
@@ -740,6 +762,12 @@ fn path_exists(path: String) -> bool {
     Path::new(&path).exists()
 }
 
+/// Absolute path to committed `demo_policy_hints.json` (dev checkout).
+#[tauri::command]
+fn resolve_demo_policy_hints() -> Result<String, String> {
+    resolve_demo_policy_hints_path()
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -754,7 +782,8 @@ pub fn run() {
             suggest_matches,
             remix_queue_next,
             mix_editor_remix,
-            path_exists
+            path_exists,
+            resolve_demo_policy_hints
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

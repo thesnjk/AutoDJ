@@ -119,7 +119,11 @@
           </label>
           <label class="optional">
             Policy hints (optional)
-            <input id="policy-hints" type="text" spellcheck="false" placeholder="demo_policy_hints.json" />
+            <span class="path-row">
+              <input id="policy-hints" type="text" spellcheck="false" placeholder="…/demo_policy_hints.json" />
+              <button type="button" id="btn-browse-policy-hints" class="browse">Browse…</button>
+              <button type="button" id="btn-load-demo-policy-hints" class="browse">Load demo</button>
+            </span>
           </label>
           <label class="optional">
             Transition model (optional; default: committed Softmax)

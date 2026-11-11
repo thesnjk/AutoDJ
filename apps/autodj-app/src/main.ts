@@ -479,6 +479,7 @@ function renderMixReport(r: MixReport, deterministic: boolean) {
   h.textContent = "Transitions";
   transitionsWrap.appendChild(h);
   const ul = document.createElement("ul");
+  ul.id = "transitions-list";
   const edges = r.transitions ?? [];
   if (edges.length === 0) {
     const li = document.createElement("li");
@@ -487,6 +488,7 @@ function renderMixReport(r: MixReport, deterministic: boolean) {
   } else {
     edges.forEach((e, i) => {
       const li = document.createElement("li");
+      li.dataset.index = String(i);
       const xfade = fmt(e.crossfade_secs, 2);
       const policy = fmt(e.policy_crossfade_secs, 2);
       const keyFrom = e.key_from ?? "?";
@@ -532,7 +534,7 @@ async function loadMixPlayer(outPath: string, autoplay: boolean) {
   if (!audio || !outPath) return;
   audio.src = convertFileSrc(outPath);
   audio.load();
-  renderJoinMarkers();
+  renderMixTimeline();
   if (!autoplay) return;
   try {
     await audio.play();
@@ -547,6 +549,51 @@ function transitionTooltip(edge: TransitionEdge | undefined, joinSecs: number): 
   const keyTo = edge.key_to ?? "?";
   const bpmDelta = fmt(edge.bpm_delta, 1);
   return `${edge.class} · ${keyFrom}→${keyTo} · ΔBPM ${bpmDelta} · ${fmt(joinSecs, 2)}s`;
+}
+
+const LISTEN_HINT_WINDOW_SECS = 4;
+
+/** Rebuild cue segments + join ticks from the last MixReport. */
+function renderMixTimeline() {
+  renderCueSegments();
+  renderJoinMarkers();
+  updateNowPlayingHighlight();
+}
+
+/** Draw per-cue spans from cues[].mix_timeline_* under the player. */
+function renderCueSegments() {
+  const rail = $<HTMLDivElement>("cue-segments");
+  const audio = $<HTMLAudioElement>("mix-player");
+  if (!rail) return;
+  rail.replaceChildren();
+  const cues = lastMixReport?.cues ?? [];
+  const duration = audio?.duration ?? 0;
+  if (cues.length === 0 || !Number.isFinite(duration) || duration <= 0) {
+    rail.setAttribute("aria-hidden", "true");
+    return;
+  }
+  rail.removeAttribute("aria-hidden");
+  const order = lastMixReport?.order ?? [];
+  cues.forEach((cue, i) => {
+    const start = Math.max(0, cue.mix_timeline_start_secs);
+    const end = Math.max(start, cue.mix_timeline_end_secs);
+    const left = (start / duration) * 100;
+    const width = Math.max(0.4, ((end - start) / duration) * 100);
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "cue-segment";
+    btn.dataset.index = String(i);
+    btn.style.left = `${left}%`;
+    btn.style.width = `${width}%`;
+    const label = basename(order[i] ?? cue.track ?? `track ${i + 1}`);
+    btn.title = `${label} · ${fmt(start, 1)}s–${fmt(end, 1)}s`;
+    btn.setAttribute(
+      "aria-label",
+      `Seek to ${label} at ${fmt(start, 2)} seconds`,
+    );
+    btn.addEventListener("click", () => seekToTrack(i));
+    rail.appendChild(btn);
+  });
 }
 
 /** Place join ticks under the player from MixReport.join_timeline_secs. */
@@ -567,12 +614,65 @@ function renderJoinMarkers() {
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = "join-marker";
+    btn.dataset.index = String(i);
     btn.style.left = `${(t / duration) * 100}%`;
     btn.title = transitionTooltip(edges[i], t);
     btn.setAttribute("aria-label", `Seek to join ${i + 1} at ${fmt(t, 2)} seconds`);
     btn.addEventListener("click", () => seekToJoin(i));
     rail.appendChild(btn);
   });
+}
+
+/** First join strictly after the playhead (Mix Now target). */
+function nextJoinIndex(t: number): number {
+  const joins = lastMixReport?.join_timeline_secs ?? [];
+  for (let i = 0; i < joins.length; i++) {
+    if (joins[i] > t + 0.05) return i;
+  }
+  return -1;
+}
+
+/** Nearest join within ±LISTEN_HINT_WINDOW_SECS, or -1. */
+function activeJoinIndex(t: number): number {
+  const joins = lastMixReport?.join_timeline_secs ?? [];
+  let best = -1;
+  let bestDist = LISTEN_HINT_WINDOW_SECS + 1;
+  for (let i = 0; i < joins.length; i++) {
+    const d = Math.abs(joins[i] - t);
+    if (d <= LISTEN_HINT_WINDOW_SECS && d < bestDist) {
+      best = i;
+      bestDist = d;
+    }
+  }
+  return best;
+}
+
+/** One-liner for listening near a join (class + MixReport metric). */
+function listenHintText(joinIndex: number): string {
+  const r = lastMixReport;
+  if (!r) return "";
+  const edge = r.transitions?.[joinIndex];
+  if (!edge) return `Join ${joinIndex + 1}`;
+  const cls = edge.class ?? "?";
+  if (cls === "EqSwap" || cls === "eq_swap") {
+    return `${cls} · bass overlap ${fmt(r.max_bass_overlap, 2)} · gate ${r.bass_conflict_gate_pass ? "pass" : "fail"}`;
+  }
+  if (cls === "HardCut" || cls === "hard_cut") {
+    return `${cls} · join flux ${fmt(r.max_join_flux_ratio, 2)} · gate ${r.join_continuity_pass ? "pass" : "fail"}`;
+  }
+  return `${cls} · ΔBPM ${fmt(edge.bpm_delta, 1)} · cost ${fmt(edge.edge_cost, 2)}`;
+}
+
+function updateListenHint(joinIndex: number) {
+  const el = $<HTMLParagraphElement>("listen-hint");
+  if (!el) return;
+  if (joinIndex < 0) {
+    el.hidden = true;
+    el.textContent = "";
+    return;
+  }
+  el.textContent = listenHintText(joinIndex);
+  el.hidden = false;
 }
 
 function seekToJoin(index: number) {
@@ -652,6 +752,26 @@ function highlightPlayingTrack(index: number) {
   list.querySelectorAll("li").forEach((li, i) => {
     li.classList.toggle("playing", i === index);
   });
+  const segments = $<HTMLDivElement>("cue-segments");
+  segments?.querySelectorAll(".cue-segment").forEach((el) => {
+    const i = Number((el as HTMLElement).dataset.index ?? -1);
+    el.classList.toggle("active", i === index);
+  });
+}
+
+function highlightJoinChrome(activeIdx: number, nextIdx: number) {
+  const markers = $<HTMLDivElement>("join-markers");
+  markers?.querySelectorAll(".join-marker").forEach((el) => {
+    const i = Number((el as HTMLElement).dataset.index ?? -1);
+    el.classList.toggle("active", i === activeIdx && activeIdx >= 0);
+    el.classList.toggle("next", i === nextIdx && nextIdx >= 0);
+  });
+  const list = $<HTMLUListElement>("transitions-list");
+  list?.querySelectorAll("li[data-index]").forEach((el) => {
+    const i = Number((el as HTMLElement).dataset.index ?? -1);
+    el.classList.toggle("active", i === activeIdx && activeIdx >= 0);
+    el.classList.toggle("next", i === nextIdx && nextIdx >= 0);
+  });
 }
 
 function currentCueIndex(): number {
@@ -669,10 +789,20 @@ function currentCueIndex(): number {
 }
 
 function updateNowPlayingHighlight() {
+  const audio = $<HTMLAudioElement>("mix-player");
   const cues = lastMixReport?.cues;
-  if (!cues || cues.length === 0) return;
+  if (!audio || !cues || cues.length === 0) {
+    highlightJoinChrome(-1, -1);
+    updateListenHint(-1);
+    return;
+  }
+  const t = audio.currentTime;
   const idx = currentCueIndex();
   highlightPlayingTrack(idx);
+  const activeIdx = activeJoinIndex(t);
+  const nextIdx = nextJoinIndex(t);
+  highlightJoinChrome(activeIdx, nextIdx);
+  updateListenHint(activeIdx);
   if (idx !== lastMatchesCueIndex) {
     void refreshMatchesForCue(idx);
   }
@@ -869,8 +999,7 @@ async function finishMixReport(
   const autoplay = $<HTMLInputElement>("autoplay")?.checked ?? true;
   const playPath = report.out?.trim() || out;
   await loadMixPlayer(playPath, autoplay);
-  renderJoinMarkers();
-  updateNowPlayingHighlight();
+  renderMixTimeline();
   appendLog(
     autoplay
       ? `mix complete — playing ${basename(playPath)}`
@@ -896,8 +1025,8 @@ window.addEventListener("DOMContentLoaded", async () => {
   const audio = $<HTMLAudioElement>("mix-player");
   audio?.addEventListener("timeupdate", () => updateNowPlayingHighlight());
   audio?.addEventListener("seeked", () => updateNowPlayingHighlight());
-  audio?.addEventListener("loadedmetadata", () => renderJoinMarkers());
-  audio?.addEventListener("durationchange", () => renderJoinMarkers());
+  audio?.addEventListener("loadedmetadata", () => renderMixTimeline());
+  audio?.addEventListener("durationchange", () => renderMixTimeline());
 
   $<HTMLButtonElement>("btn-mix-now")?.addEventListener("click", () => {
     mixNowSeek();

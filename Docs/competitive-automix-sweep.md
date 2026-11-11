@@ -125,8 +125,9 @@ Formula note: `(competitor best − AutoDJ) × persona weight × mix_impact`. Be
 | **P81** | Continuous radio mode | **Shipped** — Start/Stop radio; Softmax top-1 → `remix_queue_next` → seek handoff; multi-root Matching via symlink stage |
 | **P82** | Transition timing depth | **Shipped** — upcoming-join −20s prerender; `remix --horizon 3`; hold-then-swap at handoff (±0.15s) |
 | **P83** | Set-length + vibe controls | **Shipped** — Continuous/30/45/60/90 + Standard/Chill/Peak; virtual Softmax arc; timed set stop |
+| **P84** | Desktop Docs honesty (app README) | **Shipped** — `apps/autodj-app/README.md` + developer-map match P80–P83 radio path |
 | Later | Stems / live dual-deck; neural phrase ML | gated / user-owned audio |
-| Next | Later/gated only | North Star P80–P83 complete |
+| Next | Later/gated only | North Star P80–P83 complete; Docs idle |
 
 ## Re-rank bias
 

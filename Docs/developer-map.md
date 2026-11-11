@@ -11,7 +11,7 @@ Thin index for humans and agents. Prefer linking one Doc at a time.
 | `crates/autodj-io/` | WAV/FLAC decode (`read_audio`) + WAV/FLAC encode (`write_audio`) |
 | `crates/autodj-cli/` | `autodj` binary |
 | `python/autodj_train/` | Synthetic transitions, Softmax train/eval |
-| `apps/autodj-app/` | Tauri 2 shell (Vite + TS over CLI); Radio libraries multi-root |
+| `apps/autodj-app/` | Tauri 2 shell — Radio libraries, continuous radio (horizon prerender), set-length + vibe; see app README + getting-started |
 | `Docs/full-auto-roadmap.md` | North Star + P80–P83 phase ladder |
 | `testdata/gold/` | Royalty-free synthetic WAV + `loop_a_128.flac` fixtures |
 | `Docs/` | Specs, legal, rubrics |

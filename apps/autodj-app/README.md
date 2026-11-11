@@ -1,6 +1,21 @@
 # autodj-app (Tauri 2)
 
-Desktop shell: **Automix folder** scans a library directory for `wav`/`flac`, Softmax-solves order, renders, and **listens** in-app (`<audio>` + Autoplay after mix; prefers WAV). **Next matches** ranks neighbors for the now-playing track (library folder or common parent of mix order); **Queue & remix** pins a pick after the played prefix and re-solves the rest. **Mix Now** / `N` seeks to the next join; `Shift+N` seeks to the previous (blocked while CLI busy); cue-segment spans + join ticks mark the mix; click a segment, tick, Transition row, or Set-order row (Camelot + BPM + phrase bars + prep trusted/weak) to seek (`join_timeline_secs` / `mix_timeline_*`); active/next join chrome + class listen hints update with the playhead. Transitions list key route / ΔBPM / edge cost. Gate pills show mix-quality rubric tooltips plus cue/transition/phrase override flags; **Listen while playing** opens the human checklist. **Automix Editor** pins mix-in/out and `transition_out`, then **Apply & re-mix** (`mix_editor_remix`, preserve-order). Loudness target: Streaming (−14) / Broadcast (−23); Strict QA locks −14; Advanced **Peak limit only** → `--no-loudness-norm`. Main panel: Feature DB Browse/New. Advanced: Softmax Browse / Load committed, or **Skip Softmax** → `--no-transition-model`; optional **MixReport path** Browse → `--report-out` (Reveal uses that path). Softmax + solver pick order when Preserve-order is off. Output audio (`.wav`/`.flac`) must be under `/tmp` or `$HOME` (asset protocol scope). Feature DB is passed to `mix --db` after folder analyze.
+Desktop shell for AutoDJ’s **full-auto private DJ** path (P80–P83). Deep user guide: [`Docs/getting-started.md`](../../Docs/getting-started.md). North Star ladder: [`Docs/full-auto-roadmap.md`](../../Docs/full-auto-roadmap.md).
+
+**Primary flow — continuous radio**
+
+1. **Radio libraries** — Add one or more local folders you own (`wav`/`flac`); list persists in `localStorage`.
+2. **Feature DB** — Browse/New on the main panel; optional **Index libraries** (`analyze_libraries`).
+3. **Set length** — Continuous or 30 / 45 / 60 / 90 min; **Vibe** — Standard (house) / Chill (open_format) / Peak (trance).
+4. **Start radio** — short Automix seed (`horizon` 3), Softmax next-track picks, **−20s** prerender before the upcoming join, hold-then-swap at handoff; timed sets **auto-stop**. **Stop radio** ends the loop (works while CLI busy).
+
+**Power-user paths**
+
+- **Automix folder** — one-shot mix across Radio libraries (or a single **Library folder**).
+- **Next matches** / **Queue & remix** — manual Softmax neighbors for the now-playing track (multi-root via temp symlink staging).
+- **Mix Now** / `N` / `Shift+N` — seek joins; cue spans + Automix Editor; Advanced playlist / Softmax / MixReport path / Peak limit only.
+
+Output audio (`.wav`/`.flac`) must be under `/tmp` or `$HOME` (asset protocol). Strict QA locks −14 LUFS; otherwise Streaming (−14) / Broadcast (−23).
 
 **UI language:** AutoDJ’s own (not RouteFinder GlassmorphicModifiers).
 
@@ -9,7 +24,6 @@ Desktop shell: **Automix folder** scans a library directory for `wav`/`flac`, So
 From the AutoDJ repo root:
 
 ```bash
-# Ensure CLI builds
 cargo build -p autodj-cli
 
 cd apps/autodj-app
@@ -17,13 +31,13 @@ npm install
 npm run tauri dev
 ```
 
-Use **Browse…** for a library folder (e.g. `testdata/gold`) and output audio (default WAV), then **Automix folder**. For Rekordbox XML, open Advanced → playlist picker; enable preserve-order and set playlist name `Gold Set` if desired.
+Smoke: Add `testdata/gold` as a Radio library root, set output under `/tmp`, **Start radio** (Strict QA off for short gold loops). Or **Automix folder** for a one-shot render. Rekordbox XML: Advanced → playlist + preserve-order + playlist name.
 
-Resolution order for the CLI:
+CLI resolution:
 
-1. `AUTODJ_BIN` env (absolute path to `autodj`)
+1. `AUTODJ_BIN` (absolute path to `autodj`)
 2. `autodj` on `PATH`
-3. `cargo run -p autodj-cli` from the repo root (auto-detected)
+3. `cargo run -p autodj-cli` from the repo root
 
 Optional: `AUTODJ_REPO_ROOT` if the app cannot find the workspace.
 

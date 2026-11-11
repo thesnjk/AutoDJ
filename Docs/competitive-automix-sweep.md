@@ -106,9 +106,10 @@ Formula note: `(competitor best − AutoDJ) × persona weight × mix_impact`. Be
 | **P59** | Automix Editor `bars_per_phrase` | **Shipped** — seed + 4/8/16 select → temp playlist pin |
 | **P60** | Export Automix Editor playlist JSON | **Shipped** — Save playlist… → CLI-compatible JSON |
 | **P61** | Tauri MixReport sidecar reveal | **Shipped** — log + Reveal MixReport… (`revealItemInDir`) |
-| Next | Load editor-exported playlist into Advanced | fill `#playlist` from Save playlist… |
+| **P62** | Load editor playlist into Advanced | **Shipped** — Save playlist… fills `#playlist` + preserve-order |
+| Next | Advanced Softmax model Browse | mirror policy-hints Browse for transition model |
 | Later | Stems / live dual-deck; neural phrase ML | gated / user-owned audio |
 
 ## Re-rank bias
 
-Prefer agent-doable product code that closes remaining mix-quality gaps before brochure fluff. P0–P61 are in place; stems remain gated.
+Prefer agent-doable product code that closes remaining mix-quality gaps before brochure fluff. P0–P62 are in place; stems remain gated.

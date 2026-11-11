@@ -105,7 +105,7 @@ type EditorTrackDraft = {
   bpm: number | null;
 };
 
-/** Seeded from MixReport.order; overrides empty until the user edits. */
+/** Seeded from MixReport.order with computed play windows + edge classes. */
 let editorDraft: EditorTrackDraft[] = [];
 
 const TRANSITION_CLASS_OPTIONS: { value: string; label: string }[] = [
@@ -162,17 +162,25 @@ function syncEditorButtons() {
   if (reset) reset.disabled = !hasDraft;
 }
 
-/** Seed editor draft from MixReport.order with empty override pins. */
+/** Seed editor draft from MixReport cues (play windows) + transition classes. */
 function seedEditorDraft(report: MixReport) {
   const order = report.order ?? [];
   const cues = report.cues ?? [];
+  const edges = report.transitions ?? [];
   editorDraft = order.map((path, i) => {
     const cue = cues[i];
+    const edge = edges[i];
+    const mixIn =
+      cue && Number.isFinite(cue.play_start_secs) ? cue.play_start_secs : null;
+    const mixOut =
+      cue && Number.isFinite(cue.play_end_secs) ? cue.play_end_secs : null;
+    const transitionOut =
+      i < order.length - 1 && edge?.class?.trim() ? edge.class.trim() : null;
     return {
       path,
-      mixInSecs: null,
-      mixOutSecs: null,
-      transitionOut: null,
+      mixInSecs: mixIn,
+      mixOutSecs: mixOut,
+      transitionOut,
       key: cue?.key?.trim() || null,
       bpm: cue?.bpm && Number.isFinite(cue.bpm) ? cue.bpm : null,
     };

@@ -572,6 +572,7 @@ fn load_folder_features(
     Ok(features)
 }
 
+#[allow(clippy::too_many_arguments)]
 fn cmd_suggest(
     folder: &Path,
     from: &Path,
@@ -626,6 +627,7 @@ fn cmd_suggest(
     })
 }
 
+#[allow(clippy::too_many_arguments)]
 fn cmd_remix(
     folder: &Path,
     prefix: &[PathBuf],

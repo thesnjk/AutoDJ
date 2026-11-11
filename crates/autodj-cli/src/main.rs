@@ -162,6 +162,9 @@ enum Commands {
         /// MixReport JSON path (default: `{out}.mixreport.json`).
         #[arg(long)]
         report_out: Option<PathBuf>,
+        /// Cap remix order length (prefix + next + short tail). Radio uses 3.
+        #[arg(long)]
+        horizon: Option<usize>,
     },
 }
 
@@ -386,6 +389,7 @@ fn main() -> Result<()> {
             transition_model,
             no_transition_model,
             report_out,
+            horizon,
         } => {
             let deterministic = deterministic_flag && !no_deterministic;
             let target = if no_loudness_norm {
@@ -411,6 +415,7 @@ fn main() -> Result<()> {
                 target,
                 model.as_ref(),
                 deterministic,
+                horizon,
             )?;
             emit_mix_report(&report, &out, report_out.as_deref())
         }
@@ -696,6 +701,7 @@ fn cmd_remix(
     target_lufs: Option<f64>,
     model: Option<&TransitionModel>,
     deterministic: bool,
+    horizon: Option<usize>,
 ) -> Result<MixReport> {
     if prefix.is_empty() {
         bail!("remix requires at least one --prefix path (including current)");
@@ -717,7 +723,14 @@ fn cmd_remix(
         prefix_idxs.push(index_of(p)?);
     }
     let next_idx = index_of(next)?;
-    let order = build_remix_order(&features, &prefix_idxs, next_idx, &policy, model);
+    let order = build_remix_order(
+        &features,
+        &prefix_idxs,
+        next_idx,
+        &policy,
+        model,
+        horizon,
+    );
     if order.is_empty() {
         bail!("remix order empty (check prefix/next overlap)");
     }

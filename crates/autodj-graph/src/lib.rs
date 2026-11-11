@@ -572,6 +572,10 @@ pub fn rank_next_matches(
 /// Build a remix order: played `prefix` (including now-playing) + `forced_next` +
 /// greedy solve of the remaining tracks starting from `forced_next`.
 ///
+/// When `horizon` is `Some(h)`, the returned order is truncated to
+/// `max(h, prefix.len() + 1)` so radio can re-render a short set instead of the
+/// whole library remainder.
+///
 /// Indices refer to `tracks`. Returns an empty vec if inputs are invalid.
 pub fn build_remix_order(
     tracks: &[TrackFeatures],
@@ -579,6 +583,7 @@ pub fn build_remix_order(
     forced_next: usize,
     policy: &GenrePolicy,
     model: Option<&TransitionModel>,
+    horizon: Option<usize>,
 ) -> Vec<usize> {
     let n = tracks.len();
     if n == 0 || forced_next >= n {
@@ -597,24 +602,31 @@ pub fn build_remix_order(
     used.insert(forced_next);
 
     let remainder: Vec<usize> = (0..n).filter(|i| !used.contains(i)).collect();
-    if remainder.is_empty() {
-        let mut out = prefix.to_vec();
-        out.push(forced_next);
-        return out;
-    }
-
-    // Subset: forced_next first, then remainder — solve with start = 0.
-    let mut subset_idxs = Vec::with_capacity(1 + remainder.len());
-    subset_idxs.push(forced_next);
-    subset_idxs.extend_from_slice(&remainder);
-    let subset_feats: Vec<TrackFeatures> = subset_idxs
-        .iter()
-        .map(|&i| tracks[i].clone())
-        .collect();
-    let sol = solve_order(&subset_feats, policy, Some(0), model);
-    let mut out = prefix.to_vec();
-    for &si in &sol.order {
-        out.push(subset_idxs[si]);
+    let mut out = if remainder.is_empty() {
+        let mut o = prefix.to_vec();
+        o.push(forced_next);
+        o
+    } else {
+        // Subset: forced_next first, then remainder — solve with start = 0.
+        let mut subset_idxs = Vec::with_capacity(1 + remainder.len());
+        subset_idxs.push(forced_next);
+        subset_idxs.extend_from_slice(&remainder);
+        let subset_feats: Vec<TrackFeatures> = subset_idxs
+            .iter()
+            .map(|&i| tracks[i].clone())
+            .collect();
+        let sol = solve_order(&subset_feats, policy, Some(0), model);
+        let mut o = prefix.to_vec();
+        for &si in &sol.order {
+            o.push(subset_idxs[si]);
+        }
+        o
+    };
+    if let Some(h) = horizon {
+        let cap = h.max(prefix.len().saturating_add(1));
+        if out.len() > cap {
+            out.truncate(cap);
+        }
     }
     out
 }
@@ -722,13 +734,29 @@ mod tests {
             feat(174.0, "1A", -8.0),
         ];
         let policy = GenrePolicy::builtin("house");
-        let order = build_remix_order(&tracks, &[0], 2, &policy, None);
+        let order = build_remix_order(&tracks, &[0], 2, &policy, None, None);
         assert_eq!(order[0], 0);
         assert_eq!(order[1], 2, "forced next pinned; order={:?}", order);
         assert_eq!(order.len(), 4);
         let mut seen = order.clone();
         seen.sort();
         assert_eq!(seen, vec![0, 1, 2, 3]);
+    }
+
+    #[test]
+    fn build_remix_order_horizon_caps_tail() {
+        let tracks = vec![
+            feat(124.0, "8A", -10.0),
+            feat(125.0, "9A", -9.5),
+            feat(126.0, "10A", -9.0),
+            feat(174.0, "1A", -8.0),
+            feat(128.0, "11A", -8.5),
+        ];
+        let policy = GenrePolicy::builtin("house");
+        let order = build_remix_order(&tracks, &[0], 2, &policy, None, Some(3));
+        assert_eq!(order[0], 0);
+        assert_eq!(order[1], 2);
+        assert_eq!(order.len(), 3, "horizon 3 with prefix=1 → len 3; got {:?}", order);
     }
 
     #[test]

@@ -219,6 +219,9 @@ struct AutomixFolderArgs {
     /// Peak-limit only (CLI `--no-loudness-norm`).
     #[serde(default)]
     no_loudness_norm: bool,
+    /// Cap seed playlist length (Radio uses 3).
+    #[serde(default)]
+    horizon: Option<usize>,
 }
 
 #[derive(serde::Deserialize)]
@@ -693,6 +696,9 @@ struct RemixQueueArgs {
     /// Peak-limit only (CLI `--no-loudness-norm`).
     #[serde(default)]
     no_loudness_norm: bool,
+    /// Cap remix order length (CLI `--horizon`); Radio uses 3.
+    #[serde(default)]
+    horizon: Option<usize>,
 }
 
 /// Rank next-track matches for the now-playing track (CLI `suggest`).
@@ -774,6 +780,10 @@ fn remix_queue_next(app: AppHandle, args: RemixQueueArgs) -> Result<serde_json::
         owned.push("--prefix".into());
         owned.push(p.clone());
     }
+    if let Some(hz) = args.horizon.filter(|&n| n > 0) {
+        owned.push("--horizon".into());
+        owned.push(hz.to_string());
+    }
     if let Some(h) = args.policy_hints.filter(|s| !s.is_empty()) {
         owned.push("--policy-hints".into());
         owned.push(h);
@@ -831,7 +841,12 @@ fn analyze_libraries(app: AppHandle, args: AnalyzeLibrariesArgs) -> Result<Strin
 #[tauri::command]
 fn automix_folder(app: AppHandle, args: AutomixFolderArgs) -> Result<serde_json::Value, String> {
     let roots = resolve_library_roots(&args.folder, args.folders.as_deref())?;
-    let tracks = collect_roots_audio(&roots)?;
+    let mut tracks = collect_roots_audio(&roots)?;
+    if let Some(h) = args.horizon.filter(|&n| n >= 2) {
+        if tracks.len() > h {
+            tracks.truncate(h);
+        }
+    }
     if tracks.len() < 2 {
         let roots_s = roots
             .iter()

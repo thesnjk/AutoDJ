@@ -92,11 +92,25 @@ type SuggestReport = {
 
 /** Last successful MixReport — drives now-playing highlight + Mix Now. */
 let lastMixReport: MixReport | null = null;
-/** Continuous radio loop (P81). */
+/** Continuous radio loop (P81/P82). */
 let radioActive = false;
 let radioAdvanceInFlight = false;
 let radioGeneration = 0;
-const RADIO_LOOKAHEAD_SECS = 12;
+const RADIO_PRE_RENDER_SECS = 20;
+const RADIO_HANDOFF_EPS_SECS = 0.15;
+const RADIO_HORIZON = 3;
+
+type PendingRadioHandoff = {
+  gen: number;
+  report: MixReport;
+  out: string;
+  deterministic: boolean;
+  seekJoinIndex: number;
+  /** Playhead time on the *current* mix when we swap. */
+  commitAtSecs: number;
+};
+
+let pendingRadioHandoff: PendingRadioHandoff | null = null;
 /** Cue index used for the last matches refresh (avoid redundant suggests). */
 let lastMatchesCueIndex = -1;
 let matchesInFlight = false;
@@ -1489,31 +1503,78 @@ function syncRadioButtons() {
 }
 
 function stopRadio(reason = "stopped") {
-  if (!radioActive && radioAdvanceInFlight === false) {
+  if (!radioActive && !radioAdvanceInFlight && !pendingRadioHandoff) {
     syncRadioButtons();
     return;
   }
   radioActive = false;
   radioGeneration += 1;
   radioAdvanceInFlight = false;
+  pendingRadioHandoff = null;
   appendLog(`--- radio ${reason} ---`);
   syncRadioButtons();
 }
 
-function maybeRadioAdvanceFromPlayhead() {
-  if (!radioActive || cliBusy || radioAdvanceInFlight) return;
+/** Upcoming join time, or last join as fallback. */
+function radioTargetJoinSecs(t: number): { joinIdx: number; joinSecs: number } | null {
   const joins = lastMixReport?.join_timeline_secs ?? [];
-  if (joins.length === 0) return;
+  if (joins.length === 0) return null;
+  const nextIdx = nextJoinIndex(t);
+  if (nextIdx >= 0) {
+    return { joinIdx: nextIdx, joinSecs: joins[nextIdx]! };
+  }
+  const lastIdx = joins.length - 1;
+  return { joinIdx: lastIdx, joinSecs: joins[lastIdx]! };
+}
+
+async function commitPendingRadioHandoff(forceLate: boolean) {
+  const pending = pendingRadioHandoff;
+  if (!pending || !radioActive) return;
+  if (pending.gen !== radioGeneration) {
+    pendingRadioHandoff = null;
+    return;
+  }
+  const audio = $<HTMLAudioElement>("mix-player");
+  const t = audio?.currentTime ?? 0;
+  if (!forceLate && t + RADIO_HANDOFF_EPS_SECS < pending.commitAtSecs) {
+    return;
+  }
+  pendingRadioHandoff = null;
+  if (forceLate || t >= pending.commitAtSecs) {
+    appendLog(
+      forceLate || t >= pending.commitAtSecs + RADIO_HANDOFF_EPS_SECS
+        ? "radio: late handoff — hard-cut"
+        : "radio: handoff swap",
+    );
+  }
+  await finishMixReport(pending.report, pending.out, pending.deterministic, {
+    seekJoinIndex: pending.seekJoinIndex,
+  });
+}
+
+function maybeRadioAdvanceFromPlayhead() {
+  if (!radioActive) return;
   const audio = $<HTMLAudioElement>("mix-player");
   if (!audio) return;
-  const lastJoin = joins[joins.length - 1]!;
-  if (audio.currentTime + RADIO_LOOKAHEAD_SECS >= lastJoin) {
-    void radioAdvance();
+  const t = audio.currentTime;
+
+  if (pendingRadioHandoff) {
+    void commitPendingRadioHandoff(false);
+    return;
+  }
+  if (cliBusy || radioAdvanceInFlight) return;
+
+  const target = radioTargetJoinSecs(t);
+  if (!target) return;
+  if (t + RADIO_PRE_RENDER_SECS >= target.joinSecs) {
+    void radioPrerender(target.joinSecs);
   }
 }
 
-async function radioAdvance() {
-  if (!radioActive || radioAdvanceInFlight || cliBusy) return;
+async function radioPrerender(commitAtSecs: number) {
+  if (!radioActive || radioAdvanceInFlight || cliBusy || pendingRadioHandoff) {
+    return;
+  }
   const gen = radioGeneration;
   const order = lastMixReport?.order ?? [];
   const cueIndex = currentCueIndex();
@@ -1537,7 +1598,7 @@ async function radioAdvance() {
   const lufs = selectedLufs(deterministic);
   const { reportOut, noLoudnessNorm } = nicheMixInvokeArgs();
   setBusy(true);
-  appendLog("--- radio advance ---");
+  appendLog(`--- radio prerender (horizon ${RADIO_HORIZON}) ---`);
   try {
     const suggest = await invoke<SuggestReport>("suggest_matches", {
       args: {
@@ -1555,9 +1616,10 @@ async function radioAdvance() {
       },
     });
     if (gen !== radioGeneration || !radioActive) return;
-    const prefixSet = new Set(prefix);
     const nextPath = (suggest.candidates ?? []).find(
-      (c) => c.path && !prefixSet.has(c.path) && !prefix.some((p) => pathsMatch(p, c.path)),
+      (c) =>
+        c.path &&
+        !prefix.some((p) => pathsMatch(p, c.path)),
     )?.path;
     if (!nextPath) {
       appendLog("radio: no unused Softmax candidate — stopping");
@@ -1581,13 +1643,27 @@ async function radioAdvance() {
         lufs,
         reportOut,
         noLoudnessNorm,
+        horizon: RADIO_HORIZON,
       },
     });
     if (gen !== radioGeneration || !radioActive) return;
     const handoffJoinIdx = prefix.length - 1;
-    await finishMixReport(report, out, deterministic, {
+    pendingRadioHandoff = {
+      gen,
+      report,
+      out,
+      deterministic,
       seekJoinIndex: handoffJoinIdx,
-    });
+      commitAtSecs,
+    };
+    appendLog(
+      `radio: held remix until join @ ${commitAtSecs.toFixed(2)}s`,
+    );
+    const audio = $<HTMLAudioElement>("mix-player");
+    const now = audio?.currentTime ?? 0;
+    if (now + RADIO_HANDOFF_EPS_SECS >= commitAtSecs) {
+      await commitPendingRadioHandoff(true);
+    }
   } catch (e) {
     if (gen === radioGeneration && radioActive) {
       showPlainReport(String(e), true);
@@ -1616,6 +1692,7 @@ async function startRadio() {
   if (autoplay) autoplay.checked = true;
   radioActive = true;
   radioGeneration += 1;
+  pendingRadioHandoff = null;
   syncRadioButtons();
   appendLog("--- radio start ---");
   if (!lastMixReport?.order?.length) {
@@ -1647,6 +1724,7 @@ async function startRadio() {
           lufs,
           reportOut,
           noLoudnessNorm,
+          horizon: RADIO_HORIZON,
         },
       });
       if (!radioActive) return;

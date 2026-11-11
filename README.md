@@ -4,7 +4,7 @@ Automatic DJ mix engine and learning pipeline. Analyze a library or playlist, so
 
 ## Status
 
-**P0–P80 shipped** on `main` — ungated competitive matrix closed, plus full-auto **Radio libraries** (multi-root index → Feature DB → Automix across roots). Softmax 8-class FX, Rekordbox + cues, FLAC I/O, MixReport gates, Tauri shell, thesis-grade writeup + [`Docs/data-contracts.md`](Docs/data-contracts.md). Narrative: [`Docs/project-writeup.md`](Docs/project-writeup.md). Matrix: [`Docs/competitive-automix-sweep.md`](Docs/competitive-automix-sweep.md). Full-auto ladder: [`Docs/full-auto-roadmap.md`](Docs/full-auto-roadmap.md) (Next: **P81** continuous radio). Later/gated: stems, live dual-deck, neural phrase ML, streaming OAuth, open-web scrape.
+**P0–P81 shipped** on `main` — ungated competitive matrix closed, plus full-auto **Radio libraries** and **continuous radio** (Start/Stop; Softmax next at join lookahead). Softmax 8-class FX, Rekordbox + cues, FLAC I/O, MixReport gates, Tauri shell, thesis-grade writeup + [`Docs/data-contracts.md`](Docs/data-contracts.md). Narrative: [`Docs/project-writeup.md`](Docs/project-writeup.md). Matrix: [`Docs/competitive-automix-sweep.md`](Docs/competitive-automix-sweep.md). Full-auto ladder: [`Docs/full-auto-roadmap.md`](Docs/full-auto-roadmap.md) (Next: **P82** transition timing). Later/gated: stems, live dual-deck, neural phrase ML, streaming OAuth, open-web scrape.
 
 ## Quick start
 

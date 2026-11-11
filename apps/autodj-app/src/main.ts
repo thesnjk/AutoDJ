@@ -92,6 +92,11 @@ type SuggestReport = {
 
 /** Last successful MixReport — drives now-playing highlight + Mix Now. */
 let lastMixReport: MixReport | null = null;
+/** Continuous radio loop (P81). */
+let radioActive = false;
+let radioAdvanceInFlight = false;
+let radioGeneration = 0;
+const RADIO_LOOKAHEAD_SECS = 12;
 /** Cue index used for the last matches refresh (avoid redundant suggests). */
 let lastMatchesCueIndex = -1;
 let matchesInFlight = false;
@@ -149,7 +154,7 @@ function applyBusyDom(busy: boolean) {
       [
         ".controls input",
         ".controls select",
-        ".controls button",
+        ".controls button:not(#btn-stop-radio)",
         ".player-actions input",
         ".player-actions button",
         ".matches-list button",
@@ -168,6 +173,7 @@ function applyBusyDom(busy: boolean) {
     if (busy) shell.setAttribute("aria-busy", "true");
     else shell.removeAttribute("aria-busy");
   }
+  syncRadioButtons();
 }
 
 function setBusy(busy: boolean) {
@@ -177,6 +183,7 @@ function setBusy(busy: boolean) {
     syncEditorButtons();
     syncLufsControl();
     syncTransitionModelControls();
+    syncRadioButtons();
   }
 }
 
@@ -1165,6 +1172,7 @@ function updateNowPlayingHighlight() {
   if (idx !== lastMatchesCueIndex) {
     void refreshMatchesForCue(idx);
   }
+  maybeRadioAdvanceFromPlayhead();
 }
 
 function clearMatchesPanel() {
@@ -1214,7 +1222,7 @@ async function refreshMatchesForCue(cueIndex: number) {
     clearMatchesPanel();
     return;
   }
-  const folder = libraryFolderForMatches();
+  const { folder, folders } = matchingFoldersPayload();
   if (!folder) {
     const panel = $<HTMLDivElement>("matches-panel");
     const list = $<HTMLUListElement>("matches-list");
@@ -1242,6 +1250,7 @@ async function refreshMatchesForCue(cueIndex: number) {
     const report = await invoke<SuggestReport>("suggest_matches", {
       args: {
         folder,
+        folders,
         from,
         top: 5,
         genre,
@@ -1265,7 +1274,7 @@ async function refreshMatchesForCue(cueIndex: number) {
 }
 
 async function queueRemix(nextPath: string) {
-  const folder = libraryFolderForMatches();
+  const { folder, folders } = matchingFoldersPayload();
   const out = $<HTMLInputElement>("out")?.value.trim() ?? "";
   const order = lastMixReport?.order ?? [];
   const cueIndex = currentCueIndex();
@@ -1296,6 +1305,7 @@ async function queueRemix(nextPath: string) {
     const report = await invoke<MixReport>("remix_queue_next", {
       args: {
         folder,
+        folders,
         prefix,
         next: nextPath,
         out,
@@ -1458,6 +1468,204 @@ function automixFoldersPayload(): {
   return { folder, folders: null };
 }
 
+/** Folder + optional roots for Matching / radio suggest+remix. */
+function matchingFoldersPayload(): {
+  folder: string | null;
+  folders: string[] | null;
+} {
+  const roots = loadLibraryRoots();
+  const folder = libraryFolderForMatches();
+  if (roots.length > 0) {
+    return { folder: folder || roots[0]!, folders: roots };
+  }
+  return { folder, folders: null };
+}
+
+function syncRadioButtons() {
+  const start = $<HTMLButtonElement>("btn-start-radio");
+  const stop = $<HTMLButtonElement>("btn-stop-radio");
+  if (stop) stop.disabled = !radioActive;
+  if (start) start.disabled = radioActive || cliBusy;
+}
+
+function stopRadio(reason = "stopped") {
+  if (!radioActive && radioAdvanceInFlight === false) {
+    syncRadioButtons();
+    return;
+  }
+  radioActive = false;
+  radioGeneration += 1;
+  radioAdvanceInFlight = false;
+  appendLog(`--- radio ${reason} ---`);
+  syncRadioButtons();
+}
+
+function maybeRadioAdvanceFromPlayhead() {
+  if (!radioActive || cliBusy || radioAdvanceInFlight) return;
+  const joins = lastMixReport?.join_timeline_secs ?? [];
+  if (joins.length === 0) return;
+  const audio = $<HTMLAudioElement>("mix-player");
+  if (!audio) return;
+  const lastJoin = joins[joins.length - 1]!;
+  if (audio.currentTime + RADIO_LOOKAHEAD_SECS >= lastJoin) {
+    void radioAdvance();
+  }
+}
+
+async function radioAdvance() {
+  if (!radioActive || radioAdvanceInFlight || cliBusy) return;
+  const gen = radioGeneration;
+  const order = lastMixReport?.order ?? [];
+  const cueIndex = currentCueIndex();
+  if (order.length < 1 || cueIndex < 0) return;
+  const { folder, folders } = matchingFoldersPayload();
+  const out = $<HTMLInputElement>("out")?.value.trim() ?? "";
+  if (!folder || !out) {
+    stopRadio("missing library/out");
+    showPlainReport("Radio needs library roots (or folder) and output path", true);
+    return;
+  }
+  radioAdvanceInFlight = true;
+  const prefix = order.slice(0, cueIndex + 1);
+  const genre = $<HTMLSelectElement>("genre")?.value ?? "house";
+  const policyHints =
+    $<HTMLInputElement>("policy-hints")?.value.trim() || null;
+  const { transitionModel, noTransitionModel } = transitionModelInvokeArgs();
+  const db = $<HTMLInputElement>("db")?.value.trim() || null;
+  const deterministic =
+    $<HTMLInputElement>("deterministic")?.checked ?? true;
+  const lufs = selectedLufs(deterministic);
+  const { reportOut, noLoudnessNorm } = nicheMixInvokeArgs();
+  setBusy(true);
+  appendLog("--- radio advance ---");
+  try {
+    const suggest = await invoke<SuggestReport>("suggest_matches", {
+      args: {
+        folder,
+        folders,
+        from: order[cueIndex],
+        top: 5,
+        genre,
+        policyHints,
+        transitionModel,
+        noTransitionModel,
+        db,
+        position: cueIndex,
+        setLen: order.length,
+      },
+    });
+    if (gen !== radioGeneration || !radioActive) return;
+    const prefixSet = new Set(prefix);
+    const nextPath = (suggest.candidates ?? []).find(
+      (c) => c.path && !prefixSet.has(c.path) && !prefix.some((p) => pathsMatch(p, c.path)),
+    )?.path;
+    if (!nextPath) {
+      appendLog("radio: no unused Softmax candidate — stopping");
+      stopRadio("no candidate");
+      return;
+    }
+    appendLog(`radio next: ${basename(nextPath)}`);
+    const report = await invoke<MixReport>("remix_queue_next", {
+      args: {
+        folder,
+        folders,
+        prefix,
+        next: nextPath,
+        out,
+        genre,
+        policyHints,
+        transitionModel,
+        noTransitionModel,
+        db,
+        deterministic,
+        lufs,
+        reportOut,
+        noLoudnessNorm,
+      },
+    });
+    if (gen !== radioGeneration || !radioActive) return;
+    const handoffJoinIdx = prefix.length - 1;
+    await finishMixReport(report, out, deterministic, {
+      seekJoinIndex: handoffJoinIdx,
+    });
+  } catch (e) {
+    if (gen === radioGeneration && radioActive) {
+      showPlainReport(String(e), true);
+      appendLog(`radio: ${e}`);
+      stopRadio("error");
+    }
+  } finally {
+    radioAdvanceInFlight = false;
+    setBusy(false);
+    syncRadioButtons();
+  }
+}
+
+/** Seed Automix then enter continuous radio, or resume on existing MixReport. */
+async function startRadio() {
+  const { folder, folders } = automixFoldersPayload();
+  const out = $<HTMLInputElement>("out")?.value.trim() ?? "";
+  if ((!folder && !(folders && folders.length)) || !out) {
+    showPlainReport(
+      "Set Radio libraries (or library folder) and output audio paths",
+      true,
+    );
+    return;
+  }
+  const autoplay = $<HTMLInputElement>("autoplay");
+  if (autoplay) autoplay.checked = true;
+  radioActive = true;
+  radioGeneration += 1;
+  syncRadioButtons();
+  appendLog("--- radio start ---");
+  if (!lastMixReport?.order?.length) {
+    const genre = $<HTMLSelectElement>("genre")?.value ?? "house";
+    const policyHints =
+      $<HTMLInputElement>("policy-hints")?.value.trim() || null;
+    const { transitionModel, noTransitionModel } = transitionModelInvokeArgs();
+    const db = $<HTMLInputElement>("db")?.value.trim() || null;
+    const preserveOrder =
+      $<HTMLInputElement>("preserve-order")?.checked ?? false;
+    const deterministic =
+      $<HTMLInputElement>("deterministic")?.checked ?? true;
+    const lufs = selectedLufs(deterministic);
+    const { reportOut, noLoudnessNorm } = nicheMixInvokeArgs();
+    setBusy(true);
+    try {
+      const report = await invoke<MixReport>("automix_folder", {
+        args: {
+          folder,
+          folders,
+          out,
+          genre,
+          policyHints,
+          transitionModel,
+          noTransitionModel,
+          db,
+          preserveOrder,
+          deterministic,
+          lufs,
+          reportOut,
+          noLoudnessNorm,
+        },
+      });
+      if (!radioActive) return;
+      await finishMixReport(report, out, deterministic);
+    } catch (e) {
+      showPlainReport(String(e), true);
+      appendLog(String(e));
+      stopRadio("seed failed");
+    } finally {
+      setBusy(false);
+      syncRadioButtons();
+    }
+  } else {
+    const audio = $<HTMLAudioElement>("mix-player");
+    void audio?.play().catch(() => undefined);
+    maybeRadioAdvanceFromPlayhead();
+  }
+}
+
 async function browseFolder() {
   const selected = await open({
     multiple: false,
@@ -1590,6 +1798,7 @@ async function finishMixReport(
   report: MixReport,
   out: string,
   deterministic: boolean,
+  opts?: { seekJoinIndex?: number },
 ) {
   lastMixReport = report;
   lastMatchesCueIndex = -1;
@@ -1600,6 +1809,17 @@ async function finishMixReport(
   const playPath = report.out?.trim() || out;
   const played = await loadMixPlayer(playPath, autoplay);
   renderMixTimeline();
+  const seekIdx = opts?.seekJoinIndex;
+  if (seekIdx !== undefined && seekIdx >= 0) {
+    const joins = report.join_timeline_secs ?? [];
+    const t = joins[seekIdx];
+    const audio = $<HTMLAudioElement>("mix-player");
+    if (audio && typeof t === "number" && Number.isFinite(t)) {
+      audio.currentTime = Math.max(0, t);
+      if (autoplay) void audio.play().catch(() => undefined);
+      appendLog(`radio handoff → join ${seekIdx} @ ${t.toFixed(2)}s`);
+    }
+  }
   const listenHint = $<HTMLParagraphElement>("listen-hint");
   if (autoplay && !played) {
     appendLog(
@@ -1964,6 +2184,14 @@ window.addEventListener("DOMContentLoaded", async () => {
   );
 
   renderLibraryRoots();
+  syncRadioButtons();
+
+  $<HTMLButtonElement>("btn-start-radio")?.addEventListener("click", () => {
+    void startRadio();
+  });
+  $<HTMLButtonElement>("btn-stop-radio")?.addEventListener("click", () => {
+    stopRadio("user");
+  });
 
   $<HTMLButtonElement>("btn-automix-folder")?.addEventListener(
     "click",

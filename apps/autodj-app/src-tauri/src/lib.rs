@@ -291,6 +291,44 @@ fn collect_roots_audio(roots: &[PathBuf]) -> Result<Vec<PathBuf>, String> {
     Ok(out)
 }
 
+/// Folder path for CLI `--folder`: single root as-is; multi-root → temp dir of symlinks.
+fn stage_library_folder(folder: &str, folders: Option<&[String]>) -> Result<PathBuf, String> {
+    let roots = resolve_library_roots(folder, folders)?;
+    if roots.len() == 1 {
+        return Ok(roots[0].clone());
+    }
+    let tracks = collect_roots_audio(&roots)?;
+    if tracks.is_empty() {
+        return Err("no wav/flac across Radio library roots".into());
+    }
+    let stage = std::env::temp_dir().join(format!("autodj-radio-lib-{}", std::process::id()));
+    let _ = fs::remove_dir_all(&stage);
+    fs::create_dir_all(&stage).map_err(|e| format!("stage library dir: {e}"))?;
+    for (i, path) in tracks.iter().enumerate() {
+        let name = path
+            .file_name()
+            .and_then(|s| s.to_str())
+            .unwrap_or("track.wav");
+        let dest = stage.join(format!("{i:04}_{name}"));
+        let target = path
+            .canonicalize()
+            .unwrap_or_else(|_| path.clone());
+        #[cfg(unix)]
+        {
+            std::os::unix::fs::symlink(&target, &dest).map_err(|e| {
+                format!("symlink {} → {}: {e}", target.display(), dest.display())
+            })?;
+        }
+        #[cfg(not(unix))]
+        {
+            fs::copy(&target, &dest).map_err(|e| {
+                format!("copy {} → {}: {e}", target.display(), dest.display())
+            })?;
+        }
+    }
+    Ok(stage)
+}
+
 fn write_temp_playlist(genre: &str, tracks: &[PathBuf]) -> Result<PathBuf, String> {
     let mut paths = Vec::with_capacity(tracks.len());
     for t in tracks {
@@ -606,6 +644,9 @@ fn mix(app: AppHandle, args: MixArgs) -> Result<serde_json::Value, String> {
 #[serde(rename_all = "camelCase")]
 struct SuggestMatchesArgs {
     folder: String,
+    /// Optional multi-root list (Radio libraries); staged for CLI `--folder` when set.
+    #[serde(default)]
+    folders: Option<Vec<String>>,
     from: String,
     #[serde(default = "default_top_n")]
     top: usize,
@@ -629,6 +670,9 @@ fn default_top_n() -> usize {
 #[serde(rename_all = "camelCase")]
 struct RemixQueueArgs {
     folder: String,
+    /// Optional multi-root list (Radio libraries); staged for CLI `--folder` when set.
+    #[serde(default)]
+    folders: Option<Vec<String>>,
     /// Already-played paths including the current track.
     prefix: Vec<String>,
     next: String,
@@ -654,10 +698,12 @@ struct RemixQueueArgs {
 /// Rank next-track matches for the now-playing track (CLI `suggest`).
 #[tauri::command]
 fn suggest_matches(app: AppHandle, args: SuggestMatchesArgs) -> Result<serde_json::Value, String> {
+    let staged = stage_library_folder(&args.folder, args.folders.as_deref())?;
+    let folder_s = staged.to_string_lossy().into_owned();
     let mut owned: Vec<String> = vec![
         "suggest".into(),
         "--folder".into(),
-        args.folder,
+        folder_s,
         "--from".into(),
         args.from,
         "--top".into(),
@@ -700,6 +746,8 @@ fn remix_queue_next(app: AppHandle, args: RemixQueueArgs) -> Result<serde_json::
     if args.prefix.is_empty() {
         return Err("remix requires a non-empty prefix (including current track)".into());
     }
+    let staged = stage_library_folder(&args.folder, args.folders.as_deref())?;
+    let folder_s = staged.to_string_lossy().into_owned();
     emit_progress(
         &app,
         &format!(
@@ -714,7 +762,7 @@ fn remix_queue_next(app: AppHandle, args: RemixQueueArgs) -> Result<serde_json::
     let mut owned: Vec<String> = vec![
         "remix".into(),
         "--folder".into(),
-        args.folder,
+        folder_s,
         "--next".into(),
         args.next,
         "--out".into(),
@@ -1025,5 +1073,49 @@ mod tests {
         let tracks = collect_roots_audio(&[a, b]).unwrap();
         let _ = fs::remove_dir_all(&dir);
         assert_eq!(tracks.len(), 3);
+    }
+
+    #[test]
+    fn stage_library_single_root_passthrough() {
+        let dir = std::env::temp_dir().join(format!(
+            "autodj-p81-stage-solo-{}",
+            std::process::id()
+        ));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        File::create(dir.join("a.wav")).unwrap();
+        let staged = stage_library_folder(dir.to_str().unwrap(), None).unwrap();
+        assert_eq!(staged, dir);
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn stage_library_multi_root_symlinks() {
+        let dir = std::env::temp_dir().join(format!(
+            "autodj-p81-stage-multi-{}",
+            std::process::id()
+        ));
+        let _ = fs::remove_dir_all(&dir);
+        let a = dir.join("a");
+        let b = dir.join("b");
+        fs::create_dir_all(&a).unwrap();
+        fs::create_dir_all(&b).unwrap();
+        File::create(a.join("one.wav")).unwrap();
+        File::create(b.join("two.flac")).unwrap();
+        let staged = stage_library_folder(
+            "",
+            Some(&[
+                a.to_string_lossy().into_owned(),
+                b.to_string_lossy().into_owned(),
+            ]),
+        )
+        .unwrap();
+        let entries: Vec<_> = fs::read_dir(&staged)
+            .unwrap()
+            .map(|e| e.unwrap().path())
+            .collect();
+        assert_eq!(entries.len(), 2);
+        let _ = fs::remove_dir_all(&dir);
+        let _ = fs::remove_dir_all(&staged);
     }
 }

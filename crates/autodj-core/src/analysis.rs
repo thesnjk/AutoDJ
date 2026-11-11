@@ -6,7 +6,7 @@
 
 use std::path::{Path, PathBuf};
 
-use autodj_io::{read_wav, AudioBuffer};
+use autodj_io::{read_audio, AudioBuffer};
 use serde::{Deserialize, Serialize};
 
 use crate::camelot::{from_pitch_class, CamelotKey};
@@ -98,10 +98,10 @@ pub struct SectionMarks {
     pub outro_start: f64,
 }
 
-/// Analyze a WAV path (offline only).
+/// Analyze a WAV or FLAC path (offline only).
 pub fn analyze_path(path: impl AsRef<Path>) -> anyhow::Result<TrackFeatures> {
     let path = path.as_ref();
-    let buf = read_wav(path)?;
+    let buf = read_audio(path)?;
     let mut feats = analyze_buffer(&buf)?;
     feats.path = Some(path.to_path_buf());
     Ok(feats)

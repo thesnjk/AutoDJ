@@ -24,7 +24,7 @@ cargo run -p autodj-cli -- mix --golden transition_model --out /tmp/autodj-trans
 # cargo run -p autodj-cli -- mix --playlist party.json --no-deterministic --lufs=-23 --out /tmp/autodj-broadcast-mix.wav
 afplay /tmp/autodj-smoke.wav   # macOS
 ```
-Default export target is **−14 LUFS** (streaming-style). Pass `--lufs=-23` for broadcast R 128, or use `--golden broadcast` for the CI-locked −23 suite.
+Default export target is **−14 LUFS** (streaming-style). Pass `--lufs=-23` for broadcast R 128, or use `--golden broadcast` for the CI-locked −23 suite. Library folders may include **WAV or FLAC** (decoded via `read_audio`); export remains WAV. Smoke FLAC: `cargo run -p autodj-cli -- analyze --input testdata/gold/loop_a_128.flac --db /tmp/flac.sqlite`.
 
 ## Your playlist
 

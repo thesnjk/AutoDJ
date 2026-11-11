@@ -21,7 +21,7 @@ use autodj_graph::{
     predict_transition_class_edge, preserve_order, rank_next_matches, solve_order,
     suggest_next_keys, GenrePolicy, TransitionModel,
 };
-use autodj_io::{read_wav, write_wav};
+use autodj_io::{read_audio, write_wav};
 use clap::{Parser, Subcommand};
 use rusqlite::{params, Connection};
 use serde::{Deserialize, Serialize};
@@ -908,7 +908,7 @@ fn cmd_mix(
             .path
             .clone()
             .unwrap_or_else(|| resolve_track_path(playlist_dir, &pl.tracks[idx].path));
-        let full = read_wav(&path)?;
+        let full = read_audio(&path)?;
         let policy_xfade = solution
             .transitions
             .get(i)

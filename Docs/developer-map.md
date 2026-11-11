@@ -8,11 +8,11 @@ Thin index for humans and agents. Prefer linking one Doc at a time.
 |------|------|
 | `crates/autodj-core/` | Analysis + offline DSP |
 | `crates/autodj-graph/` | Mix order / transition solver |
-| `crates/autodj-io/` | WAV decode/encode |
+| `crates/autodj-io/` | WAV/FLAC decode (`read_audio`) + WAV encode |
 | `crates/autodj-cli/` | `autodj` binary |
 | `python/autodj_train/` | Synthetic transitions, Softmax train/eval |
 | `apps/autodj-app/` | Tauri 2 shell (Vite + TS over CLI) |
-| `testdata/gold/` | Royalty-free synthetic WAV fixtures |
+| `testdata/gold/` | Royalty-free synthetic WAV + `loop_a_128.flac` fixtures |
 | `Docs/` | Specs, legal, rubrics |
 
 ## Platform

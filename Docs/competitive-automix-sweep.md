@@ -92,9 +92,10 @@ Formula note: `(competitor best − AutoDJ) × persona weight × mix_impact`. Be
 | **P45** | Set-order prep-quality pills | **Shipped** — per-track trusted/weak from `prep_tracks[]` on Set order |
 | **P46** | Mix Now keyboard shortcut | **Shipped** — `N` / `Shift+N` next/prev join seek (djay listen parity) |
 | **P47** | Gate→hint listening rubric | **Shipped** — gate pill tooltips + Strict QA fail callout + Listen while playing checklist |
-| Next | MixReport override-flag parity / user-library listening | ungated micro-parity + real-audio polish |
+| **P48** | MixReport override-flag parity | **Shipped** — cue/transition/phrase flags in gate strip; `bars_per_phrase` on Set order |
+| Next | User-library listening polish | needs real audio |
 | Later | Stems / live dual-deck; Rekordbox absolute cue remap; neural phrase ML | gated / user-owned audio / RB semantics |
 
 ## Re-rank bias
 
-Prefer agent-doable product code that closes remaining mix-quality gaps before brochure fluff. P0–P47 are in place; stems remain gated.
+Prefer agent-doable product code that closes remaining mix-quality gaps before brochure fluff. P0–P48 are in place; stems remain gated.

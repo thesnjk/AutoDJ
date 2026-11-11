@@ -39,6 +39,8 @@ jobs:
         run: cargo run -p autodj-cli -- mix --golden transition_model --out /tmp/autodj-transition-model.wav
       - name: Golden cue_overrides
         run: cargo run -p autodj-cli -- mix --golden cue_overrides --out /tmp/autodj-cue-overrides.wav
+      - name: Golden rekordbox_cue_overrides
+        run: cargo run -p autodj-cli -- mix --golden rekordbox_cue_overrides --out /tmp/autodj-rekordbox-cue-overrides.wav
       - name: Golden transition_overrides
         run: cargo run -p autodj-cli -- mix --golden transition_overrides --out /tmp/autodj-transition-overrides.wav
 

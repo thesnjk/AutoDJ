@@ -27,6 +27,7 @@ cargo clippy --workspace -- -D warnings
 cargo run -p autodj-cli -- mix --golden smoke --out /tmp/autodj-smoke.wav
 cargo run -p autodj-cli -- mix --golden broadcast --out /tmp/autodj-broadcast.wav
 cargo run -p autodj-cli -- mix --golden policy_hints --out /tmp/autodj-policy-hints.wav
+cargo run -p autodj-cli -- mix --golden rekordbox_cue_overrides --out /tmp/autodj-rb-cues.wav
 afplay /tmp/autodj-smoke.wav   # macOS listen check
 cd python && pip install -e ".[dev]" && pytest autodj_train
 autodj-train eval --model autodj_train/models/artifacts/transition_model.json

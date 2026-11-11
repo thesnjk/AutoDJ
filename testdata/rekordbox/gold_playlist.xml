@@ -1,13 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- Synthetic AutoDJ fixture — not a commercial Rekordbox library dump. -->
+<!-- Preserve-order golden only: no POSITION_MARK absolute cue pins. -->
 <DJ_PLAYLISTS Version="1.0.0">
   <PRODUCT Name="AutoDJ" Version="0.1.0" Company="AutoDJ"/>
   <COLLECTION Entries="3">
     <TRACK TrackID="1" Name="loop_a_128" Artist="fixture" AverageBpm="128.00" Tonality="Am"
            Location="../gold/loop_a_128.wav" Kind="WAV File">
       <TEMPO Inizio="0.125" Bpm="128.00" Metro="4/4" Battito="1"/>
-      <POSITION_MARK Name="Fade In" Type="1" Start="0.5" Num="-1"/>
-      <POSITION_MARK Name="Fade Out" Type="2" Start="6.0" Num="-1"/>
     </TRACK>
     <TRACK TrackID="2" Name="loop_b_128" Artist="fixture" AverageBpm="128.00" Tonality="8A"
            Location="../gold/loop_b_128.wav" Kind="WAV File">

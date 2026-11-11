@@ -32,10 +32,14 @@ pub struct RekordboxTrack {
     pub key: Option<String>,
     /// Beat-grid offset from first `TEMPO/@Inizio` (seconds, `[0, beat)`).
     pub beat_offset_secs: Option<f64>,
-    /// Fade-In mark start → intro end hint.
+    /// Section intro-end bias (not set from Type 1/2 fade marks).
     pub intro_end: Option<f64>,
-    /// Fade-Out mark start → outro start hint.
+    /// Section outro-start bias (not set from Type 1/2 fade marks).
     pub outro_start: Option<f64>,
+    /// Absolute mix-in from `POSITION_MARK` Type 1 (`Start` seconds).
+    pub mix_in_secs: Option<f64>,
+    /// Absolute mix-out from `POSITION_MARK` Type 2 (`Start` seconds).
+    pub mix_out_secs: Option<f64>,
 }
 
 #[derive(Debug, Default, Clone)]
@@ -48,6 +52,8 @@ struct RawTrack {
     tempo_inizio: Option<f64>,
     intro_end: Option<f64>,
     outro_start: Option<f64>,
+    mix_in_secs: Option<f64>,
+    mix_out_secs: Option<f64>,
 }
 
 #[derive(Debug, Clone)]
@@ -174,9 +180,10 @@ pub fn parse_rekordbox_bytes(
                         if let (Some(ty), Some(st), Some(t)) =
                             (mark_type, start, current_track.as_mut())
                         {
+                            // Type 1/2 fade marks → absolute mix windows (not section hints).
                             match ty {
-                                1 if t.intro_end.is_none() => t.intro_end = Some(st),
-                                2 if t.outro_start.is_none() => t.outro_start = Some(st),
+                                1 if t.mix_in_secs.is_none() => t.mix_in_secs = Some(st),
+                                2 if t.mix_out_secs.is_none() => t.mix_out_secs = Some(st),
                                 _ => {}
                             }
                         }
@@ -285,8 +292,8 @@ pub fn parse_rekordbox_bytes(
                             (mark_type, start, current_track.as_mut())
                         {
                             match ty {
-                                1 if t.intro_end.is_none() => t.intro_end = Some(st),
-                                2 if t.outro_start.is_none() => t.outro_start = Some(st),
+                                1 if t.mix_in_secs.is_none() => t.mix_in_secs = Some(st),
+                                2 if t.mix_out_secs.is_none() => t.mix_out_secs = Some(st),
                                 _ => {}
                             }
                         }
@@ -390,6 +397,8 @@ pub fn parse_rekordbox_bytes(
             beat_offset_secs,
             intro_end: raw.intro_end,
             outro_start: raw.outro_start,
+            mix_in_secs: raw.mix_in_secs,
+            mix_out_secs: raw.mix_out_secs,
         });
     }
 
@@ -526,8 +535,10 @@ mod tests {
         assert!((pl.tracks[0].bpm.unwrap() - 128.0).abs() < 0.01);
         assert_eq!(pl.tracks[0].key.as_deref(), Some("8A")); // Am → 8A
         assert!((pl.tracks[0].beat_offset_secs.unwrap() - 0.125).abs() < 1e-6);
-        assert!((pl.tracks[0].intro_end.unwrap() - 0.5).abs() < 1e-6);
-        assert!((pl.tracks[0].outro_start.unwrap() - 6.0).abs() < 1e-6);
+        assert!(pl.tracks[0].intro_end.is_none());
+        assert!(pl.tracks[0].outro_start.is_none());
+        assert!((pl.tracks[0].mix_in_secs.unwrap() - 0.5).abs() < 1e-6);
+        assert!((pl.tracks[0].mix_out_secs.unwrap() - 6.0).abs() < 1e-6);
         assert_eq!(pl.tracks[1].key.as_deref(), Some("8A"));
         assert_eq!(pl.tracks[2].path, c);
         assert!((pl.tracks[2].bpm.unwrap() - 140.0).abs() < 0.01);

@@ -21,7 +21,7 @@ use autodj_graph::{
     predict_transition_class_edge, preserve_order, rank_next_matches, solve_order,
     suggest_next_keys, GenrePolicy, TransitionModel,
 };
-use autodj_io::{read_audio, write_wav};
+use autodj_io::{read_audio, write_audio};
 use clap::{Parser, Subcommand};
 use rusqlite::{params, Connection};
 use serde::{Deserialize, Serialize};
@@ -55,7 +55,7 @@ enum Commands {
         /// Keep playlist order (skip energy-arc / harmonic reorder). Useful for Rekordbox exports.
         #[arg(long, default_value_t = false)]
         preserve_order: bool,
-        /// Output WAV path.
+        /// Output WAV or FLAC path.
         #[arg(long, default_value = "mix.wav")]
         out: PathBuf,
         /// Genre policy id.
@@ -136,7 +136,7 @@ enum Commands {
         /// Forced next track path.
         #[arg(long)]
         next: PathBuf,
-        /// Output WAV path.
+        /// Output WAV or FLAC path.
         #[arg(long, default_value = "mix.wav")]
         out: PathBuf,
         /// Genre policy id.
@@ -1184,7 +1184,7 @@ fn cmd_mix(
         }
     }
 
-    write_wav(out, &mixed)?;
+    write_audio(out, &mixed)?;
 
     let transitions: Vec<TransitionEdgeReport> = solution
         .transitions

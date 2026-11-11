@@ -8,6 +8,7 @@ description = "Audio decode/encode helpers for AutoDJ"
 [dependencies]
 anyhow.workspace = true
 claxon.workspace = true
+flacenc.workspace = true
 hound.workspace = true
 thiserror.workspace = true
 

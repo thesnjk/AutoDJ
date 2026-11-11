@@ -1,7 +1,11 @@
-//! Decode WAV/FLAC and encode WAV for AutoDJ offline rendering.
+//! Decode WAV/FLAC and encode WAV/FLAC for AutoDJ offline rendering.
 
 use std::path::Path;
 
+use flacenc::bitsink::ByteSink;
+use flacenc::component::BitRepr;
+use flacenc::error::Verify;
+use flacenc::source::MemSource;
 use hound::{SampleFormat, WavReader, WavSpec, WavWriter};
 use thiserror::Error;
 
@@ -14,6 +18,9 @@ pub enum IoError {
     /// Underlying claxon FLAC decode failure.
     #[error("flac io: {0}")]
     Flac(#[from] claxon::Error),
+    /// FLAC encode / serialize / filesystem failure.
+    #[error("flac encode: {0}")]
+    FlacEncode(String),
     /// Unsupported sample format or path extension.
     #[error("unsupported format: {0}")]
     Unsupported(String),
@@ -154,6 +161,23 @@ pub fn read_flac(path: impl AsRef<Path>) -> Result<AudioBuffer, IoError> {
     })
 }
 
+/// Write a WAV or FLAC file from an [`AudioBuffer`] (dispatch by path extension).
+pub fn write_audio(path: impl AsRef<Path>, buffer: &AudioBuffer) -> Result<(), IoError> {
+    let path = path.as_ref();
+    let ext = path
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("")
+        .to_ascii_lowercase();
+    match ext.as_str() {
+        "wav" => write_wav(path, buffer),
+        "flac" => write_flac(path, buffer),
+        other => Err(IoError::Unsupported(format!(
+            "extension .{other} (expected .wav or .flac)"
+        ))),
+    }
+}
+
 /// Write mono or stereo f32 samples as 16-bit PCM WAV.
 pub fn write_wav(path: impl AsRef<Path>, buffer: &AudioBuffer) -> Result<(), IoError> {
     let spec = WavSpec {
@@ -168,6 +192,42 @@ pub fn write_wav(path: impl AsRef<Path>, buffer: &AudioBuffer) -> Result<(), IoE
         writer.write_sample((clipped * i16::MAX as f32) as i16)?;
     }
     writer.finalize()?;
+    Ok(())
+}
+
+/// Write mono or stereo f32 samples as 16-bit FLAC.
+pub fn write_flac(path: impl AsRef<Path>, buffer: &AudioBuffer) -> Result<(), IoError> {
+    if buffer.channels == 0 || buffer.channels > 2 {
+        return Err(IoError::Unsupported(format!(
+            "{} channels",
+            buffer.channels
+        )));
+    }
+    let samples: Vec<i32> = buffer
+        .samples
+        .iter()
+        .map(|&s| {
+            let clipped = s.clamp(-1.0, 1.0);
+            (clipped * i16::MAX as f32) as i32
+        })
+        .collect();
+    let config = flacenc::config::Encoder::default()
+        .into_verified()
+        .map_err(|e| IoError::FlacEncode(format!("config: {e:?}")))?;
+    let source = MemSource::from_samples(
+        &samples,
+        buffer.channels as usize,
+        16,
+        buffer.sample_rate as usize,
+    );
+    let stream = flacenc::encode_with_fixed_block_size(&config, source, config.block_size)
+        .map_err(|e| IoError::FlacEncode(format!("encode: {e}")))?;
+    let mut sink = ByteSink::new();
+    stream
+        .write(&mut sink)
+        .map_err(|e| IoError::FlacEncode(format!("serialize: {e}")))?;
+    std::fs::write(path, sink.as_slice())
+        .map_err(|e| IoError::FlacEncode(format!("write: {e}")))?;
     Ok(())
 }
 
@@ -190,6 +250,34 @@ mod tests {
         assert_eq!(got.sample_rate, 44100);
         assert_eq!(got.channels, 1);
         assert_eq!(got.samples.len(), 4);
+    }
+
+    #[test]
+    fn roundtrip_mono_flac_via_write_audio() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("t.flac");
+        // FLAC streams require block size ≥ 16 samples.
+        let samples: Vec<f32> = (0..64)
+            .map(|i| ((i as f32) / 32.0 - 1.0).clamp(-1.0, 1.0))
+            .collect();
+        let buf = AudioBuffer {
+            sample_rate: 44100,
+            channels: 1,
+            samples,
+        };
+        write_audio(&path, &buf).unwrap();
+        let got = read_flac(&path).unwrap();
+        assert_eq!(got.sample_rate, 44100);
+        assert_eq!(got.channels, 1);
+        assert_eq!(got.samples.len(), 64);
+        let mut max_delta = 0.0_f32;
+        for (a, b) in buf.samples.iter().zip(got.samples.iter()) {
+            max_delta = max_delta.max((a - b).abs());
+        }
+        assert!(
+            max_delta < 2.0 / 32768.0 + 1e-6,
+            "max sample delta {max_delta} too large"
+        );
     }
 
     #[test]

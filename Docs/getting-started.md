@@ -12,6 +12,8 @@
 
 ```bash
 cargo run -p autodj-cli -- mix --golden smoke --out /tmp/autodj-smoke.wav
+# MixReport sidecar lands next to the WAV (override with --report-out PATH)
+# → /tmp/autodj-smoke.wav.mixreport.json
 # EBU R 128 broadcast loudness (−23 LUFS) on the same gold loops
 cargo run -p autodj-cli -- mix --golden broadcast --out /tmp/autodj-broadcast.wav
 # Rekordbox XML path (preserve-order setlist from testdata/rekordbox/gold_playlist.xml)
@@ -28,7 +30,7 @@ cargo run -p autodj-cli -- mix --golden policy_hints --out /tmp/autodj-policy-hi
 # cargo run -p autodj-cli -- mix --playlist party.json --no-deterministic --lufs=-23 --out /tmp/autodj-broadcast-mix.wav
 afplay /tmp/autodj-smoke.wav   # macOS
 ```
-Default export target is **−14 LUFS** (streaming-style). Pass `--lufs=-23` for broadcast R 128, or use `--golden broadcast` for the CI-locked −23 suite. Library folders may include **WAV or FLAC** (decoded via `read_audio`); export remains WAV. Smoke FLAC: `cargo run -p autodj-cli -- analyze --input testdata/gold/loop_a_128.flac --db /tmp/flac.sqlite`.
+Default export target is **−14 LUFS** (streaming-style). Pass `--lufs=-23` for broadcast R 128, or use `--golden broadcast` for the CI-locked −23 suite. Successful `mix` / `remix` also write MixReport JSON beside the WAV as `{out}.mixreport.json` (override with `--report-out`); stdout JSON is unchanged for scripting / Tauri. Library folders may include **WAV or FLAC** (decoded via `read_audio`); export remains WAV. Smoke FLAC: `cargo run -p autodj-cli -- analyze --input testdata/gold/loop_a_128.flac --db /tmp/flac.sqlite`.
 
 ## Your playlist
 

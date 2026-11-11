@@ -25,6 +25,8 @@ jobs:
         run: cargo clippy --workspace -- -D warnings
       - name: Golden smoke
         run: cargo run -p autodj-cli -- mix --golden smoke --out /tmp/autodj-smoke.wav
+      - name: MixReport sidecar (smoke)
+        run: test -f /tmp/autodj-smoke.wav.mixreport.json
       - name: Golden broadcast
         run: cargo run -p autodj-cli -- mix --golden broadcast --out /tmp/autodj-broadcast.wav
       - name: Analyze FLAC gold

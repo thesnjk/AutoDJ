@@ -18,8 +18,10 @@
       <section class="player" aria-label="Mix player">
         <div id="mix-timeline" class="mix-timeline">
           <audio id="mix-player" controls preload="metadata"></audio>
+          <div id="cue-segments" class="cue-segments" aria-hidden="true"></div>
           <div id="join-markers" class="join-markers" aria-hidden="true"></div>
         </div>
+        <p id="listen-hint" class="listen-hint" hidden aria-live="polite"></p>
         <div class="player-actions">
           <button type="button" id="btn-mix-now" class="browse" aria-keyshortcuts="N">Mix Now</button>
           <label class="check">
@@ -30,7 +32,7 @@
             <span class="hint">Plays the continuous Automix WAV when Mix succeeds</span>
           </label>
         </div>
-        <p class="hint player-hint">Join ticks mark transitions · click a tick, Transition row, or Set order track to seek · <kbd>N</kbd> / Mix Now → next join · <kbd>Shift</kbd>+<kbd>N</kbd> → previous</p>
+        <p class="hint player-hint">Cue spans + join ticks · click a segment, tick, Transition, or Set order track to seek · <kbd>N</kbd> / Mix Now → next join · <kbd>Shift</kbd>+<kbd>N</kbd> → previous</p>
         <div id="matches-panel" class="matches-panel" hidden>
           <h3 class="matches-title">Next matches (from now playing)</h3>
           <ul id="matches-list" class="matches-list"></ul>

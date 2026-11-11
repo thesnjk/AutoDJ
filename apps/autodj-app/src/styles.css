@@ -89,6 +89,42 @@ body {
   background: rgba(20, 24, 32, 0.85);
 }
 
+.cue-segments {
+  position: relative;
+  height: 0.55rem;
+  margin: 0 0.55rem;
+  border-radius: 2px;
+  background: rgba(20, 24, 32, 0.55);
+  overflow: hidden;
+}
+
+.cue-segment {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 1px;
+  background: rgba(196, 163, 90, 0.22);
+  cursor: pointer;
+}
+
+.cue-segment:nth-child(even) {
+  background: rgba(120, 150, 180, 0.28);
+}
+
+.cue-segment:hover,
+.cue-segment:focus-visible {
+  background: rgba(196, 163, 90, 0.45);
+  outline: 1px solid var(--accent-dim);
+  outline-offset: 1px;
+}
+
+.cue-segment.active {
+  background: rgba(196, 163, 90, 0.55);
+}
+
 .join-markers {
   position: relative;
   height: 0.85rem;
@@ -115,6 +151,30 @@ body {
   opacity: 1;
   outline: 1px solid var(--accent-dim);
   outline-offset: 2px;
+}
+
+.join-marker.next {
+  opacity: 1;
+  width: 3px;
+  box-shadow: 0 0 0 2px rgba(196, 163, 90, 0.35);
+}
+
+.join-marker.active {
+  opacity: 1;
+  background: var(--ink);
+  width: 3px;
+}
+
+.listen-hint {
+  margin: 0 0.55rem;
+  min-height: 1.1rem;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  color: var(--accent);
+}
+
+.listen-hint[hidden] {
+  display: none;
 }
 
 .player-actions {
@@ -511,6 +571,17 @@ button.primary:hover:not(:disabled) {
 
 .transitions li[role="button"]:hover {
   color: var(--accent);
+}
+
+.transitions li.next {
+  color: var(--accent);
+  background: rgba(196, 163, 90, 0.1);
+}
+
+.transitions li.active {
+  color: var(--ink);
+  background: rgba(196, 163, 90, 0.18);
+  outline: 1px solid rgba(196, 163, 90, 0.35);
 }
 
 .transitions-line {

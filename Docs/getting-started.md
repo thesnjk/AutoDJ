@@ -109,6 +109,9 @@ Primary flow (full-auto path): **Add library root…** under **Radio libraries**
 ```bash
 # Rank next-track neighbors from a library folder
 cargo run -p autodj-cli -- suggest --folder /path/to/tracks --from /path/to/now.wav --top 5
+# Radio-style energy-arc context (virtual set length + placement index)
+cargo run -p autodj-cli -- suggest --folder /path/to/tracks --from /path/to/now.wav \
+  --top 5 --position 4 --set-len 15
 # Pin next after a played prefix, solve remainder, preserve-order mix
 cargo run -p autodj-cli -- remix --folder /path/to/tracks \
   --prefix /path/a.wav --prefix /path/b.wav --next /path/c.wav --out /tmp/remix.wav
@@ -117,4 +120,4 @@ cargo run -p autodj-cli -- remix --folder /path/to/tracks \
   --prefix /path/a.wav --next /path/b.wav --horizon 3 --out /tmp/radio-horizon.wav
 ```
 
-Shared with `mix`: `--db`, `--genre`, `--policy-hints`, `--transition-model`, `--no-transition-model`, `--report-out`. `remix` also accepts `--deterministic` / `--no-deterministic`, `--lufs`, `--no-loudness-norm`, `--horizon`. Tauri Advanced mirrors `--report-out` (MixReport path Browse) and `--no-loudness-norm` (Peak limit only) on mix / Automix folder / Queue & remix / Editor Apply; Radio passes `--horizon 3`.
+Shared with `mix`: `--db`, `--genre`, `--policy-hints`, `--transition-model`, `--no-transition-model`, `--report-out`. `suggest` also accepts `--position` / `--set-len` (energy-arc; see [`data-contracts.md`](data-contracts.md) §7). `remix` also accepts `--deterministic` / `--no-deterministic`, `--lufs`, `--no-loudness-norm`, `--horizon`. Tauri Advanced mirrors `--report-out` (MixReport path Browse) and `--no-loudness-norm` (Peak limit only) on mix / Automix folder / Queue & remix / Editor Apply; Radio passes `--horizon 3` and virtual `--position` / `--set-len`.

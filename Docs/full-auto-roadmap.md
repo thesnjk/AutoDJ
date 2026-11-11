@@ -19,8 +19,8 @@ This is **not** “pick one folder → one-shot mix.” That flow remains as a p
 | Phase | Goal | Status |
 |-------|------|--------|
 | **P80** | Library roots + Feature DB index; Automix across roots | **Shipped** |
-| **P81** | Continuous radio mode: now-playing → Softmax/`rank_next_matches` → cue-timed transition → queue/render next; Stop ends loop | Next |
-| **P82** | Transition timing depth: stronger live join scheduling from MixReport timelines; less whole-set-only render when radio is on | Later |
+| **P81** | Continuous radio mode: now-playing → Softmax/`rank_next_matches` → cue-timed transition → queue/render next; Stop ends loop | **Shipped** |
+| **P82** | Transition timing depth: stronger live join scheduling from MixReport timelines; less whole-set-only render when radio is on | Next |
 | **P83** | Optional set-length + energy/vibe targets on top of radio | Later |
 | **Later / gated** | Stems (need path); streaming OAuth (need secrets); open-web sourcing (out of OSS) | Gated |
 

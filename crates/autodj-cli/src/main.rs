@@ -602,6 +602,7 @@ fn paths_equal(a: &Path, b: &Path) -> bool {
 }
 
 /// Load wav/flac features from a folder (DB hit or on-the-fly analyze).
+/// Canonicalizes paths (follows symlinks) so Radio libraries staging dirs and Feature DB keys match.
 fn load_folder_features(
     folder: &Path,
     db: Option<&Path>,
@@ -614,15 +615,16 @@ fn load_folder_features(
     let conn = db.map(open_db).transpose()?;
     let mut features = Vec::with_capacity(paths.len());
     for path in paths {
+        let canon = path.canonicalize().unwrap_or_else(|_| path.clone());
         let mut feats = if let Some(conn) = conn.as_ref() {
-            load_features(conn, &path)?.unwrap_or_else(|| {
-                analyze_path(&path).expect("analyze fallback")
-            })
+            load_features(conn, &canon)?
+                .or(load_features(conn, &path)?)
+                .unwrap_or_else(|| analyze_path(&canon).expect("analyze fallback"))
         } else {
-            analyze_path(&path)?
+            analyze_path(&canon)?
         };
         resolve_track_phrase(&mut feats, genre_id);
-        feats.path.replace(path);
+        feats.path.replace(canon);
         features.push(feats);
     }
     Ok(features)

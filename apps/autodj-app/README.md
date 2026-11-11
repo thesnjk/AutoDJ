@@ -1,6 +1,6 @@
 # autodj-app (Tauri 2)
 
-Desktop shell: **Automix folder** scans a library directory for `wav`/`flac`, Softmax-solves order, renders, and **listens** in-app (`<audio>` + Autoplay after mix). JSON/Rekordbox playlists remain under Advanced. Softmax + solver pick order when Preserve-order is off; the report panel lists **Set order (AutoDJ)**. Output WAV must be under `/tmp` or `$HOME` (asset protocol scope). Feature DB is passed to `mix --db` after folder analyze.
+Desktop shell: **Automix folder** scans a library directory for `wav`/`flac`, Softmax-solves order, renders, and **listens** in-app (`<audio>` + Autoplay after mix). **Mix Now** seeks to the next join; click a Set-order row to jump to that track (`mix_timeline_*` from MixReport). JSON/Rekordbox playlists remain under Advanced. Softmax + solver pick order when Preserve-order is off. Output WAV must be under `/tmp` or `$HOME` (asset protocol scope). Feature DB is passed to `mix --db` after folder analyze.
 
 **UI language:** AutoDJ’s own (not RouteFinder GlassmorphicModifiers).
 

@@ -56,6 +56,11 @@ pub struct MixRenderResult {
     ///
     /// Used by join-local continuity scoring. Hard cuts (`crossfade` length 0) are omitted.
     pub join_sample_indices: Vec<usize>,
+    /// Mono-frame index where each segment begins in the output (length == segment count).
+    ///
+    /// Index 0 is always `0`. Later entries are the mix-timeline start of each incoming track
+    /// (crossfade join or hard-cut abut). Used for Mix Now / now-playing UI.
+    pub segment_start_indices: Vec<usize>,
     /// Worst EqSwap concurrent low-band ownership product across joins (0 = none / clean).
     pub max_bass_overlap: f32,
 }
@@ -83,6 +88,7 @@ pub fn mix_buffers_with_meta(plan: &MixPlan, params: CrossfadeParams) -> MixRend
             },
             tempo_blend_applied: false,
             join_sample_indices,
+            segment_start_indices: Vec::new(),
             max_bass_overlap: 0.0,
         };
     }
@@ -92,6 +98,9 @@ pub fn mix_buffers_with_meta(plan: &MixPlan, params: CrossfadeParams) -> MixRend
         .iter()
         .map(|seg| to_mono_resampled(&seg.buffer, sr))
         .collect();
+
+    let mut segment_start_indices = Vec::with_capacity(plan.segments.len());
+    segment_start_indices.push(0);
 
     for (idx, seg) in plan.segments.iter().enumerate() {
         let mono = &monos[idx];
@@ -115,9 +124,11 @@ pub fn mix_buffers_with_meta(plan: &MixPlan, params: CrossfadeParams) -> MixRend
 
         if let Some(next_seg) = next {
             let next_mono = &monos[idx + 1];
-            // Mono-frame index at the start of this crossfade in the output timeline.
+            // Mono-frame index at the start of this crossfade / hard-cut in the output timeline.
+            let join_at = out.len() / 2;
+            segment_start_indices.push(join_at);
             if xfade > 0 {
-                join_sample_indices.push(out.len() / 2);
+                join_sample_indices.push(join_at);
             }
             let a_raw = &mono[mono.len() - xfade..];
             let b_raw = &next_mono[..xfade];
@@ -168,6 +179,7 @@ pub fn mix_buffers_with_meta(plan: &MixPlan, params: CrossfadeParams) -> MixRend
         },
         tempo_blend_applied,
         join_sample_indices,
+        segment_start_indices,
         max_bass_overlap,
     }
 }
@@ -398,6 +410,12 @@ mod tests {
         assert!(result.tempo_blend_applied);
         assert_eq!(result.join_sample_indices.len(), 1);
         assert!(result.join_sample_indices[0] < result.buffer.frames());
+        assert_eq!(result.segment_start_indices.len(), 2);
+        assert_eq!(result.segment_start_indices[0], 0);
+        assert_eq!(
+            result.segment_start_indices[1],
+            result.join_sample_indices[0]
+        );
         assert!(result.buffer.samples.iter().all(|s| s.is_finite()));
         let peak = result
             .buffer

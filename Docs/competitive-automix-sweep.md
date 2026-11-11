@@ -16,7 +16,7 @@ Living gap matrix. Updated 2026-11-09 after Firecrawl research (raw notes in loc
 | Stems-aware transitions | Serato Stems (vocal / melody / bass / drums pads) | Gap | no stem DSP; deferred v2 |
 | Phrase sync | Rekordbox phrase analysis / djay BPM+Beats sync | Parity-path | per-track `bars_per_phrase` + LCM join snap + measured `cue_phrase_aligned` + Softmax v3 phrase bars/mismatch |
 | Learning from setcraft | Mixonset / tracklist research tools | Parity-path | SoftmaxLogReg v3 15-dim + **8 classes** (incl. dissolve); `autodj-train eval` ≥ 0.90; CI `--golden transition_model`; v1/v2 JSON still load |
-| Live / controller | VirtualDJ / Serato dual-deck; djay Automix play | Parity-path (desktop shell) | Tauri Folder Automix one-shot + Mix & Listen autoplay + Set order (AutoDJ); MixReport QA; live dual-deck still Later |
+| Live / controller | VirtualDJ / Serato dual-deck; djay Automix play / Mix Now | Parity-path (desktop shell) | Tauri Folder Automix + Mix & Listen + Mix Now seek (`join_timeline_secs`); now-playing highlight; live dual-deck still Later |
 | Loudness / broadcast | EBU R 128 (−23 LUFS integrated; true-peak limits); radio-style continuous sets | Parity-path (measure+norm shipped) | `loudness.rs` + CLI `--lufs`; golden gate ±2 LU (`Docs/mix-quality-rubric.md`) |
 | Tempo blend | djay Sync + Tempo Blend | Parity-path | `stretch.rs` WSOLA `tempo_blend_head` + `tempo_blend_tail` (bidirectional); MixReport `tempo_blend_applied` + `tempo_stretch_gate_pass`; solver `stretch_clamp_excess` cost |
 | Spectral continuity eval | Mix-quality rubric adjacent flux | Parity-path | `eval.rs` hop-RMS ratio; MixReport `spectral_continuity_pass` + `join_continuity_pass` |
@@ -84,9 +84,10 @@ Formula note: `(competitor best − AutoDJ) × persona weight × mix_impact`. Be
 | **P37** | Mix & Listen autoplay | **Shipped** — HTML5 player + `convertFileSrc`; Autoplay after mix; Set order (AutoDJ) |
 | **P38** | FFT spectral centroid | **Shipped** — hop FFT magnitude centroid replaces ZCR proxy; Softmax dim 6 honesty |
 | **P39** | Folder Automix one-shot | **Shipped** — Tauri `automix_folder`; scan wav/flac → Softmax solve → autoplay |
-| Next | Cue timeline / Mix Now seek | ungated listen polish (`MixReport.cues`) |
+| **P40** | Mix Now + cue timeline | **Shipped** — `join_timeline_secs` + cue `mix_timeline_*`; Mix Now seek; now-playing highlight |
+| Next | Key-route solver bonus / Automix Matching UX | ungated product polish |
 | Later | Stems / live dual-deck; Rekordbox absolute cue remap; neural phrase ML; listening-rubric polish | gated / user-owned audio / RB semantics |
 
 ## Re-rank bias
 
-Prefer agent-doable product code that closes remaining mix-quality gaps before brochure fluff. P0–P39 are in place; stems remain gated.
+Prefer agent-doable product code that closes remaining mix-quality gaps before brochure fluff. P0–P40 are in place; stems remain gated.

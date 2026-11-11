@@ -193,6 +193,40 @@ function fmt(n: number | null | undefined, digits = 3): string {
   return n.toFixed(digits);
 }
 
+/** Short pass criteria from Docs/mix-quality-rubric.md (automated table). */
+const GATE_RUBRIC: Record<string, string> = {
+  prep: "Trusted when !sparse && bpm_conf ≥ 0.25 (or playlist BPM override). Hard-fail under Strict QA.",
+  loudness: "Integrated LUFS within ±2 LU of target after normalize.",
+  spectral: "Adjacent hop-RMS ratio ≤ 4.0 (spectral continuity).",
+  join: "Worst join-neighborhood hop-RMS ratio ≤ 6.0 (clicks/pops). Hard-fail under Strict QA.",
+  bass: "EqSwap concurrent low-band ownership ≤ 0.40. Hard-fail under Strict QA.",
+  "beat-phase": "Mean same-tempo join offset < 50 ms. Hard-fail under Strict QA.",
+  peak: "True-peak ≤ 0.99 full scale. Hard-fail under Strict QA.",
+  stretch: "Worst stretch_clamp_excess == 0 (ratio inside ±15%). Hard-fail under Strict QA.",
+  cue: "Phrase/section cues aligned (cue_phrase_aligned); short loops may skip-with-pass.",
+  drop: "Drop-aware mix-in/out (cue_drop_aware) from section marks.",
+  "tempo-blend": "Multi-BPM edges use bidirectional WSOLA tempo blend when applied.",
+};
+
+const HARD_GATE_NAMES = [
+  "prep",
+  "loudness",
+  "join",
+  "bass",
+  "beat-phase",
+  "peak",
+  "stretch",
+] as const;
+
+const LISTENING_CHECKLIST = [
+  "Transitions feel phrase-aware (listen for awkward early cuts)",
+  "Bass conflict avoided during EQ-swap blends (listen for mud)",
+  "Energy arc matches genre (house long blend vs DnB snap)",
+  "No obvious clicks/pops at join points",
+  "Subjective loudness even across the set (pumping / over-limiting)",
+  "Large BPM gaps (±15%+) — listen for residual warble",
+];
+
 function hardGatesOk(r: MixReport): boolean {
   const hard: Array<boolean | null | undefined> = [
     r.loudness_gate_pass,
@@ -204,6 +238,28 @@ function hardGatesOk(r: MixReport): boolean {
     r.prep_quality_gate_pass,
   ];
   return hard.every((g) => g !== false);
+}
+
+function hardGateValue(
+  r: MixReport,
+  name: (typeof HARD_GATE_NAMES)[number],
+): boolean | null | undefined {
+  switch (name) {
+    case "prep":
+      return r.prep_quality_gate_pass;
+    case "loudness":
+      return r.loudness_gate_pass;
+    case "join":
+      return r.join_continuity_pass;
+    case "bass":
+      return r.bass_conflict_gate_pass;
+    case "beat-phase":
+      return r.beat_phase_gate_pass;
+    case "peak":
+      return r.peak_gate_pass;
+    case "stretch":
+      return r.tempo_stretch_gate_pass;
+  }
 }
 
 function renderMixReport(r: MixReport, deterministic: boolean) {
@@ -251,7 +307,26 @@ function renderMixReport(r: MixReport, deterministic: boolean) {
     const pill = document.createElement("span");
     pill.className = `gate ${gateClass(value)}`;
     pill.textContent = `${name}: ${gateLabel(value)}`;
+    const hint = GATE_RUBRIC[name] ?? "";
+    const tip = hint
+      ? `${name}: ${gateLabel(value)} — ${hint}`
+      : `${name}: ${gateLabel(value)}`;
+    pill.title = tip;
+    pill.setAttribute("aria-label", tip);
     strip.appendChild(pill);
+  }
+
+  let failCallout: HTMLElement | null = null;
+  if (deterministic && !hardGatesOk(r)) {
+    const failed = HARD_GATE_NAMES.filter(
+      (name) => hardGateValue(r, name) === false,
+    );
+    failCallout = document.createElement("p");
+    failCallout.className = "gate-fail-callout";
+    failCallout.textContent =
+      failed.length > 0
+        ? `Strict QA failed: ${failed.join(", ")}. Hover a gate pill for the pass criterion.`
+        : "Strict QA failed. Hover a gate pill for the pass criterion.";
   }
 
   const metrics = document.createElement("p");
@@ -265,6 +340,24 @@ function renderMixReport(r: MixReport, deterministic: boolean) {
     `bass_overlap ${fmt(r.max_bass_overlap, 3)}`,
     `stretch_excess ${fmt(r.max_stretch_clamp_excess, 4)}`,
   ].join(" · ");
+
+  const listening = document.createElement("details");
+  listening.className = "listening-rubric";
+  const listeningSummary = document.createElement("summary");
+  listeningSummary.textContent = "Listen while playing";
+  listening.appendChild(listeningSummary);
+  const listeningHint = document.createElement("p");
+  listeningHint.className = "hint";
+  listeningHint.textContent =
+    "Human checklist from the mix-quality rubric (validate on real libraries; gold covers automated gates).";
+  listening.appendChild(listeningHint);
+  const listeningList = document.createElement("ul");
+  for (const item of LISTENING_CHECKLIST) {
+    const li = document.createElement("li");
+    li.textContent = item;
+    listeningList.appendChild(li);
+  }
+  listening.appendChild(listeningList);
 
   const orderWrap = document.createElement("div");
   orderWrap.className = "set-order";
@@ -379,7 +472,10 @@ function renderMixReport(r: MixReport, deterministic: boolean) {
   }
   transitionsWrap.appendChild(ul);
 
-  panel.replaceChildren(summary, strip, metrics, orderWrap, transitionsWrap);
+  const kids: HTMLElement[] = [summary, strip];
+  if (failCallout) kids.push(failCallout);
+  kids.push(metrics, listening, orderWrap, transitionsWrap);
+  panel.replaceChildren(...kids);
 }
 
 /** Load the rendered mix into the HTML5 player; autoplay when requested. */

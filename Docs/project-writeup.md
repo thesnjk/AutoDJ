@@ -1,6 +1,6 @@
 # AutoDJ — Professional Project Writeup
 
-**Status:** P0–P82 on `main` (as of this revision). Full-auto ladder: [`full-auto-roadmap.md`](full-auto-roadmap.md).  
+**Status:** P0–P83 on `main` (as of this revision). Full-auto ladder complete: [`full-auto-roadmap.md`](full-auto-roadmap.md).  
 **Living document:** expand / append; never invent unshipped features.  
 **Companion specs:** [`competitive-automix-sweep.md`](competitive-automix-sweep.md) · [`architecture.md`](architecture.md) · [`data-contracts.md`](data-contracts.md) · [`getting-started.md`](getting-started.md) · [`mix-quality-rubric.md`](mix-quality-rubric.md) · [`legal-data-policy.md`](legal-data-policy.md) · [`developer-map.md`](developer-map.md) · [`genre-policy.md`](genre-policy.md)
 
@@ -803,7 +803,7 @@ Living checklist; **append** new P-rows here when shipping.
 
 - MixReport sidecar — **P57**; Reveal — **P61**  
 - Rekordbox / transitions / cue goldens — **P13**, **P15**, **P33–P34**, **P55**  
-- Folder Automix, Mix & Listen, Mix Now, Matching, Editor, Browse ladder, Skip Softmax, UI polish — **P37–P68**; busy-lock honesty + offline fonts — **P78**; Radio libraries multi-root index — **P80**; continuous radio Start/Stop — **P81**; join-timed horizon remix — **P82**  
+- Folder Automix, Mix & Listen, Mix Now, Matching, Editor, Browse ladder, Skip Softmax, UI polish — **P37–P68**; busy-lock honesty + offline fonts — **P78**; Radio libraries multi-root index — **P80**; continuous radio Start/Stop — **P81**; join-timed horizon remix — **P82**; set-length + vibe — **P83**  
 - Living writeup seed — **P69**; NEA-style expansion — **P70**; deepen diagrams/algorithms/evidence — **P72**  
 - CLI↔Tauri `--report-out` / `--no-loudness-norm` + macOS Tauri `cargo check` in CI — **P73**  
 - Competitive ungated closure & matrix honesty — **P74**  
@@ -855,3 +855,4 @@ Do not document these as shipped. Personas in §1.3 are product weights, **not**
 - **2026-11-11 — P80:** Radio libraries — multi-root list (localStorage), Index → Feature DB (`analyze_libraries`), Automix unions roots; North Star Doc `full-auto-roadmap.md` (Next: P81 continuous radio).
 - **2026-11-11 — P81:** Continuous radio — Start/Stop; −12s last-join lookahead auto Softmax top-1 → `remix_queue_next` → seek handoff; multi-root Matching via symlink staging (Next: P82).
 - **2026-11-11 — P82:** Transition timing depth — upcoming-join −20s prerender; `remix --horizon 3` / radio seed cap; hold-then-swap at handoff (Next: P83).
+- **2026-11-11 — P83:** Set-length Continuous/30–90 + vibe Standard/Chill/Peak; virtual Softmax energy-arc; timed set auto-stop — North Star P80–P83 complete.

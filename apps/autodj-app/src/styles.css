@@ -381,6 +381,12 @@ button.browse {
   margin-top: 0;
 }
 
+.radio-knobs {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  gap: 0.75rem 1rem;
+}
+
 button {
   font-family: var(--font-body);
   font-size: 0.9rem;

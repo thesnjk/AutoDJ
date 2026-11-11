@@ -112,13 +112,33 @@
           </span>
         </label>
 
+        <div class="radio-knobs" aria-label="Radio set controls">
+          <label>
+            Set length
+            <select id="radio-set-length">
+              <option value="0" selected>Continuous</option>
+              <option value="30">30 min</option>
+              <option value="45">45 min</option>
+              <option value="60">60 min</option>
+              <option value="90">90 min</option>
+            </select>
+          </label>
+          <label>
+            Vibe
+            <select id="radio-vibe">
+              <option value="standard" selected>Standard (house)</option>
+              <option value="chill">Chill (open_format)</option>
+              <option value="peak">Peak (trance)</option>
+            </select>
+          </label>
+        </div>
         <div class="actions">
           <button type="button" id="btn-automix-folder" class="primary">Automix folder</button>
           <button type="button" id="btn-start-radio" class="primary">Start radio</button>
           <button type="button" id="btn-stop-radio" class="browse" disabled>Stop radio</button>
           <button type="button" id="btn-version">Check CLI</button>
         </div>
-        <p class="hint">Radio: prerender Softmax next −20s before the upcoming join (horizon 3), swap at handoff; Stop ends the loop</p>
+        <p class="hint">Radio: prerender Softmax next −20s before the upcoming join (horizon 3), swap at handoff; timed sets stop when length is reached; Stop ends the loop</p>
 
         <details class="advanced">
           <summary>Advanced: JSON / Rekordbox playlist</summary>

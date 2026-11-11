@@ -1,5 +1,7 @@
 # Architecture
 
+Narrative product writeup (capability ledger, roadmap): [`project-writeup.md`](project-writeup.md).
+
 ```
 playlist JSON / Rekordbox XML ──► apps/autodj-app (Tauri) ──┐
         │                                                    │

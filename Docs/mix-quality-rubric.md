@@ -29,6 +29,7 @@ Automated gates (CI) plus listening checklist for v1+.
 | Spectral centroid (FFT) | Hop-averaged magnitude centroid (Hann 2048 / hop 1024 via `realfft`); 440 Hz tone within ±8%; silence → 0 (evidence: `analysis::tests::spectral_centroid_*`) |
 | Mix timeline (Mix Now) | MixReport `join_timeline_secs` + cue `mix_timeline_start_secs`/`end_secs` from renderer `segment_start_indices` (evidence: smoke JSON; Tauri Mix Now / set-order seek) |
 | Automix Matching | `rank_next_matches` prefers key-route over closer-BPM off-route; `build_remix_order` pins forced next after prefix (evidence: `autodj-graph` tests; CLI `suggest` / `remix`) |
+| Set-order harmonic readout | MixReport `cues[].key` + transition `key_from`/`key_to`/`camelot_distance`/`bpm_delta`/`key_on_route`/`edge_cost` (evidence: smoke JSON; Tauri Set order / Transitions) |
 | Prep quality (AnalysisQuality) | MixReport `prep_quality_gate_pass` + `prep_tracks[]`; each track trusted when `!sparse && bpm_confidence ≥ 0.25` **or** playlist BPM override (JSON / Rekordbox). Hard-fail when `--deterministic`. Evidence: `cmd_mix`, golden smoke/rekordbox |
 | macOS native CI | Rust job on `macos-latest` (Apple Silicon hosted) plus `ubuntu-latest`; local `aarch64-apple-darwin` verify required when hosted Mac runners are unavailable |
 

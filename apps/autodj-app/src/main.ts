@@ -8,6 +8,12 @@ type TransitionEdge = {
   class: string;
   policy_crossfade_secs?: number;
   crossfade_secs?: number;
+  key_from?: string;
+  key_to?: string;
+  camelot_distance?: number;
+  bpm_delta?: number;
+  key_on_route?: boolean;
+  edge_cost?: number;
 };
 
 type CueReport = {
@@ -16,6 +22,7 @@ type CueReport = {
   play_end_secs: number;
   crossfade_secs: number;
   bpm: number;
+  key?: string;
   bpm_to?: number | null;
   bars_per_phrase: number;
   mix_timeline_start_secs: number;
@@ -241,7 +248,17 @@ function renderMixReport(r: MixReport, deterministic: boolean) {
       } else {
         li.title = path;
       }
-      li.textContent = basename(path);
+      const name = document.createElement("span");
+      name.className = "set-order-name";
+      name.textContent = basename(path);
+      li.appendChild(name);
+      if (cue) {
+        const meta = document.createElement("span");
+        meta.className = "set-order-meta";
+        const key = cue.key?.trim() || "?";
+        meta.textContent = `${key} · ${fmt(cue.bpm, 1)} BPM`;
+        li.appendChild(meta);
+      }
       li.tabIndex = 0;
       li.setAttribute("role", "button");
       li.addEventListener("click", () => seekToTrack(i));
@@ -273,7 +290,22 @@ function renderMixReport(r: MixReport, deterministic: boolean) {
       const li = document.createElement("li");
       const xfade = fmt(e.crossfade_secs, 2);
       const policy = fmt(e.policy_crossfade_secs, 2);
-      li.textContent = `${e.from}→${e.to}: ${e.class} (xfade ${xfade}s, policy ${policy}s)`;
+      const keyFrom = e.key_from ?? "?";
+      const keyTo = e.key_to ?? "?";
+      const dist =
+        e.camelot_distance === undefined ? "?" : String(e.camelot_distance);
+      const bpmDelta = fmt(e.bpm_delta, 1);
+      const cost = fmt(e.edge_cost, 2);
+      const line = document.createElement("span");
+      line.className = "transitions-line";
+      line.textContent = `${e.from}→${e.to}: ${e.class} · ${keyFrom}→${keyTo} (d${dist}) · ΔBPM ${bpmDelta} · cost ${cost} · xfade ${xfade}s (policy ${policy}s)`;
+      li.appendChild(line);
+      if (e.key_on_route) {
+        const badge = document.createElement("span");
+        badge.className = "matches-route";
+        badge.textContent = "key route";
+        li.appendChild(badge);
+      }
       ul.appendChild(li);
     }
   }

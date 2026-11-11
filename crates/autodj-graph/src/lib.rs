@@ -172,6 +172,19 @@ pub fn policy_transition_penalty(class: TransitionClass, policy: &GenrePolicy) -
 /// Weight for [`stretch_clamp_excess`] in pairwise cost (outside ±15% WSOLA clamp).
 const STRETCH_EXCESS_WEIGHT: f32 = 12.0;
 
+/// Bounded Camelot bonus when `to` is in the DJ key-route set (`suggest_next_keys`).
+const HARMONIC_ROUTE_DISCOUNT: f32 = 0.75;
+
+/// Key term for pairwise cost: Camelot distance with a discount on classic mix routes.
+fn key_pair_cost(from: CamelotKey, to: CamelotKey) -> f32 {
+    let dist = camelot_distance(from, to) as f32;
+    if suggest_next_keys(from).contains(&to) {
+        (dist - HARMONIC_ROUTE_DISCOUNT).max(0.0)
+    } else {
+        dist
+    }
+}
+
 /// Resolve the transition class the solver would use for this edge.
 pub fn resolve_transition_class(
     a: &TrackFeatures,
@@ -293,7 +306,7 @@ pub fn pair_cost_edge(
     phase: ArcPhase,
     model: Option<&TransitionModel>,
 ) -> f32 {
-    let key_cost = camelot_distance(a.key, b.key) as f32;
+    let key_cost = key_pair_cost(a.key, b.key);
     let bpm_delta = (a.bpm - b.bpm).abs();
     let bpm_cost = if bpm_delta > policy.max_bpm_delta {
         10.0 + bpm_delta
@@ -535,6 +548,46 @@ mod tests {
         let sol = solve_order(&tracks, &policy, Some(0), None);
         assert_eq!(sol.order[0], 0);
         assert_eq!(sol.order[1], 2, "order={:?}", sol.order);
+    }
+
+    #[test]
+    fn key_pair_cost_discounts_suggested_routes() {
+        let from = CamelotKey::parse("8A").unwrap();
+        let on_route = CamelotKey::parse("9A").unwrap();
+        let off_route = CamelotKey::parse("10A").unwrap();
+        assert_eq!(camelot_distance(from, on_route), 1);
+        assert_eq!(camelot_distance(from, off_route), 2);
+        assert!(
+            key_pair_cost(from, on_route) < camelot_distance(from, on_route) as f32,
+            "on-route should get the discount"
+        );
+        assert_eq!(
+            key_pair_cost(from, off_route),
+            camelot_distance(from, off_route) as f32,
+            "off-route keeps raw distance"
+        );
+        // Monotonic: worse Camelot still costs more after discount.
+        assert!(key_pair_cost(from, on_route) < key_pair_cost(from, off_route));
+        assert!(key_pair_cost(from, from) <= key_pair_cost(from, on_route));
+    }
+
+    #[test]
+    fn solve_prefers_key_route_over_closer_bpm() {
+        // Without HARMONIC_ROUTE_DISCOUNT, 10A @ same BPM beats 9A @ +3 BPM on key+bpm
+        // (key 2+0 vs key 1+1.05). With the discount, 9A wins (0.25+1.05 < 2).
+        let tracks = vec![
+            feat(124.0, "8A", -10.0),
+            feat(124.0, "10A", -10.0), // off-route, identical BPM
+            feat(127.0, "9A", -10.0),  // on-route (±1), slightly worse BPM
+        ];
+        let policy = GenrePolicy::builtin("house");
+        let sol = solve_order(&tracks, &policy, Some(0), None);
+        assert_eq!(sol.order[0], 0);
+        assert_eq!(
+            sol.order[1], 2,
+            "key-route 9A should beat closer-BPM 10A; order={:?}",
+            sol.order
+        );
     }
 
     #[test]

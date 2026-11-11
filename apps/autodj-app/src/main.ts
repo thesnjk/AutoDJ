@@ -150,6 +150,7 @@ function setBusy(busy: boolean) {
     "btn-browse-folder",
     "btn-browse-out",
     "btn-editor-apply",
+    "btn-editor-save",
     "btn-editor-reset",
   ]) {
     const btn = $<HTMLButtonElement>(id);
@@ -166,9 +167,24 @@ function setBusy(busy: boolean) {
 function syncEditorButtons() {
   const hasDraft = editorDraft.length > 0;
   const apply = $<HTMLButtonElement>("btn-editor-apply");
+  const saveBtn = $<HTMLButtonElement>("btn-editor-save");
   const reset = $<HTMLButtonElement>("btn-editor-reset");
   if (apply) apply.disabled = !hasDraft;
+  if (saveBtn) saveBtn.disabled = !hasDraft;
   if (reset) reset.disabled = !hasDraft;
+}
+
+/** CamelCase EditorTrack payload shared by Apply & Save playlist. */
+function editorTracksPayload() {
+  return editorDraft.map((t) => ({
+    path: t.path,
+    mixInSecs: t.mixInSecs,
+    mixOutSecs: t.mixOutSecs,
+    transitionOut: t.transitionOut,
+    key: t.key,
+    bpm: t.bpm,
+    barsPerPhrase: t.barsPerPhrase,
+  }));
 }
 
 /** Seed editor draft from MixReport cues (play windows) + transition classes. */
@@ -1234,15 +1250,7 @@ async function applyEditorRemix() {
   const deterministic =
     $<HTMLInputElement>("deterministic")?.checked ?? true;
   const lufs = selectedLufs(deterministic);
-  const tracks = editorDraft.map((t) => ({
-    path: t.path,
-    mixInSecs: t.mixInSecs,
-    mixOutSecs: t.mixOutSecs,
-    transitionOut: t.transitionOut,
-    key: t.key,
-    bpm: t.bpm,
-    barsPerPhrase: t.barsPerPhrase,
-  }));
+  const tracks = editorTracksPayload();
   setBusy(true);
   appendLog("--- Automix Editor Apply & re-mix ---");
   try {
@@ -1267,6 +1275,41 @@ async function applyEditorRemix() {
     appendLog(
       `editor remix flags: ${[cuePin, trPin].filter(Boolean).join(", ") || "none"}`,
     );
+  } catch (e) {
+    showPlainReport(String(e), true);
+    appendLog(String(e));
+  } finally {
+    setBusy(false);
+  }
+}
+
+/** Save Automix Editor pins as CLI-compatible playlist JSON. */
+async function saveEditorPlaylist() {
+  if (editorDraft.length === 0) {
+    showPlainReport("Need a completed mix before Save playlist", true);
+    return;
+  }
+  const selected = await save({
+    title: "Save playlist JSON",
+    filters: [{ name: "Playlist", extensions: ["json"] }],
+    defaultPath: "playlist.json",
+  });
+  if (typeof selected !== "string" || !selected.trim()) {
+    return;
+  }
+  const genre = $<HTMLSelectElement>("genre")?.value ?? "house";
+  setBusy(true);
+  appendLog("--- Automix Editor Save playlist ---");
+  try {
+    await invoke("export_editor_playlist", {
+      args: {
+        dest: selected,
+        genre,
+        tracks: editorTracksPayload(),
+      },
+    });
+    appendLog(`Saved playlist → ${selected}`);
+    showPlainReport(`Saved playlist → ${basename(selected)}`);
   } catch (e) {
     showPlainReport(String(e), true);
     appendLog(String(e));
@@ -1302,6 +1345,12 @@ window.addEventListener("DOMContentLoaded", async () => {
 
   $<HTMLButtonElement>("btn-editor-apply")?.addEventListener("click", () => {
     void applyEditorRemix();
+  });
+  $<HTMLButtonElement>("btn-editor-save")?.addEventListener("click", () => {
+    void saveEditorPlaylist().catch((e) => {
+      showPlainReport(String(e), true);
+      appendLog(String(e));
+    });
   });
   $<HTMLButtonElement>("btn-editor-reset")?.addEventListener("click", () => {
     resetEditorDraft();

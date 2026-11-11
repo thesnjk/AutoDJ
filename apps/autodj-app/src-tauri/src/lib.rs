@@ -270,11 +270,8 @@ struct MixEditorRemixArgs {
     lufs: Option<f64>,
 }
 
-/// Write a temp playlist JSON with optional mix-in/out and `transition_out` overrides.
-fn write_temp_playlist_overrides(
-    genre: &str,
-    tracks: &[EditorTrack],
-) -> Result<PathBuf, String> {
+/// Build CLI-compatible playlist JSON from Automix Editor tracks (pretty string).
+fn build_editor_playlist_json(genre: &str, tracks: &[EditorTrack]) -> Result<String, String> {
     if tracks.is_empty() {
         return Err("Automix Editor: need at least one track".into());
     }
@@ -323,13 +320,41 @@ fn write_temp_playlist_overrides(
         "genre": genre,
         "tracks": objs,
     });
+    serde_json::to_string_pretty(&json).map_err(|e| e.to_string())
+}
+
+/// Write a temp playlist JSON with optional mix-in/out and `transition_out` overrides.
+fn write_temp_playlist_overrides(
+    genre: &str,
+    tracks: &[EditorTrack],
+) -> Result<PathBuf, String> {
+    let body = build_editor_playlist_json(genre, tracks)?;
     let path = std::env::temp_dir().join(format!(
         "autodj-editor-playlist-{}.json",
         std::process::id()
     ));
-    fs::write(&path, serde_json::to_string_pretty(&json).map_err(|e| e.to_string())?)
-        .map_err(|e| format!("write editor playlist: {e}"))?;
+    fs::write(&path, body).map_err(|e| format!("write editor playlist: {e}"))?;
     Ok(path)
+}
+
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ExportEditorPlaylistArgs {
+    dest: String,
+    genre: String,
+    tracks: Vec<EditorTrack>,
+}
+
+/// Persist Automix Editor pins as CLI-compatible playlist JSON at `dest`.
+#[tauri::command]
+fn export_editor_playlist(args: ExportEditorPlaylistArgs) -> Result<(), String> {
+    let dest = args.dest.trim();
+    if dest.is_empty() {
+        return Err("export playlist: empty destination path".into());
+    }
+    let body = build_editor_playlist_json(&args.genre, &args.tracks)?;
+    fs::write(dest, body).map_err(|e| format!("write playlist {}: {e}", dest))?;
+    Ok(())
 }
 
 /// Re-mix with locked order and optional cue/transition overrides (Automix Editor).
@@ -789,6 +814,7 @@ pub fn run() {
             suggest_matches,
             remix_queue_next,
             mix_editor_remix,
+            export_editor_playlist,
             path_exists,
             resolve_demo_policy_hints
         ])

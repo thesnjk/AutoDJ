@@ -1,6 +1,6 @@
 # Architecture
 
-Full professional project writeup (Analysis→Evaluation, capability ledger): [`project-writeup.md`](project-writeup.md).
+Full professional / thesis-grade project writeup (Analysis→Evaluation, capability ledger): [`project-writeup.md`](project-writeup.md). Normative JSON/SQL shapes: [`data-contracts.md`](data-contracts.md).
 
 ```
 playlist JSON / Rekordbox XML ──► apps/autodj-app (Tauri) ──┐

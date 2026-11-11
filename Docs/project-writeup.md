@@ -1,10 +1,10 @@
 # AutoDJ — Professional Project Writeup
 
-**Status:** P0–P74 on `main` (as of this revision).  
+**Status:** P0–P76 on `main` (as of this revision).  
 **Living document:** expand / append; never invent unshipped features.  
-**Companion specs:** [`competitive-automix-sweep.md`](competitive-automix-sweep.md) · [`architecture.md`](architecture.md) · [`getting-started.md`](getting-started.md) · [`mix-quality-rubric.md`](mix-quality-rubric.md) · [`legal-data-policy.md`](legal-data-policy.md) · [`developer-map.md`](developer-map.md) · [`genre-policy.md`](genre-policy.md)
+**Companion specs:** [`competitive-automix-sweep.md`](competitive-automix-sweep.md) · [`architecture.md`](architecture.md) · [`data-contracts.md`](data-contracts.md) · [`getting-started.md`](getting-started.md) · [`mix-quality-rubric.md`](mix-quality-rubric.md) · [`legal-data-policy.md`](legal-data-policy.md) · [`developer-map.md`](developer-map.md) · [`genre-policy.md`](genre-policy.md)
 
-This writeup follows a professional project structure (Analysis → Design → Implementation → Testing → Evaluation → User Guide → Appendices). There are **no clients and no fabricated interviews**; Analysis uses product personas, and Evaluation is **developer-led** against measurable objectives and automated evidence. P74 records **v1 ungated competitive closure**: surface matrix re-labeled Shipped/Parity (closed); only stems remain Gap/Later.
+This writeup is a **thesis-grade systems document** (senior full-stack + research rigor) structured Analysis → Design → Implementation → Testing → Evaluation → User Guide → Appendices. There are **no clients and no fabricated interviews**; Analysis uses product personas; Evaluation is **developer-led** against measurable objectives and automated evidence. P74 closed the ungated competitive matrix; **P76** elevates normative requirements, data contracts, algorithm cost models, Softmax empirical metrics, failure modes, and Ops/DX verify matrices—grounded only in shipped code.
 
 ---
 
@@ -20,9 +20,10 @@ This writeup follows a professional project structure (Analysis → Design → I
 8. [Appendices](#8-appendices)  
    - [A — Test evidence index](#appendix-a--test-evidence-index)  
    - [B — Data / legal sources](#appendix-b--data--legal-sources)  
-   - [C — Capability ledger](#appendix-c--capability-ledger-p0p74)  
+   - [C — Capability ledger](#appendix-c--capability-ledger-p0p76)  
    - [D — How this Doc grows](#appendix-d--how-this-doc-grows)  
-   - [E — Screenshot placeholders](#appendix-e--screenshot-placeholders)
+   - [E — Screenshot placeholders](#appendix-e--screenshot-placeholders)  
+   - [F — Negative capability register](#appendix-f--negative-capability-register)
 
 ---
 
@@ -108,7 +109,7 @@ Personas come from standing competitive re-rank guidance (not client interviews)
 
 #### 1.6.3 Objective prioritisation
 
-Shipped P0–P74 closed the ungated mix-quality, shell, Docs-depth, niche CLI↔Tauri parity, and competitive-matrix honesty gaps. The competitive surface matrix now marks offline automix, I/O, analysis, harmonic/energy-arc, FX palette (excl. Neural), cues, Rekordbox, phrase, learning (offline), desktop shell, loudness, tempo blend, and spectral eval as **Shipped / Parity (closed)**. Remaining matrix **Gap** is stems-aware transitions (Later / user-owned audio); live dual-deck and neural phrase ML stay Later. Personas weighted bedroom DJ and radio continuous mix first—hence loudness, Folder Automix, Matching, and Editor before gated live/stems.
+Shipped P0–P76 closed the ungated mix-quality, shell, Docs-depth, niche CLI↔Tauri parity, competitive-matrix honesty, and thesis-documentation gaps. The competitive surface matrix now marks offline automix, I/O, analysis, harmonic/energy-arc, FX palette (excl. Neural), cues, Rekordbox, phrase, learning (offline), desktop shell, loudness, tempo blend, and spectral eval as **Shipped / Parity (closed)**. Remaining matrix **Gap** is stems-aware transitions (Later / user-owned audio); live dual-deck and neural phrase ML stay Later. Personas weighted bedroom DJ and radio continuous mix first—hence loudness, Folder Automix, Matching, and Editor before gated live/stems.
 
 ### 1.7 Modelling the problem
 
@@ -200,6 +201,34 @@ Requirements flow from: persona needs × competitive gaps × legal constraints �
 
 ---
 
+### 1.11 Normative requirements (REQ register)
+
+Requirements are **normative**: each REQ maps to at least one FO/NFO and automated evidence. Priority: **Must** = v1 sign-off; **Should** = shipped polish; **Must-not** = legal/gated veto.
+
+| ID | Priority | Statement | FO/NFO | Evidence |
+|----|----------|-----------|--------|----------|
+| REQ-A1 | Must | Analyse user WAV/FLAC for BPM/key/sections with quality flags | FO1 | gold analyze; FLAC CI |
+| REQ-M1 | Must | Solve or preserve mix order with harmonic + tempo + energy costs | FO2 | graph tests; Folder Automix |
+| REQ-T1 | Must | Select per-edge FX class via Softmax v3 by default | FO3 | `transition_model` golden; eval ≥ 0.90 |
+| REQ-T2 | Must | Allow Softmax opt-out to genre preferred transitions | FO4 | `transitions` golden; Skip Softmax |
+| REQ-C1 | Must | Phrase/drop-aware cues with absolute override precedence | FO5 | cue goldens |
+| REQ-D1 | Must | Render class-aware crossfades + WSOLA ±15% clamp honesty | FO6 | DSP units; smoke |
+| REQ-L1 | Must | R128 normalize to −14 or −23 (±2 LU) unless peak-limit | FO7 | smoke + broadcast |
+| REQ-Q1 | Must | Emit MixReport sidecar + stdout JSON with hard gates | FO8 | sidecar CI |
+| REQ-R1 | Must | Ingest Rekordbox XML with preserve-order fidelity | FO9 | rekordbox goldens |
+| REQ-K1 | Must | Rank next matches / pin remix from same cost surface | FO10 | suggest/remix tests |
+| REQ-U1 | Should | Desktop shell over CLI with busy/honest listen | FO11, NFO4 | Tauri P37–P73 |
+| REQ-P1 | Should | Offline policy hints merge into genre policy | FO12 | `policy_hints` golden |
+| REQ-I1 | Must | Encode/decode WAV and FLAC | FO13 | io tests; P67 |
+| REQ-N1 | Must | CI reproduces goldens on ubuntu + macos | NFO1 | `.github/workflows/ci.yml` |
+| REQ-Z1 | Must-not | No upload of user libraries; no pirated training audio in git/CI | NFO2, NFO5 | [`legal-data-policy.md`](legal-data-policy.md) |
+| REQ-G1 | Must-not | Do not ship stems / live dual-deck / neural phrase as v1 | — | Appendix F |
+
+**Legal / privacy (normative negatives).** Allowed: local user audio, synthetic fixtures, aggregate statistics with citations. Forbidden in git/CI: commercial set scrapes, unlicensed stems, secrets, wholesale paywalled HTML ([`legal-data-policy.md`](legal-data-policy.md)). Tracklist automation that violates ToS is **gated**—offline fixtures only.
+
+**Threat / trust boundary (concise).** AutoDJ is a local offline pipeline. Trust boundary: user-supplied paths + optional Feature DB on disk. No network service in the mix path. Residual risks: path traversal via malicious playlist paths (OS permissions apply); subprocess CLI invoked by Tauri (argv built in Rust, not shell-interpolated strings from free text beyond path fields).
+
+
 ## 2. Design
 
 ### 2.1 Design goals / rationale
@@ -232,6 +261,21 @@ Control flow: UI → invoke → `run_autodj` argv → MixReport JSON → UI pane
 
 Error handling: CLI non-zero + stderr; Tauri surfaces plain report + progress log; Strict QA bails on hard gates.
 
+#### 2.2.1 Failure modes and degraded behaviour
+
+| Failure / degrade | Detection | System response | User-visible |
+|-------------------|-----------|-----------------|--------------|
+| <2 wav/flac in folder | `collect_folder_audio` | Err string | Automix folder fails |
+| Unreadable / corrupt audio | decode `Result` | CLI/Tauri error | Report panel error |
+| Sparse / low-confidence analysis | `AnalysisQuality` | Prep gate fail under Strict QA | Weak pills; hard-fail |
+| Softmax file missing | resolve path | Ordinary mix may omit model / err depending on path | Prefer Load committed |
+| Strict QA gate fail | MixReport flags | CLI non-zero when deterministic | Fail callout + gate pills |
+| Subprocess crash / non-zero | `run_autodj` | Tauri `Err(stderr)` | Plain report |
+| HTML5 decode fail (e.g. FLAC) | `audio` error | Honest listen hint | Not “playing” |
+| Short gold loops | phrase residual | skip-with-pass on some phrase gates | Documented in rubric |
+
+**Qualitative budgets (no invented wall-clocks):** feature extract ~O(samples); greedy solve O(n²) pairwise for setlist-scale n; Softmax O(F·C) per edge; render O(output samples). Interactive Folder Automix targets “seconds to tens of seconds” on Apple Silicon for small libraries—measure locally; not a CI SLO.
+
 ### 2.3 Data / module design
 
 | Concept | Role |
@@ -245,6 +289,8 @@ Error handling: CLI non-zero + stderr; Tauri surfaces plain report + progress lo
 | CueOverrides / EditorTrack | Absolute mix windows + pins for re-mix |
 
 Ownership: decode/analyse produce features; graph consumes features → order/classes; renderer consumes buffers + plan → audio + MixReport.
+
+**Normative schemas:** playlist JSON, MixReport, Softmax artefact, Feature DB DDL, policy hints — [`data-contracts.md`](data-contracts.md). Softmax version matrix and Feature DB columns are normative for interop (Python train ↔ Rust runtime).
 
 ### 2.4 Algorithm design
 
@@ -263,7 +309,20 @@ Complexity (prose): analysis roughly linear in samples; greedy solve O(n²) pair
 
 #### 2.4.1 Order solve (`crates/autodj-graph`)
 
-`solve_order` builds a greedy nearest-neighbour path over unused tracks. Each candidate edge is scored by `pair_cost_edge`, which folds Camelot distance via `key_pair_cost` (with `HARMONIC_ROUTE_DISCOUNT` when `suggest_next_keys` agrees), tempo / stretch-clamp excess, energy-arc phase from `arc_phase` (quiet opener → rise → peak → fall across set index), Softmax or preferred class penalty, and genre policy weights.
+`solve_order` builds a greedy nearest-neighbour path over unused tracks. Opener: quietest track in genre BPM band (`select_opener`), else global quietest. Each candidate edge is scored by `pair_cost_edge` (`crates/autodj-graph/src/lib.rs`).
+
+**Closed-form cost (shipped constants):**
+
+\[
+\mathrm{cost}(a,b,\phi) = C_{\mathrm{key}} + C_{\mathrm{bpm}} + C_{\mathrm{energy}}(\phi)\,w_e + C_{\mathrm{center}} + C_{\mathrm{style}} + 12\cdot\mathrm{stretch\_clamp\_excess}(a,b)
+\]
+
+- \(C_{\mathrm{key}} = \max(0,\, d_{\mathrm{Camelot}}(a,b) - 0.75)\) when `to ∈ suggest_next_keys(from)`, else raw distance (`HARMONIC_ROUTE_DISCOUNT = 0.75`).
+- \(C_{\mathrm{bpm}} = 10 + |\Delta\mathrm{BPM}|\) if \(|\Delta\mathrm{BPM}| > \mathrm{max\_bpm\_delta}\), else \(0.35\,|\Delta\mathrm{BPM}|\).
+- \(C_{\mathrm{center}} = 0.02\,|\overline{\mathrm{BPM}} - \mathrm{bpm\_center}|\).
+- \(C_{\mathrm{energy}}\) piecewise on `ArcPhase` ∈ {Opening, Build, Peak, Cool} (rise preferred early; quiet arrivals penalised at Peak; fall preferred in Cool)—see `energy_arc_cost`.
+- \(C_{\mathrm{style}} =\) soft crossfade style penalty + `policy_transition_penalty` for resolved class vs genre preferred.
+- Stretch weight `STRETCH_EXCESS_WEIGHT = 12`.
 
 ```
 for each next slot:
@@ -272,11 +331,23 @@ for each next slot:
 emit order + resolved TransitionClass per edge
 ```
 
+**Invariants:** solution `order` is a permutation of input indices; `|transitions| = n−1` for n≥1; class resolution precedence **playlist `transition_out` override ≻ Softmax (if loaded) ≻ genre `preferred_transition`**. Greedy NN is **not** globally optimal (TSP); chosen for interactive latency on DJ-scale n.
+
 `preserve_order` skips the solve and keeps playlist indices (Rekordbox / Editor Apply). Matching uses the same cost surface: `rank_next_matches` sorts candidates from a now-playing track; `build_remix_order` pins a forced next after a prefix.
+
+**Edge cases:** n=0/1 → trivial / empty transitions; empty suggest folder → error; override index alignment is on **input feature indices**, not solved order (`apply_transition_overrides` docs).
 
 #### 2.4.2 Softmax class + xfade length
 
 Features (15-dim v3) → logits → argmax among eight classes: `linear_crossfade`, `eq_swap`, `filter_sweep`, `echo_out`, `tremolo`, `riser`, `dissolve`, `hard_cut`. `crossfade_secs_for_class` scales policy crossfade by class (HardCut → 0). Playlist `transition_out` wins via `apply_transition_overrides`.
+
+| Softmax version | Dim | Classes (artefact) | Holdout notes |
+|-----------------|----:|--------------------|---------------|
+| v1 | 11 | 5 core | Legacy `transition_model_v1.json` |
+| v2 | 13 | 5 core (+ stretch/spectral feats) | `transition_model_v2.json` |
+| v3 | 15 | **8** (incl. tremolo/riser/dissolve) | Default committed artefact; CI gate |
+
+Python↔Rust feature lockstep: `features.py` / `transition_model.rs` ([`data-contracts.md`](data-contracts.md) §3). Empirical numbers: §5.6.
 
 #### 2.4.3 Cues (`plan_segment_cues`)
 
@@ -371,17 +442,50 @@ Subcommands `analyze`, `mix`, `suggest`, `remix`. Ordinary mix auto-loads commit
 
 Synthetic pairs → SoftmaxLogReg; `autodj-train eval` gate ≥ 0.90 on holdout; committed JSON artefact consumed by Rust.
 
-### 3.8 Tauri shell
+### 3.8 Tauri shell / CLI contract
 
 Commands: `automix_folder`, `mix`, `analyze`, `suggest_matches`, `remix_queue_next`, `mix_editor_remix`, `export_editor_playlist`, resolve helpers. Forwards policy/Softmax/Skip Softmax/db/preserve-order/deterministic/lufs/`report_out`/`no_loudness_norm`. Busy state disables controls; progress events fill the log.
 
-### 3.9 Error handling and robustness
+| Contract item | Behaviour |
+|---------------|-----------|
+| Binary resolve | `AUTODJ_BIN` → `PATH` `autodj` → `cargo run -p autodj-cli` |
+| IPC | argv vector (no shell); stdout = MixReport JSON (UI takes **last** JSON object); stderr / `autodj-progress` = log |
+| Busy | `cliBusy` disables controls; Mix Now / `N` blocked |
+| Asset protocol | Mix audio under `/tmp/**` or `$HOME/**` for HTML5 |
+| Compile CI | macOS `cargo check --manifest-path apps/autodj-app/src-tauri/Cargo.toml` |
 
-Invalid paths → CLI/UI errors; sparse analysis → prep gate; autoplay decode failure → listen hint (not “playing”); Skip Softmax disables Softmax path controls; Peak limit only disables LUFS select and skips `--lufs`.
+### 3.9 Error taxonomy
 
-### 3.10 Objective fulfilment (implementation view)
+| Layer | Representation | Typical causes |
+|-------|----------------|----------------|
+| CLI | `anyhow::Result` / non-zero exit + stderr | decode fail, gate fail, empty playlist |
+| Tauri | `Result<Value, String>` | subprocess non-zero; JSON extract fail |
+| UI | plain report + log | surfaces Tauri/CLI strings; autoplay decode → listen hint |
 
-All FO1–FO13 have landed symbols on `main` through P69; P70 structured the NEA writeup; P72 deepens diagrams/algorithms/evidence; P73 wires niche flag parity + macOS Tauri compile in CI. Later FO for stems/live are explicitly **out of scope**.
+Fail-closed under Strict QA (`--deterministic` default): critical MixReport gates hard-fail. `--no-deterministic` relaxes gates; peak-limit skips LUFS target.
+
+### 3.10 Concurrency model
+
+DSP/analysis/render run **single-threaded** in the CLI process (offline; not audio-thread RT). Tauri spawns the CLI and reads stdout/stderr on helper threads; UI state updates on the webview side with a mutual-exclusion busy flag. No shared mutable audio graph across threads in v1.
+
+### 3.11 CLI flag surface (mix / remix essentials)
+
+| Flag | Default | Notes |
+|------|---------|-------|
+| `--playlist` / `--out` / `--genre` | out=`mix.wav`, genre=`house` | JSON or Rekordbox XML |
+| `--preserve-order` | false | Skip reorder |
+| `--deterministic` / `--no-deterministic` | deterministic true | Strict QA |
+| `--lufs` | −14 | Ignored under Strict QA path; broadcast −23 golden |
+| `--no-loudness-norm` | false | Peak-limit only |
+| `--transition-model` / `--no-transition-model` | auto committed Softmax | Opt-out = preferred |
+| `--policy-hints` / `--db` / `--report-out` | optional | Hints / cache / sidecar |
+| `--golden …` | unset | CI harness only (not Tauri) |
+
+Suggest adds `--top` (default 5), `--position`, `--set_len`. Full help: `autodj --help` / [`getting-started.md`](getting-started.md).
+
+### 3.12 Objective fulfilment (implementation view)
+
+All FO1–FO13 have landed symbols on `main` through P69; P70–P76 document and deepen evidence. Later FO for stems/live remain **out of scope**.
 
 ---
 
@@ -428,6 +532,19 @@ Python: `pytest autodj_train` + `autodj-train eval` accuracy ≥ 0.90 on synthet
 | `python` | `ubuntu-latest` | `ruff`; `pytest autodj_train`; Softmax `eval` gate |
 
 Tauri shell **compiles** on CI (`macos-latest`); full `tauri dev` / Ubuntu WebKit remain Mac-local / deferred.
+
+#### 4.1.3 CI reproducibility
+
+| Pin | Value (as of P76) |
+|-----|-------------------|
+| Rust | `dtolnay/rust-toolchain@stable` + clippy |
+| Python | 3.12 (`actions/setup-python`) |
+| Softmax holdout | `python/autodj_train/eval/gold/synthetic_holdout.jsonl` (frozen) |
+| Softmax artefact | `…/artifacts/transition_model.json` v3 |
+| Synth seed (train tests) | `seed=7` in baseline tests |
+| OS matrix | `ubuntu-latest`, `macos-latest` for Rust job |
+
+Re-run locally with the Appendix A verify matrix. Do not invent wall-clock SLOs in CI.
 
 ### 4.2 Mapping tests → objectives
 
@@ -525,9 +642,34 @@ Without clients, evaluation uses:
 4. Optional WebKit CI when infrastructure allows.  
 5. Real-library optional eval fixtures if rights-cleared packs are donated.
 
-### 5.6 Summary
+### 5.6 Softmax empirical metrics (developer-led)
 
-Against declared FO/NFO and the competitive ungated backlog through P74, AutoDJ **meets its v1 professional objectives**. The competitive surface matrix is honest: ungated rows are Shipped/Parity (closed); remaining gaps are explicitly Later/gated (stems, live dual-deck, neural), not undocumented failures. P72 raised Docs depth; P73 closed niche CLI↔Tauri parity + macOS Tauri compile in CI; P74 closed matrix honesty.
+Measured locally with committed artefacts against `synthetic_holdout.jsonl` (`autodj-train eval --min-accuracy 0`). **CI gate applies to v3 only** (accuracy ≥ 0.90). v1/v2 artefacts declare fewer classes; their holdout `n` and class sets differ—do not treat as a controlled ablation on identical labels.
+
+| Artefact | Classes | n | Accuracy | Notes |
+|----------|--------:|--:|---------:|-------|
+| `transition_model_v1.json` | 5 | 750 | 0.8613 | Legacy schema |
+| `transition_model_v2.json` | 5 | 750 | 0.8627 | + stretch/spectral feats |
+| `transition_model.json` (v3) | **8** | 1200 | **0.9017** | CI PASS ≥ 0.90 |
+
+**v3 per-class recall** (same run):
+
+| Class | Recall |
+|-------|-------:|
+| linear_crossfade | 0.747 |
+| eq_swap | 0.973 |
+| filter_sweep | 0.753 |
+| echo_out | 0.847 |
+| tremolo | 1.000 |
+| riser | 0.940 |
+| dissolve | 0.993 |
+| hard_cut | 0.960 |
+
+Rule baselines in `eval/test_baseline.py` assert perfect accuracy on synthetic gold for the rule engine and ≥0.90 for the trained model—characterization tests, not production listening proof. Softmax remains **synthetic-trained**; transfer to arbitrary real libraries is an acknowledged limitation (§5.4).
+
+### 5.7 Summary
+
+Against declared FO/NFO and the competitive ungated backlog through P76, AutoDJ **meets its v1 professional objectives** with thesis-grade documentation of contracts, costs, and metrics. The competitive surface matrix is honest: ungated rows are Shipped/Parity (closed); remaining gaps are explicitly Later/gated (stems, live dual-deck, neural). P76 elevates research rigor without inventing product features.
 
 ---
 
@@ -591,7 +733,7 @@ Internal: all `Docs/*.md` listed in the front matter; MIT `LICENSE`.
 
 ## 8. Appendices
 
-### Appendix A — Test evidence index
+### Appendix A — Test evidence / developer verify matrix
 
 | Command / check | Expected artefact | Notes |
 |-----------------|-------------------|-------|
@@ -607,8 +749,10 @@ Internal: all `Docs/*.md` listed in the front matter; MIT `LICENSE`.
 | `mix --golden transition_overrides …` | `transition_override_applied` | `transition_out` |
 | `mix --golden policy_hints …` | house xfade ≈ 12s | vs transitions 8s |
 | `analyze … loop_a_128.flac` | SQLite row / exit 0 | FLAC decode |
-| `autodj-train eval …` | accuracy ≥ 0.90 | CI python |
+| `autodj-train eval …` | accuracy ≥ 0.90 (+ per-class recall JSON) | CI python; §5.6 |
 | `cargo test -p autodj-io` | FLAC roundtrip | encode path |
+| `cargo check --manifest-path apps/autodj-app/src-tauri/Cargo.toml` | exit 0 | CI macos-only; Mac-local |
+| `cd apps/autodj-app && npm install && npm run tauri dev` | UI boots | **not** in CI; packaging |
 
 ### Appendix B — Data / legal sources
 
@@ -618,7 +762,7 @@ Internal: all `Docs/*.md` listed in the front matter; MIT `LICENSE`.
 - Softmax trained on synthetic pairs; committed JSON artefact.  
 - Forbidden: commercial set scrapes, unlicensed stems (see legal policy).
 
-### Appendix C — Capability ledger (P0–P74)
+### Appendix C — Capability ledger (P0–P76)
 
 Living checklist; **append** new P-rows here when shipping.
 
@@ -663,6 +807,7 @@ Living checklist; **append** new P-rows here when shipping.
 - Living writeup seed — **P69**; NEA-style expansion — **P70**; deepen diagrams/algorithms/evidence — **P72**  
 - CLI↔Tauri `--report-out` / `--no-loudness-norm` + macOS Tauri `cargo check` in CI — **P73**  
 - Competitive ungated closure & matrix honesty — **P74**  
+- Thesis-grade writeup + data contracts — **P76**  
 - Softmax train/eval — **P6**
 
 ### Appendix D — How this Doc grows
@@ -685,6 +830,19 @@ Living checklist; **append** new P-rows here when shipping.
 | E.4 | Automix Editor — seeded cues / transition_out / Apply | Open Editor from MixReport |
 | E.5 | MixReport QA — gate pills + Listen while playing checklist | Same session; Strict QA on/off |
 
+### Appendix F — Negative capability register
+
+| Capability | Status | Why excluded from v1 sign-off |
+|------------|--------|-------------------------------|
+| Stems-aware FX | Gap / Later | Needs user-owned stem path; no DSP in tree |
+| Live dual-deck / controller sync | Later | Desktop shell is offline Automix, not dual-deck |
+| Neural phrase ML | Later | Requires lawful labelled phrase corpora |
+| Live 1001 / Beatport scrapes | Gated | ToS / anti-bot / paid API |
+| Ubuntu WebKit / full `tauri build` CI | Deferred | macOS `cargo check` only (P73) |
+| Client interviews / fabricated UX studies | Forbidden | Developer-led evaluation only |
+
+Do not document these as shipped. Personas in §1.3 are product weights, **not** ethnography.
+
 ### Shipped notes
 
 - **2026-11-11 — P69:** Seeded living writeup + README refresh.  
@@ -692,3 +850,4 @@ Living checklist; **append** new P-rows here when shipping.
 - **2026-11-11 — P72:** Deepened NEA writeup — mermaid pipeline/Softmax/UI diagrams, algorithm subsections (§2.4.x), unit/CI evidence tables, MixReport gate excerpt, Appendix E screenshot placeholders.  
 - **2026-11-11 — P73:** Tauri Advanced MixReport path + Peak limit only; Reveal honours `--report-out`; CI macOS `cargo check` for `apps/autodj-app/src-tauri`.  
 - **2026-11-11 — P74:** Competitive surface matrix re-labeled Shipped/Parity (closed); ungated product backlog empty; stems Gap only; README/writeup v1 closure.
+- **2026-11-11 — P76:** Thesis-grade writeup upgrade — REQ register, data-contracts.md, pair_cost closed form, Softmax metrics, failure modes, Tauri/CLI/ops verify matrix.

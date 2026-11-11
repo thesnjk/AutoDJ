@@ -18,8 +18,8 @@ use autodj_core::{
 };
 use autodj_graph::{
     apply_transition_overrides, build_remix_order, crossfade_secs_for_class, load_policy_hints_map,
-    predict_transition_class_edge, preserve_order, rank_next_matches, solve_order, GenrePolicy,
-    TransitionModel,
+    predict_transition_class_edge, preserve_order, rank_next_matches, solve_order,
+    suggest_next_keys, GenrePolicy, TransitionModel,
 };
 use autodj_io::{read_wav, write_wav};
 use clap::{Parser, Subcommand};
@@ -297,6 +297,18 @@ struct TransitionEdgeReport {
     policy_crossfade_secs: f32,
     /// Cue-planned crossfade seconds used for render.
     crossfade_secs: f32,
+    /// Camelot key of the outgoing track.
+    key_from: String,
+    /// Camelot key of the incoming track.
+    key_to: String,
+    /// Harmonic distance on the Camelot wheel.
+    camelot_distance: u8,
+    /// Absolute BPM delta between the edge endpoints.
+    bpm_delta: f32,
+    /// True when `key_to` is in [`suggest_next_keys`] for `key_from`.
+    key_on_route: bool,
+    /// Solver pairwise edge cost (lower is better).
+    edge_cost: f32,
 }
 
 #[derive(Debug, Serialize)]
@@ -306,6 +318,8 @@ struct CueReport {
     play_end_secs: f64,
     crossfade_secs: f32,
     bpm: f32,
+    /// Camelot key used for this cue (analysis / playlist override).
+    key: String,
     /// BPM of the next track when a transition follows; else null.
     bpm_to: Option<f32>,
     /// Resolved phrase length in bars used for cue snap.
@@ -932,6 +946,7 @@ fn cmd_mix(
             play_end_secs: cues.play_end_secs,
             crossfade_secs: cues.crossfade_secs,
             bpm: feats.bpm,
+            key: feats.key.as_str(),
             bpm_to,
             bars_per_phrase: phrase_bars,
             // Filled after render from segment_start_indices.
@@ -1107,15 +1122,25 @@ fn cmd_mix(
         .transitions
         .iter()
         .enumerate()
-        .map(|(i, t)| TransitionEdgeReport {
-            from: t.from,
-            to: t.to,
-            class: t.class,
-            policy_crossfade_secs: t.crossfade_secs,
-            crossfade_secs: cue_reports
-                .get(i)
-                .map(|c| c.crossfade_secs)
-                .unwrap_or(t.crossfade_secs),
+        .map(|(i, t)| {
+            let a = &features[t.from];
+            let b = &features[t.to];
+            TransitionEdgeReport {
+                from: t.from,
+                to: t.to,
+                class: t.class,
+                policy_crossfade_secs: t.crossfade_secs,
+                crossfade_secs: cue_reports
+                    .get(i)
+                    .map(|c| c.crossfade_secs)
+                    .unwrap_or(t.crossfade_secs),
+                key_from: a.key.as_str(),
+                key_to: b.key.as_str(),
+                camelot_distance: camelot_distance(a.key, b.key),
+                bpm_delta: (a.bpm - b.bpm).abs(),
+                key_on_route: suggest_next_keys(a.key).contains(&b.key),
+                edge_cost: t.cost,
+            }
         })
         .collect();
 

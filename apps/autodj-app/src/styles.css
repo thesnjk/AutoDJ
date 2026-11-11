@@ -365,6 +365,10 @@ button.primary:hover:not(:disabled) {
   border-radius: 2px;
   padding: 0.1rem 0.25rem;
   margin-left: -0.25rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.35rem 0.65rem;
 }
 
 .set-order li[role="button"]:hover {
@@ -374,6 +378,26 @@ button.primary:hover:not(:disabled) {
 .set-order li.playing {
   color: var(--accent);
   background: rgba(196, 163, 90, 0.12);
+}
+
+.set-order-meta {
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+
+.set-order li.playing .set-order-meta {
+  color: var(--accent-dim);
+}
+
+.transitions li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.35rem 0.55rem;
+}
+
+.transitions-line {
+  flex: 1 1 auto;
 }
 
 .matches-panel {

@@ -127,6 +127,7 @@ Formula note: `(competitor best − AutoDJ) × persona weight × mix_impact`. Be
 | **P83** | Set-length + vibe controls | **Shipped** — Continuous/30/45/60/90 + Standard/Chill/Peak; virtual Softmax arc; timed set stop |
 | **P84** | Desktop Docs honesty (app README) | **Shipped** — `apps/autodj-app/README.md` + developer-map match P80–P83 radio path |
 | **P85** | Suggest/remix data contracts | **Shipped** — `data-contracts.md` §7–8 CLI flags (`--position`/`--set-len`/`--horizon`) |
+| **P86** | Suggest flag Docs cross-refs | **Shipped** — getting-started `--position`/`--set-len` examples; writeup `--set-len` spelling |
 | Later | Stems / live dual-deck; neural phrase ML | gated / user-owned audio |
 | Next | Later/gated only | North Star P80–P83 complete; Docs idle |
 

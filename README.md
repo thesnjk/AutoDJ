@@ -4,7 +4,7 @@ Automatic DJ mix engine and learning pipeline. Analyze a library or playlist, so
 
 ## Status
 
-**P0–P85 shipped** on `main` — ungated competitive matrix closed; full-auto North Star ladder complete (**Radio libraries**, continuous radio, join-timed horizon remix, **set-length + vibe**); Docs honesty (**P84** app README, **P85** suggest/remix contracts). Softmax 8-class FX, Rekordbox + cues, FLAC I/O, MixReport gates, Tauri shell, thesis-grade writeup + [`Docs/data-contracts.md`](Docs/data-contracts.md). Narrative: [`Docs/project-writeup.md`](Docs/project-writeup.md). Matrix: [`Docs/competitive-automix-sweep.md`](Docs/competitive-automix-sweep.md). Ladder: [`Docs/full-auto-roadmap.md`](Docs/full-auto-roadmap.md). Later/gated: stems, live dual-deck, neural phrase ML, streaming OAuth, open-web scrape.
+**P0–P86 shipped** on `main` — ungated competitive matrix closed; full-auto North Star ladder complete (**Radio libraries**, continuous radio, join-timed horizon remix, **set-length + vibe**); Docs honesty (**P84**–**P86**). Softmax 8-class FX, Rekordbox + cues, FLAC I/O, MixReport gates, Tauri shell, thesis-grade writeup + [`Docs/data-contracts.md`](Docs/data-contracts.md). Narrative: [`Docs/project-writeup.md`](Docs/project-writeup.md). Matrix: [`Docs/competitive-automix-sweep.md`](Docs/competitive-automix-sweep.md). Ladder: [`Docs/full-auto-roadmap.md`](Docs/full-auto-roadmap.md). Later/gated: stems, live dual-deck, neural phrase ML, streaming OAuth, open-web scrape.
 
 ## Quick start
 

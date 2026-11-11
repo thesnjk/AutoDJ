@@ -286,7 +286,7 @@ function renderMixReport(r: MixReport, deterministic: boolean) {
     li.textContent = "(none)";
     ul.appendChild(li);
   } else {
-    for (const e of edges) {
+    edges.forEach((e, i) => {
       const li = document.createElement("li");
       const xfade = fmt(e.crossfade_secs, 2);
       const policy = fmt(e.policy_crossfade_secs, 2);
@@ -306,8 +306,18 @@ function renderMixReport(r: MixReport, deterministic: boolean) {
         badge.textContent = "key route";
         li.appendChild(badge);
       }
+      li.tabIndex = 0;
+      li.setAttribute("role", "button");
+      li.title = `Seek to join ${fmt(r.join_timeline_secs?.[i], 2)}s`;
+      li.addEventListener("click", () => seekToJoin(i));
+      li.addEventListener("keydown", (ev) => {
+        if (ev.key === "Enter" || ev.key === " ") {
+          ev.preventDefault();
+          seekToJoin(i);
+        }
+      });
       ul.appendChild(li);
-    }
+    });
   }
   transitionsWrap.appendChild(ul);
 
@@ -320,12 +330,58 @@ async function loadMixPlayer(outPath: string, autoplay: boolean) {
   if (!audio || !outPath) return;
   audio.src = convertFileSrc(outPath);
   audio.load();
+  renderJoinMarkers();
   if (!autoplay) return;
   try {
     await audio.play();
   } catch (e) {
     appendLog(`autoplay blocked or failed: ${e}`);
   }
+}
+
+function transitionTooltip(edge: TransitionEdge | undefined, joinSecs: number): string {
+  if (!edge) return `Join at ${fmt(joinSecs, 2)}s`;
+  const keyFrom = edge.key_from ?? "?";
+  const keyTo = edge.key_to ?? "?";
+  const bpmDelta = fmt(edge.bpm_delta, 1);
+  return `${edge.class} · ${keyFrom}→${keyTo} · ΔBPM ${bpmDelta} · ${fmt(joinSecs, 2)}s`;
+}
+
+/** Place join ticks under the player from MixReport.join_timeline_secs. */
+function renderJoinMarkers() {
+  const rail = $<HTMLDivElement>("join-markers");
+  const audio = $<HTMLAudioElement>("mix-player");
+  if (!rail) return;
+  rail.replaceChildren();
+  const joins = lastMixReport?.join_timeline_secs ?? [];
+  const duration = audio?.duration ?? 0;
+  if (joins.length === 0 || !Number.isFinite(duration) || duration <= 0) {
+    rail.setAttribute("aria-hidden", "true");
+    return;
+  }
+  rail.removeAttribute("aria-hidden");
+  const edges = lastMixReport?.transitions ?? [];
+  joins.forEach((t, i) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "join-marker";
+    btn.style.left = `${(t / duration) * 100}%`;
+    btn.title = transitionTooltip(edges[i], t);
+    btn.setAttribute("aria-label", `Seek to join ${i + 1} at ${fmt(t, 2)} seconds`);
+    btn.addEventListener("click", () => seekToJoin(i));
+    rail.appendChild(btn);
+  });
+}
+
+function seekToJoin(index: number) {
+  const audio = $<HTMLAudioElement>("mix-player");
+  const joins = lastMixReport?.join_timeline_secs ?? [];
+  if (!audio || index < 0 || index >= joins.length) return;
+  const t = joins[index];
+  audio.currentTime = Math.max(0, t);
+  void audio.play().catch(() => undefined);
+  appendLog(`join ${index + 1} → ${fmt(t, 2)}s`);
+  updateNowPlayingHighlight();
 }
 
 function seekToTrack(index: number) {
@@ -577,6 +633,7 @@ async function finishMixReport(
   const autoplay = $<HTMLInputElement>("autoplay")?.checked ?? true;
   const playPath = report.out?.trim() || out;
   await loadMixPlayer(playPath, autoplay);
+  renderJoinMarkers();
   updateNowPlayingHighlight();
   appendLog(
     autoplay
@@ -598,6 +655,8 @@ window.addEventListener("DOMContentLoaded", async () => {
   const audio = $<HTMLAudioElement>("mix-player");
   audio?.addEventListener("timeupdate", () => updateNowPlayingHighlight());
   audio?.addEventListener("seeked", () => updateNowPlayingHighlight());
+  audio?.addEventListener("loadedmetadata", () => renderJoinMarkers());
+  audio?.addEventListener("durationchange", () => renderJoinMarkers());
 
   $<HTMLButtonElement>("btn-mix-now")?.addEventListener("click", () => {
     mixNowSeek();

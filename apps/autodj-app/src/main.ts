@@ -66,6 +66,9 @@ type MixReport = {
   max_stretch_clamp_excess?: number;
   prep_quality_gate_pass?: boolean;
   cue_drop_aware?: boolean;
+  cue_mix_override_applied?: boolean;
+  transition_override_applied?: boolean;
+  per_track_phrase_applied?: boolean;
   prep_tracks?: PrepTrackReport[];
   transitions?: TransitionEdge[];
   cues?: CueReport[];
@@ -206,6 +209,9 @@ const GATE_RUBRIC: Record<string, string> = {
   cue: "Phrase/section cues aligned (cue_phrase_aligned); short loops may skip-with-pass.",
   drop: "Drop-aware mix-in/out (cue_drop_aware) from section marks.",
   "tempo-blend": "Multi-BPM edges use bidirectional WSOLA tempo blend when applied.",
+  "cue-override": "Playlist mix_in_secs / mix_out_secs pinned absolute cue windows (cue_mix_override_applied).",
+  "transition-override": "Playlist transition_out pinned edge class (transition_override_applied).",
+  "phrase-applied": "Per-track phrase heuristic resolved bars_per_phrase (per_track_phrase_applied).",
 };
 
 const HARD_GATE_NAMES = [
@@ -283,6 +289,9 @@ function renderMixReport(r: MixReport, deterministic: boolean) {
     ["cue", r.cue_phrase_aligned],
     ["drop", r.cue_drop_aware],
     ["tempo-blend", r.tempo_blend_applied],
+    ["cue-override", r.cue_mix_override_applied],
+    ["transition-override", r.transition_override_applied],
+    ["phrase-applied", r.per_track_phrase_applied],
   ];
 
   const ok = !deterministic || hardGatesOk(r);
@@ -300,17 +309,34 @@ function renderMixReport(r: MixReport, deterministic: boolean) {
     `out: ${basename(r.out)}`,
   ].join(" · ");
 
+  const infoFlags = new Set([
+    "cue-override",
+    "transition-override",
+    "phrase-applied",
+  ]);
   const strip = document.createElement("div");
   strip.className = "gate-strip";
   strip.setAttribute("aria-label", "Mix quality gates");
   for (const [name, value] of gates) {
     const pill = document.createElement("span");
-    pill.className = `gate ${gateClass(value)}`;
-    pill.textContent = `${name}: ${gateLabel(value)}`;
+    const isInfo = infoFlags.has(name);
+    // Info flags: true=pass, false/undefined=na (not a Strict QA failure).
+    const klass = isInfo
+      ? value === true
+        ? "pass"
+        : "na"
+      : gateClass(value);
+    const label = isInfo
+      ? value === true
+        ? "yes"
+        : value === false
+          ? "no"
+          : "n/a"
+      : gateLabel(value);
+    pill.className = `gate ${klass}`;
+    pill.textContent = `${name}: ${label}`;
     const hint = GATE_RUBRIC[name] ?? "";
-    const tip = hint
-      ? `${name}: ${gateLabel(value)} — ${hint}`
-      : `${name}: ${gateLabel(value)}`;
+    const tip = hint ? `${name}: ${label} — ${hint}` : `${name}: ${label}`;
     pill.title = tip;
     pill.setAttribute("aria-label", tip);
     strip.appendChild(pill);
@@ -400,7 +426,11 @@ function renderMixReport(r: MixReport, deterministic: boolean) {
         const meta = document.createElement("span");
         meta.className = "set-order-meta";
         const key = cue.key?.trim() || "?";
-        meta.textContent = `${key} · ${fmt(cue.bpm, 1)} BPM`;
+        const bars =
+          cue.bars_per_phrase && cue.bars_per_phrase > 0
+            ? ` · ${cue.bars_per_phrase}-bar`
+            : "";
+        meta.textContent = `${key} · ${fmt(cue.bpm, 1)} BPM${bars}`;
         li.appendChild(meta);
       }
       if (prep) {

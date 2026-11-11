@@ -583,7 +583,8 @@ button.primary:hover:not(:disabled) {
   font-size: 0.72rem;
 }
 
-.editor-transition {
+.editor-transition,
+.editor-phrase {
   flex: 0 0 auto;
   max-width: 9.5rem;
   padding: 0.15rem 0.3rem;
@@ -594,6 +595,10 @@ button.primary:hover:not(:disabled) {
   font-family: var(--font-mono);
   font-size: 0.72rem;
   cursor: pointer;
+}
+
+.editor-phrase {
+  max-width: 5.5rem;
 }
 
 .transitions li {

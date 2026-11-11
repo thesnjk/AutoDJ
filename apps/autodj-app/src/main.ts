@@ -103,7 +103,16 @@ type EditorTrackDraft = {
   transitionOut: string | null;
   key: string | null;
   bpm: number | null;
+  /** `4` / `8` / `16`; null = Auto (omit from playlist). */
+  barsPerPhrase: number | null;
 };
+
+const PHRASE_BAR_OPTIONS: { value: string; label: string }[] = [
+  { value: "", label: "Auto" },
+  { value: "4", label: "4-bar" },
+  { value: "8", label: "8-bar" },
+  { value: "16", label: "16-bar" },
+];
 
 /** Seeded from MixReport.order with computed play windows + edge classes. */
 let editorDraft: EditorTrackDraft[] = [];
@@ -176,6 +185,9 @@ function seedEditorDraft(report: MixReport) {
       cue && Number.isFinite(cue.play_end_secs) ? cue.play_end_secs : null;
     const transitionOut =
       i < order.length - 1 && edge?.class?.trim() ? edge.class.trim() : null;
+    const bars = cue?.bars_per_phrase;
+    const barsPerPhrase =
+      bars === 4 || bars === 8 || bars === 16 ? bars : null;
     return {
       path,
       mixInSecs: mixIn,
@@ -183,6 +195,7 @@ function seedEditorDraft(report: MixReport) {
       transitionOut,
       key: cue?.key?.trim() || null,
       bpm: cue?.bpm && Number.isFinite(cue.bpm) ? cue.bpm : null,
+      barsPerPhrase,
     };
   });
   syncEditorButtons();
@@ -584,8 +597,30 @@ function renderMixReport(r: MixReport, deterministic: boolean) {
           editorDraft[i].mixOutSecs = parseOptionalSecs(outInput.value);
         });
         outLab.appendChild(outInput);
+        const phraseLab = document.createElement("label");
+        phraseLab.className = "editor-field";
+        phraseLab.textContent = "phrase";
+        const phraseSel = document.createElement("select");
+        phraseSel.className = "editor-phrase";
+        phraseSel.title = "bars_per_phrase override (Auto = heuristic)";
+        for (const opt of PHRASE_BAR_OPTIONS) {
+          const o = document.createElement("option");
+          o.value = opt.value;
+          o.textContent = opt.label;
+          phraseSel.appendChild(o);
+        }
+        phraseSel.value =
+          editorDraft[i].barsPerPhrase === null
+            ? ""
+            : String(editorDraft[i].barsPerPhrase);
+        phraseSel.addEventListener("change", () => {
+          const v = phraseSel.value.trim();
+          editorDraft[i].barsPerPhrase = v ? Number.parseInt(v, 10) : null;
+        });
+        phraseLab.appendChild(phraseSel);
         edits.appendChild(inLab);
         edits.appendChild(outLab);
+        edits.appendChild(phraseLab);
         li.appendChild(edits);
       }
       li.tabIndex = 0;
@@ -1206,6 +1241,7 @@ async function applyEditorRemix() {
     transitionOut: t.transitionOut,
     key: t.key,
     bpm: t.bpm,
+    barsPerPhrase: t.barsPerPhrase,
   }));
   setBusy(true);
   appendLog("--- Automix Editor Apply & re-mix ---");

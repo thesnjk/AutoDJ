@@ -1,4 +1,4 @@
-//! Decode and encode mono/stereo PCM for AutoDJ offline rendering.
+//! Decode WAV/FLAC and encode WAV for AutoDJ offline rendering.
 
 use std::path::Path;
 
@@ -11,7 +11,10 @@ pub enum IoError {
     /// Underlying hound / filesystem failure.
     #[error("audio io: {0}")]
     Hound(#[from] hound::Error),
-    /// Unsupported sample format.
+    /// Underlying claxon FLAC decode failure.
+    #[error("flac io: {0}")]
+    Flac(#[from] claxon::Error),
+    /// Unsupported sample format or path extension.
     #[error("unsupported format: {0}")]
     Unsupported(String),
 }
@@ -74,6 +77,23 @@ impl AudioBuffer {
     }
 }
 
+/// Read a WAV or FLAC file into an [`AudioBuffer`] (dispatch by path extension).
+pub fn read_audio(path: impl AsRef<Path>) -> Result<AudioBuffer, IoError> {
+    let path = path.as_ref();
+    let ext = path
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("")
+        .to_ascii_lowercase();
+    match ext.as_str() {
+        "wav" => read_wav(path),
+        "flac" => read_flac(path),
+        other => Err(IoError::Unsupported(format!(
+            "extension .{other} (expected .wav or .flac)"
+        ))),
+    }
+}
+
 /// Read a WAV file into an [`AudioBuffer`].
 pub fn read_wav(path: impl AsRef<Path>) -> Result<AudioBuffer, IoError> {
     let mut reader = WavReader::open(path)?;
@@ -105,6 +125,31 @@ pub fn read_wav(path: impl AsRef<Path>) -> Result<AudioBuffer, IoError> {
     Ok(AudioBuffer {
         sample_rate: spec.sample_rate,
         channels: spec.channels,
+        samples,
+    })
+}
+
+/// Read a FLAC file into an [`AudioBuffer`] (mono or stereo).
+pub fn read_flac(path: impl AsRef<Path>) -> Result<AudioBuffer, IoError> {
+    let mut reader = claxon::FlacReader::open(path)?;
+    let info = reader.streaminfo();
+    let channels = info.channels;
+    if channels == 0 || channels > 2 {
+        return Err(IoError::Unsupported(format!("{channels} channels")));
+    }
+    let bits = info.bits_per_sample;
+    if !(8..=32).contains(&bits) {
+        return Err(IoError::Unsupported(format!("{bits}-bit flac")));
+    }
+    // claxon returns right-aligned signed integers at the stream bit depth.
+    let denom = (1i32 << (bits - 1)) as f32;
+    let samples: Vec<f32> = reader
+        .samples()
+        .map(|s| s.map(|v| v as f32 / denom))
+        .collect::<Result<_, _>>()?;
+    Ok(AudioBuffer {
+        sample_rate: info.sample_rate,
+        channels: channels as u16,
         samples,
     })
 }
@@ -156,5 +201,34 @@ mod tests {
         };
         let sliced = buf.slice_secs(0.5, 1.2);
         assert_eq!(sliced.samples, vec![5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0]);
+    }
+
+    #[test]
+    fn flac_gold_matches_wav() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../testdata/gold");
+        let wav_path = root.join("loop_a_128.wav");
+        let flac_path = root.join("loop_a_128.flac");
+        assert!(
+            flac_path.exists(),
+            "missing fixture {}; encode from loop_a_128.wav",
+            flac_path.display()
+        );
+        let wav = read_wav(&wav_path).unwrap();
+        let flac = read_flac(&flac_path).unwrap();
+        assert_eq!(wav.sample_rate, flac.sample_rate);
+        assert_eq!(wav.channels, flac.channels);
+        assert_eq!(wav.frames(), flac.frames());
+        assert_eq!(wav.samples.len(), flac.samples.len());
+        let mut max_delta = 0.0_f32;
+        for (a, b) in wav.samples.iter().zip(flac.samples.iter()) {
+            max_delta = max_delta.max((a - b).abs());
+        }
+        // 16-bit WAV source + lossless FLAC: allow a small quantization gap.
+        assert!(
+            max_delta < 2.0 / 32768.0 + 1e-6,
+            "max sample delta {max_delta} too large"
+        );
+        let via = read_audio(&flac_path).unwrap();
+        assert_eq!(via.frames(), flac.frames());
     }
 }

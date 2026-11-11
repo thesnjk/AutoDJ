@@ -97,9 +97,10 @@ Formula note: `(competitor best − AutoDJ) × persona weight × mix_impact`. Be
 | **P50** | Join-aware mix timeline | **Shipped** — cue segments + active/next join chrome + class listen hints |
 | **P51** | Tauri Automix Editor | **Shipped** — mix-in/out + `transition_out` draft → `mix_editor_remix` preserve-order |
 | **P52** | Broadcast −23 CI golden | **Shipped** — `--golden broadcast` + CI; `BROADCAST_TARGET_LUFS` asserts |
-| Next | FLAC decode parity | folder/docs claim flac; `autodj-io` WAV-only |
+| **P53** | FLAC decode parity | **Shipped** — `claxon` + `read_audio`; gold `loop_a_128.flac`; CI analyze |
+| Next | Policy-hints E2E golden | `--policy-hints` shipped (P5); no dedicated CI golden |
 | Later | Stems / live dual-deck; Rekordbox absolute cue remap; neural phrase ML | gated / user-owned audio / RB semantics |
 
 ## Re-rank bias
 
-Prefer agent-doable product code that closes remaining mix-quality gaps before brochure fluff. P0–P52 are in place; stems remain gated.
+Prefer agent-doable product code that closes remaining mix-quality gaps before brochure fluff. P0–P53 are in place; stems remain gated.

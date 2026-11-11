@@ -1367,7 +1367,18 @@ async function saveEditorPlaylist() {
       },
     });
     appendLog(`Saved playlist → ${selected}`);
-    showPlainReport(`Saved playlist → ${basename(selected)}`);
+    const playlistEl = $<HTMLInputElement>("playlist");
+    if (playlistEl) playlistEl.value = selected;
+    const preserveEl = $<HTMLInputElement>("preserve-order");
+    if (preserveEl) preserveEl.checked = true;
+    const advanced = document.querySelector("details.advanced");
+    if (advanced instanceof HTMLDetailsElement) advanced.open = true;
+    appendLog(
+      `Advanced playlist → ${selected} (preserve order on; Mix playlist ready)`,
+    );
+    showPlainReport(
+      `Saved playlist → ${basename(selected)} · wired Advanced + preserve order`,
+    );
   } catch (e) {
     showPlainReport(String(e), true);
     appendLog(String(e));

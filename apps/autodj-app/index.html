@@ -25,6 +25,7 @@
         <div class="player-actions">
           <button type="button" id="btn-mix-now" class="browse" aria-keyshortcuts="N">Mix Now</button>
           <button type="button" id="btn-editor-apply" class="primary" disabled>Apply &amp; re-mix</button>
+          <button type="button" id="btn-editor-save" class="browse" disabled>Save playlist…</button>
           <button type="button" id="btn-editor-reset" class="browse" disabled>Reset overrides</button>
           <label class="check">
             <span class="check-row">
@@ -34,7 +35,7 @@
             <span class="hint">Plays the continuous Automix WAV when Mix succeeds</span>
           </label>
         </div>
-        <p class="hint player-hint">Cue spans + join ticks · Automix Editor: set mix-in/out + phrase bars (4/8/16) on Set order and transition type on Transitions, then Apply &amp; re-mix · <kbd>N</kbd> / Mix Now → next join · <kbd>Shift</kbd>+<kbd>N</kbd> → previous</p>
+        <p class="hint player-hint">Cue spans + join ticks · Automix Editor: set mix-in/out + phrase bars (4/8/16) on Set order and transition type on Transitions, then Apply &amp; re-mix or Save playlist… for CLI <code>--playlist</code> · <kbd>N</kbd> / Mix Now → next join · <kbd>Shift</kbd>+<kbd>N</kbd> → previous</p>
         <div id="matches-panel" class="matches-panel" hidden>
           <h3 class="matches-title">Next matches (from now playing)</h3>
           <ul id="matches-list" class="matches-list"></ul>

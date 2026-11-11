@@ -111,8 +111,9 @@ Formula note: `(competitor best − AutoDJ) × persona weight × mix_impact`. Be
 | **P64** | Analyze input Browse | **Shipped** — Browse folder… + Browse file… (wav/flac) |
 | **P65** | Feature DB `#db` Browse | **Shipped** — Browse… (open) + New… (save) for `.sqlite` |
 | **P66** | Tauri `--no-transition-model` | **Shipped** — Advanced Skip Softmax checkbox → CLI flag |
+| **P67** | FLAC export parity | **Shipped** — `write_audio` / `flacenc`; `--out` `.wav`/`.flac` |
 | Later | Stems / live dual-deck; neural phrase ML | gated / user-owned audio |
 
 ## Re-rank bias
 
-Prefer agent-doable product code that closes remaining mix-quality gaps before brochure fluff. P0–P66 are in place; stems remain gated.
+Prefer agent-doable product code that closes remaining mix-quality gaps before brochure fluff. P0–P67 are in place; stems remain gated.

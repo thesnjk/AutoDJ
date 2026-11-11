@@ -1287,8 +1287,8 @@ async function browseAnalyzeFile() {
 
 async function browseOut() {
   const selected = await save({
-    title: "Export mix WAV",
-    filters: [{ name: "WAV", extensions: ["wav"] }],
+    title: "Export mix audio",
+    filters: [{ name: "Audio", extensions: ["wav", "flac"] }],
     defaultPath: "mix.wav",
   });
   if (typeof selected === "string") {

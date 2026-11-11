@@ -8,7 +8,7 @@ Thin index for humans and agents. Prefer linking one Doc at a time.
 |------|------|
 | `crates/autodj-core/` | Analysis + offline DSP |
 | `crates/autodj-graph/` | Mix order / transition solver |
-| `crates/autodj-io/` | WAV/FLAC decode (`read_audio`) + WAV encode |
+| `crates/autodj-io/` | WAV/FLAC decode (`read_audio`) + WAV/FLAC encode (`write_audio`) |
 | `crates/autodj-cli/` | `autodj` binary |
 | `python/autodj_train/` | Synthetic transitions, Softmax train/eval |
 | `apps/autodj-app/` | Tauri 2 shell (Vite + TS over CLI) |

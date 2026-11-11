@@ -13,7 +13,7 @@ playlist JSON / Rekordbox XML ──► apps/autodj-app (Tauri) ──┐
  autodj-core (cue: per-track phrase + LCM join snap + drop_start) ──► slice buffers
         │
         ▼
- autodj-core (WSOLA + EQ xfade + R128) ──► eval spectral + join + bass + stretch + beat-phase/peak gates ──► WAV out
+ autodj-core (WSOLA + EQ xfade + R128) ──► eval spectral + join + bass + stretch + beat-phase/peak gates ──► WAV/FLAC out
         │
         ▼
 autodj_train: synth → SoftmaxLogReg JSON (v3) + tracklist aggregate → policy_hints
@@ -21,7 +21,7 @@ autodj_train: synth → SoftmaxLogReg JSON (v3) + tracklist aggregate → policy
 
 ## Crates / app
 
-- **autodj-io** — WAV/FLAC decode (`read_audio` / `claxon`) + WAV encode; PCM containers + `slice_secs`.
+- **autodj-io** — WAV/FLAC decode (`read_audio` / `claxon`) + WAV/FLAC encode (`write_audio` / `flacenc`); PCM containers + `slice_secs`.
 - **autodj-core** — feature extraction (`AnalysisQuality`, BPM octave correction, `beat_offset_secs`, FFT hop `spectral_centroid_hz` via `realfft`), Rekordbox XML ingest (`rekordbox.rs`; Type 1/2 → absolute `mix_in_secs`/`mix_out_secs`), cue planner (`estimate_bars_per_phrase` + `phrase_bars_lcm` join snap + measured `cue_edge_phrase_aligned`; `plan_segment_cues` with `drop_start` + `CueOverrides` mix-in/out), EQ / FX crossfades (EqSwap, FilterSweep, EchoOut, Tremolo, Riser, Dissolve; bass-overlap score), bidirectional WSOLA tempo blend (`tempo_blend_head` + `tempo_blend_tail`; `stretch_clamp_excess`), R128, spectral + join-local + beat-phase eval (`eval.rs`; join indices + bass overlap from renderer); `segment_start_indices` for mix-timeline UI. Pure Rust; primary target macOS Apple Silicon. Analysis is offline-only (not audio-thread safe).
 - **autodj-graph** — greedy NN solver with energy-arc phases + genre policy weights; `pair_cost_edge` includes `key_pair_cost` (Camelot + `HARMONIC_ROUTE_DISCOUNT` when `suggest_next_keys`), stretch-clamp excess + resolved-class penalty; `rank_next_matches` / `build_remix_order` for Automix Matching; `crossfade_secs_for_class` scales edge duration by class; `preserve_order` for setlist fidelity; `PolicyHintOverride` / `with_hints`; versioned `TransitionModel` Softmax (`predict_transition_class_edge` for v3 stretch + spectral + phrase bars); `apply_transition_overrides` for playlist `transition_out` pins.
 - **autodj-cli** — user-facing analyze/mix; JSON or Rekordbox `.xml` via `--playlist`; `--playlist-name`; `--preserve-order`; `--policy-hints`; Softmax default on ordinary mix (`--transition-model` / `--no-transition-model`); `--deterministic` (incl. prep quality gate on `AnalysisQuality`); MixReport sidecar `{out}.mixreport.json` (`--report-out` override) plus stdout JSON; CI goldens `--golden smoke` / `broadcast` (−23 LUFS) / `policy_hints` / `rekordbox` / `rekordbox_cue_overrides` / `cue_overrides` / `transitions` / `transition_model` (six-genre Softmax E2E).

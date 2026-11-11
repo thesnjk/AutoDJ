@@ -219,6 +219,112 @@ fn write_temp_playlist(genre: &str, tracks: &[PathBuf]) -> Result<PathBuf, Strin
     Ok(path)
 }
 
+/// One track in an Automix Editor re-mix (paths + optional cue/transition pins).
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct EditorTrack {
+    path: String,
+    mix_in_secs: Option<f64>,
+    mix_out_secs: Option<f64>,
+    /// Snake_case `TransitionClass` (e.g. `hard_cut`); omitted = auto.
+    transition_out: Option<String>,
+    key: Option<String>,
+    bpm: Option<f64>,
+}
+
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct MixEditorRemixArgs {
+    out: String,
+    genre: String,
+    tracks: Vec<EditorTrack>,
+    policy_hints: Option<String>,
+    transition_model: Option<String>,
+    db: Option<String>,
+    #[serde(default = "default_deterministic")]
+    deterministic: bool,
+    lufs: Option<f64>,
+}
+
+/// Write a temp playlist JSON with optional mix-in/out and `transition_out` overrides.
+fn write_temp_playlist_overrides(
+    genre: &str,
+    tracks: &[EditorTrack],
+) -> Result<PathBuf, String> {
+    if tracks.is_empty() {
+        return Err("Automix Editor: need at least one track".into());
+    }
+    let mut objs = Vec::with_capacity(tracks.len());
+    for t in tracks {
+        let path = Path::new(&t.path);
+        let abs = path
+            .canonicalize()
+            .unwrap_or_else(|_| path.to_path_buf())
+            .to_string_lossy()
+            .into_owned();
+        let mut map = serde_json::Map::new();
+        map.insert("path".into(), serde_json::Value::String(abs));
+        if let Some(v) = t.mix_in_secs {
+            map.insert("mix_in_secs".into(), serde_json::json!(v));
+        }
+        if let Some(v) = t.mix_out_secs {
+            map.insert("mix_out_secs".into(), serde_json::json!(v));
+        }
+        if let Some(ref cls) = t.transition_out {
+            let trimmed = cls.trim();
+            if !trimmed.is_empty() {
+                map.insert(
+                    "transition_out".into(),
+                    serde_json::Value::String(trimmed.to_string()),
+                );
+            }
+        }
+        if let Some(ref key) = t.key {
+            let trimmed = key.trim();
+            if !trimmed.is_empty() {
+                map.insert("key".into(), serde_json::Value::String(trimmed.to_string()));
+            }
+        }
+        if let Some(bpm) = t.bpm {
+            map.insert("bpm".into(), serde_json::json!(bpm));
+        }
+        objs.push(serde_json::Value::Object(map));
+    }
+    let json = serde_json::json!({
+        "genre": genre,
+        "tracks": objs,
+    });
+    let path = std::env::temp_dir().join(format!(
+        "autodj-editor-playlist-{}.json",
+        std::process::id()
+    ));
+    fs::write(&path, serde_json::to_string_pretty(&json).map_err(|e| e.to_string())?)
+        .map_err(|e| format!("write editor playlist: {e}"))?;
+    Ok(path)
+}
+
+/// Re-mix with locked order and optional cue/transition overrides (Automix Editor).
+#[tauri::command]
+fn mix_editor_remix(app: AppHandle, args: MixEditorRemixArgs) -> Result<serde_json::Value, String> {
+    let playlist = write_temp_playlist_overrides(&args.genre, &args.tracks)?;
+    let hints = args.policy_hints.filter(|s| !s.trim().is_empty());
+    let model = args.transition_model.filter(|s| !s.trim().is_empty());
+    let db = args.db.filter(|s| !s.trim().is_empty());
+    run_mix_cli(
+        &app,
+        playlist.to_string_lossy().as_ref(),
+        &args.out,
+        &args.genre,
+        hints.as_deref(),
+        model.as_deref(),
+        db.as_deref(),
+        true, // lock MixReport.order
+        None,
+        args.deterministic,
+        args.lufs,
+    )
+}
+
 fn run_mix_cli(
     app: &AppHandle,
     playlist: &str,
@@ -647,6 +753,7 @@ pub fn run() {
             automix_folder,
             suggest_matches,
             remix_queue_next,
+            mix_editor_remix,
             path_exists
         ])
         .run(tauri::generate_context!())

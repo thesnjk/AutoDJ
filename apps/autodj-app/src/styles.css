@@ -555,6 +555,47 @@ button.primary:hover:not(:disabled) {
   text-transform: lowercase;
 }
 
+.editor-cue-fields {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.55rem;
+  margin-left: 0.25rem;
+}
+
+.editor-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.68rem;
+  color: var(--muted);
+  text-transform: lowercase;
+}
+
+.editor-field input {
+  width: 4.5rem;
+  padding: 0.15rem 0.3rem;
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  background: rgba(20, 24, 32, 0.85);
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+}
+
+.editor-transition {
+  flex: 0 0 auto;
+  max-width: 9.5rem;
+  padding: 0.15rem 0.3rem;
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  background: rgba(20, 24, 32, 0.85);
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  cursor: pointer;
+}
+
 .transitions li {
   display: flex;
   flex-wrap: wrap;

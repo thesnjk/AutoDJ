@@ -95,6 +95,31 @@ let lastMixReport: MixReport | null = null;
 let lastMatchesCueIndex = -1;
 let matchesInFlight = false;
 
+/** Draft track for Automix Editor (only non-null fields are written to playlist JSON). */
+type EditorTrackDraft = {
+  path: string;
+  mixInSecs: number | null;
+  mixOutSecs: number | null;
+  transitionOut: string | null;
+  key: string | null;
+  bpm: number | null;
+};
+
+/** Seeded from MixReport.order; overrides empty until the user edits. */
+let editorDraft: EditorTrackDraft[] = [];
+
+const TRANSITION_CLASS_OPTIONS: { value: string; label: string }[] = [
+  { value: "", label: "Auto" },
+  { value: "linear_crossfade", label: "Linear crossfade" },
+  { value: "eq_swap", label: "EQ swap" },
+  { value: "filter_sweep", label: "Filter sweep" },
+  { value: "echo_out", label: "Echo out" },
+  { value: "tremolo", label: "Tremolo" },
+  { value: "riser", label: "Riser" },
+  { value: "dissolve", label: "Dissolve" },
+  { value: "hard_cut", label: "Hard cut" },
+];
+
 const $ = <T extends HTMLElement>(id: string) =>
   document.getElementById(id) as T | null;
 
@@ -115,6 +140,8 @@ function setBusy(busy: boolean) {
     "btn-browse-playlist",
     "btn-browse-folder",
     "btn-browse-out",
+    "btn-editor-apply",
+    "btn-editor-reset",
   ]) {
     const btn = $<HTMLButtonElement>(id);
     if (btn) btn.disabled = busy;
@@ -124,6 +151,58 @@ function setBusy(busy: boolean) {
     .forEach((btn) => {
       btn.disabled = busy;
     });
+  if (!busy) syncEditorButtons();
+}
+
+function syncEditorButtons() {
+  const hasDraft = editorDraft.length > 0;
+  const apply = $<HTMLButtonElement>("btn-editor-apply");
+  const reset = $<HTMLButtonElement>("btn-editor-reset");
+  if (apply) apply.disabled = !hasDraft;
+  if (reset) reset.disabled = !hasDraft;
+}
+
+/** Seed editor draft from MixReport.order with empty override pins. */
+function seedEditorDraft(report: MixReport) {
+  const order = report.order ?? [];
+  const cues = report.cues ?? [];
+  editorDraft = order.map((path, i) => {
+    const cue = cues[i];
+    return {
+      path,
+      mixInSecs: null,
+      mixOutSecs: null,
+      transitionOut: null,
+      key: cue?.key?.trim() || null,
+      bpm: cue?.bpm && Number.isFinite(cue.bpm) ? cue.bpm : null,
+    };
+  });
+  syncEditorButtons();
+}
+
+function resetEditorDraft() {
+  if (!lastMixReport) {
+    editorDraft = [];
+    syncEditorButtons();
+    return;
+  }
+  seedEditorDraft(lastMixReport);
+  renderMixReport(
+    lastMixReport,
+    $<HTMLInputElement>("deterministic")?.checked ?? true,
+  );
+  appendLog("Automix Editor: overrides reset");
+}
+
+function parseOptionalSecs(raw: string): number | null {
+  const t = raw.trim();
+  if (!t) return null;
+  const n = Number.parseFloat(t);
+  return Number.isFinite(n) && n >= 0 ? n : null;
+}
+
+function stopRowSeek(ev: Event) {
+  ev.stopPropagation();
 }
 
 function showPlainReport(text: string, error = false) {
@@ -458,6 +537,49 @@ function renderMixReport(r: MixReport, deterministic: boolean) {
         pill.title = prepTooltip(prep);
         li.appendChild(pill);
       }
+      if (editorDraft[i]) {
+        const edits = document.createElement("span");
+        edits.className = "editor-cue-fields";
+        edits.addEventListener("click", stopRowSeek);
+        edits.addEventListener("keydown", stopRowSeek);
+        const inLab = document.createElement("label");
+        inLab.className = "editor-field";
+        inLab.textContent = "in";
+        const inInput = document.createElement("input");
+        inInput.type = "number";
+        inInput.step = "0.01";
+        inInput.min = "0";
+        inInput.placeholder = "auto";
+        inInput.title = "mix_in_secs override (empty = auto)";
+        inInput.value =
+          editorDraft[i].mixInSecs === null
+            ? ""
+            : String(editorDraft[i].mixInSecs);
+        inInput.addEventListener("change", () => {
+          editorDraft[i].mixInSecs = parseOptionalSecs(inInput.value);
+        });
+        inLab.appendChild(inInput);
+        const outLab = document.createElement("label");
+        outLab.className = "editor-field";
+        outLab.textContent = "out";
+        const outInput = document.createElement("input");
+        outInput.type = "number";
+        outInput.step = "0.01";
+        outInput.min = "0";
+        outInput.placeholder = "auto";
+        outInput.title = "mix_out_secs override (empty = auto)";
+        outInput.value =
+          editorDraft[i].mixOutSecs === null
+            ? ""
+            : String(editorDraft[i].mixOutSecs);
+        outInput.addEventListener("change", () => {
+          editorDraft[i].mixOutSecs = parseOptionalSecs(outInput.value);
+        });
+        outLab.appendChild(outInput);
+        edits.appendChild(inLab);
+        edits.appendChild(outLab);
+        li.appendChild(edits);
+      }
       li.tabIndex = 0;
       li.setAttribute("role", "button");
       li.addEventListener("click", () => seekToTrack(i));
@@ -506,6 +628,31 @@ function renderMixReport(r: MixReport, deterministic: boolean) {
         badge.className = "matches-route";
         badge.textContent = "key route";
         li.appendChild(badge);
+      }
+      const fromIdx = e.from;
+      if (
+        Number.isInteger(fromIdx) &&
+        fromIdx >= 0 &&
+        fromIdx < editorDraft.length
+      ) {
+        const sel = document.createElement("select");
+        sel.className = "editor-transition";
+        sel.title = "transition_out override on outgoing track (empty = auto)";
+        for (const opt of TRANSITION_CLASS_OPTIONS) {
+          const o = document.createElement("option");
+          o.value = opt.value;
+          o.textContent = opt.label;
+          sel.appendChild(o);
+        }
+        sel.value = editorDraft[fromIdx].transitionOut ?? "";
+        sel.addEventListener("click", stopRowSeek);
+        sel.addEventListener("mousedown", stopRowSeek);
+        sel.addEventListener("change", (ev) => {
+          ev.stopPropagation();
+          const v = sel.value.trim();
+          editorDraft[fromIdx].transitionOut = v || null;
+        });
+        li.appendChild(sel);
       }
       li.tabIndex = 0;
       li.setAttribute("role", "button");
@@ -995,6 +1142,7 @@ async function finishMixReport(
 ) {
   lastMixReport = report;
   lastMatchesCueIndex = -1;
+  seedEditorDraft(report);
   renderMixReport(report, deterministic);
   const autoplay = $<HTMLInputElement>("autoplay")?.checked ?? true;
   const playPath = report.out?.trim() || out;
@@ -1005,6 +1153,62 @@ async function finishMixReport(
       ? `mix complete — playing ${basename(playPath)}`
       : `mix complete — loaded ${basename(playPath)} (autoplay off)`,
   );
+}
+
+/** Apply Automix Editor overrides via mix --preserve-order. */
+async function applyEditorRemix() {
+  const out = $<HTMLInputElement>("out")?.value.trim() ?? "";
+  if (!out || editorDraft.length === 0) {
+    showPlainReport("Need a completed mix before Apply & re-mix", true);
+    return;
+  }
+  const genre = $<HTMLSelectElement>("genre")?.value ?? "house";
+  const policyHints =
+    $<HTMLInputElement>("policy-hints")?.value.trim() || null;
+  const transitionModel =
+    $<HTMLInputElement>("transition-model")?.value.trim() || null;
+  const db = $<HTMLInputElement>("db")?.value.trim() || null;
+  const deterministic =
+    $<HTMLInputElement>("deterministic")?.checked ?? true;
+  const lufs = selectedLufs(deterministic);
+  const tracks = editorDraft.map((t) => ({
+    path: t.path,
+    mixInSecs: t.mixInSecs,
+    mixOutSecs: t.mixOutSecs,
+    transitionOut: t.transitionOut,
+    key: t.key,
+    bpm: t.bpm,
+  }));
+  setBusy(true);
+  appendLog("--- Automix Editor Apply & re-mix ---");
+  try {
+    const report = await invoke<MixReport>("mix_editor_remix", {
+      args: {
+        out,
+        genre,
+        tracks,
+        policyHints,
+        transitionModel,
+        db,
+        deterministic,
+        lufs,
+      },
+    });
+    lastMatchesCueIndex = -1;
+    await finishMixReport(report, out, deterministic);
+    const cuePin = report.cue_mix_override_applied ? "cue-override" : "";
+    const trPin = report.transition_override_applied
+      ? "transition-override"
+      : "";
+    appendLog(
+      `editor remix flags: ${[cuePin, trPin].filter(Boolean).join(", ") || "none"}`,
+    );
+  } catch (e) {
+    showPlainReport(String(e), true);
+    appendLog(String(e));
+  } finally {
+    setBusy(false);
+  }
 }
 
 window.addEventListener("DOMContentLoaded", async () => {
@@ -1031,6 +1235,14 @@ window.addEventListener("DOMContentLoaded", async () => {
   $<HTMLButtonElement>("btn-mix-now")?.addEventListener("click", () => {
     mixNowSeek();
   });
+
+  $<HTMLButtonElement>("btn-editor-apply")?.addEventListener("click", () => {
+    void applyEditorRemix();
+  });
+  $<HTMLButtonElement>("btn-editor-reset")?.addEventListener("click", () => {
+    resetEditorDraft();
+  });
+  syncEditorButtons();
 
   window.addEventListener("keydown", (ev) => {
     if (ev.metaKey || ev.ctrlKey || ev.altKey) return;

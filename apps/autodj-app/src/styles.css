@@ -423,6 +423,14 @@ button.primary:hover:not(:disabled) {
   color: var(--accent-dim);
 }
 
+.set-order-prep {
+  flex: 0 0 auto;
+  padding: 0.1rem 0.4rem;
+  font-size: 0.68rem;
+  letter-spacing: 0.02em;
+  text-transform: lowercase;
+}
+
 .transitions li {
   display: flex;
   flex-wrap: wrap;

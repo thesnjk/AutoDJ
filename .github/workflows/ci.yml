@@ -45,6 +45,9 @@ jobs:
         run: cargo run -p autodj-cli -- mix --golden rekordbox_cue_overrides --out /tmp/autodj-rekordbox-cue-overrides.wav
       - name: Golden transition_overrides
         run: cargo run -p autodj-cli -- mix --golden transition_overrides --out /tmp/autodj-transition-overrides.wav
+      - name: Tauri shell compile (macOS)
+        if: matrix.os == 'macos-latest'
+        run: cargo check --manifest-path apps/autodj-app/src-tauri/Cargo.toml
 
   python:
     runs-on: ubuntu-latest

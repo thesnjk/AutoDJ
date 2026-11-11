@@ -158,6 +158,18 @@ function setBusy(busy: boolean) {
   }
 }
 
+/** Advanced MixReport path + peak-limit (CLI `--report-out` / `--no-loudness-norm`). */
+function nicheMixInvokeArgs(): {
+  reportOut: string | null;
+  noLoudnessNorm: boolean;
+} {
+  return {
+    reportOut: $<HTMLInputElement>("report-out")?.value.trim() || null,
+    noLoudnessNorm:
+      $<HTMLInputElement>("no-loudness-norm")?.checked ?? false,
+  };
+}
+
 function syncEditorButtons() {
   const hasDraft = editorDraft.length > 0;
   const apply = $<HTMLButtonElement>("btn-editor-apply");
@@ -262,18 +274,21 @@ function gateLabel(v: boolean | null | undefined): string {
   return "n/a";
 }
 
-/** Default MixReport sidecar beside WAV (mirrors CLI `{out}.mixreport.json`). */
+/** MixReport path: Advanced override or default `{out}.mixreport.json`. */
 function mixReportSidecarPath(wavOut: string): string {
+  const override = $<HTMLInputElement>("report-out")?.value.trim();
+  if (override) return override;
   return `${wavOut}.mixreport.json`;
 }
 
 async function revealMixReportSidecar(wavOut: string | undefined | null) {
+  const override = $<HTMLInputElement>("report-out")?.value.trim();
   const out = wavOut?.trim();
-  if (!out) {
+  if (!override && !out) {
     showPlainReport("No mix output path for MixReport sidecar", true);
     return;
   }
-  const sidecar = mixReportSidecarPath(out);
+  const sidecar = override || mixReportSidecarPath(out!);
   const exists = await invoke<boolean>("path_exists", { path: sidecar });
   if (!exists) {
     showPlainReport(`MixReport sidecar missing: ${sidecar}`, true);
@@ -370,22 +385,28 @@ function fmt(n: number | null | undefined, digits = 3): string {
   return n.toFixed(digits);
 }
 
-/** Selected LUFS preset (−14 streaming / −23 broadcast); null when Strict QA locks −14. */
+/** Selected LUFS preset (−14 streaming / −23 broadcast); null when Strict QA or peak-limit. */
 function selectedLufs(deterministic: boolean): number | null {
   if (deterministic) return null;
+  if ($<HTMLInputElement>("no-loudness-norm")?.checked) return null;
   const raw = $<HTMLSelectElement>("lufs-target")?.value ?? "-14";
   const n = Number.parseFloat(raw);
   return Number.isFinite(n) ? n : -14;
 }
 
 function syncLufsControl() {
-  const locked = $<HTMLInputElement>("deterministic")?.checked ?? true;
+  const locked =
+    ($<HTMLInputElement>("deterministic")?.checked ?? true) ||
+    ($<HTMLInputElement>("no-loudness-norm")?.checked ?? false);
   const sel = $<HTMLSelectElement>("lufs-target");
   if (!sel) return;
   sel.disabled = locked;
-  sel.title = locked
-    ? "Strict QA locks loudness to −14 LUFS"
-    : "Target integrated loudness for normalize";
+  const peakOnly = $<HTMLInputElement>("no-loudness-norm")?.checked ?? false;
+  sel.title = peakOnly
+    ? "Peak limit only skips LUFS normalize"
+    : locked
+      ? "Strict QA locks loudness to −14 LUFS"
+      : "Target integrated loudness for normalize";
 }
 
 /** Softmax path vs CLI `--no-transition-model` (checkbox wins). */
@@ -1245,6 +1266,7 @@ async function queueRemix(nextPath: string) {
   const deterministic =
     $<HTMLInputElement>("deterministic")?.checked ?? true;
   const lufs = selectedLufs(deterministic);
+  const { reportOut, noLoudnessNorm } = nicheMixInvokeArgs();
   setBusy(true);
   appendLog(`--- queue remix → ${basename(nextPath)} ---`);
   try {
@@ -1261,6 +1283,8 @@ async function queueRemix(nextPath: string) {
         db,
         deterministic,
         lufs,
+        reportOut,
+        noLoudnessNorm,
       },
     });
     lastMatchesCueIndex = -1;
@@ -1341,6 +1365,19 @@ async function browseOut() {
   });
   if (typeof selected === "string") {
     const el = $<HTMLInputElement>("out");
+    if (el) el.value = selected;
+  }
+}
+
+async function browseReportOut() {
+  const out = $<HTMLInputElement>("out")?.value.trim() || "mix.wav";
+  const selected = await save({
+    title: "MixReport JSON path",
+    filters: [{ name: "JSON", extensions: ["json"] }],
+    defaultPath: `${out}.mixreport.json`,
+  });
+  if (typeof selected === "string") {
+    const el = $<HTMLInputElement>("report-out");
     if (el) el.value = selected;
   }
 }
@@ -1469,6 +1506,7 @@ async function applyEditorRemix() {
   const deterministic =
     $<HTMLInputElement>("deterministic")?.checked ?? true;
   const lufs = selectedLufs(deterministic);
+  const { reportOut, noLoudnessNorm } = nicheMixInvokeArgs();
   const tracks = editorTracksPayload();
   setBusy(true);
   appendLog("--- Automix Editor Apply & re-mix ---");
@@ -1484,6 +1522,8 @@ async function applyEditorRemix() {
         db,
         deterministic,
         lufs,
+        reportOut,
+        noLoudnessNorm,
       },
     });
     lastMatchesCueIndex = -1;
@@ -1562,6 +1602,9 @@ window.addEventListener("DOMContentLoaded", async () => {
   syncLufsControl();
   syncTransitionModelControls();
   $<HTMLInputElement>("deterministic")?.addEventListener("change", () => {
+    syncLufsControl();
+  });
+  $<HTMLInputElement>("no-loudness-norm")?.addEventListener("change", () => {
     syncLufsControl();
   });
   $<HTMLInputElement>("no-transition-model")?.addEventListener("change", () => {
@@ -1723,6 +1766,18 @@ window.addEventListener("DOMContentLoaded", async () => {
     },
   );
 
+  $<HTMLButtonElement>("btn-browse-report-out")?.addEventListener(
+    "click",
+    async () => {
+      try {
+        await browseReportOut();
+      } catch (e) {
+        showPlainReport(String(e), true);
+        appendLog(String(e));
+      }
+    },
+  );
+
   $<HTMLButtonElement>("btn-load-committed-transition-model")?.addEventListener(
     "click",
     async () => {
@@ -1765,6 +1820,7 @@ window.addEventListener("DOMContentLoaded", async () => {
       const deterministic =
         $<HTMLInputElement>("deterministic")?.checked ?? true;
       const lufs = selectedLufs(deterministic);
+      const { reportOut, noLoudnessNorm } = nicheMixInvokeArgs();
       if (!folder || !out) {
         showPlainReport("Set library folder and output audio paths", true);
         return;
@@ -1784,6 +1840,8 @@ window.addEventListener("DOMContentLoaded", async () => {
             preserveOrder,
             deterministic,
             lufs,
+            reportOut,
+            noLoudnessNorm,
           },
         });
         await finishMixReport(report, out, deterministic);
@@ -1831,6 +1889,7 @@ window.addEventListener("DOMContentLoaded", async () => {
     const deterministic =
       $<HTMLInputElement>("deterministic")?.checked ?? true;
     const lufs = selectedLufs(deterministic);
+    const { reportOut, noLoudnessNorm } = nicheMixInvokeArgs();
     if (!playlist || !out) {
       showPlainReport(
         "Set playlist (JSON or Rekordbox XML) and output audio paths",
@@ -1854,6 +1913,8 @@ window.addEventListener("DOMContentLoaded", async () => {
           playlistName,
           deterministic,
           lufs,
+          reportOut,
+          noLoudnessNorm,
         },
       });
       await finishMixReport(report, out, deterministic);

@@ -185,6 +185,11 @@ struct MixArgs {
     deterministic: bool,
     /// Target LUFS when non-deterministic (CLI `--lufs`); ignored under Strict QA.
     lufs: Option<f64>,
+    /// MixReport JSON path (CLI `--report-out`); default `{out}.mixreport.json`.
+    report_out: Option<String>,
+    /// Peak-limit only (CLI `--no-loudness-norm`).
+    #[serde(default)]
+    no_loudness_norm: bool,
 }
 
 #[derive(serde::Deserialize)]
@@ -205,6 +210,11 @@ struct AutomixFolderArgs {
     deterministic: bool,
     /// Target LUFS when non-deterministic (CLI `--lufs`); ignored under Strict QA.
     lufs: Option<f64>,
+    /// MixReport JSON path (CLI `--report-out`); default `{out}.mixreport.json`.
+    report_out: Option<String>,
+    /// Peak-limit only (CLI `--no-loudness-norm`).
+    #[serde(default)]
+    no_loudness_norm: bool,
 }
 
 /// Collect wav/flac paths in a folder (sorted), mirroring CLI `collect_audio`.
@@ -279,6 +289,11 @@ struct MixEditorRemixArgs {
     #[serde(default = "default_deterministic")]
     deterministic: bool,
     lufs: Option<f64>,
+    /// MixReport JSON path (CLI `--report-out`); default `{out}.mixreport.json`.
+    report_out: Option<String>,
+    /// Peak-limit only (CLI `--no-loudness-norm`).
+    #[serde(default)]
+    no_loudness_norm: bool,
 }
 
 /// Build CLI-compatible playlist JSON from Automix Editor tracks (pretty string).
@@ -375,6 +390,7 @@ fn mix_editor_remix(app: AppHandle, args: MixEditorRemixArgs) -> Result<serde_js
     let hints = args.policy_hints.filter(|s| !s.trim().is_empty());
     let model = args.transition_model.filter(|s| !s.trim().is_empty());
     let db = args.db.filter(|s| !s.trim().is_empty());
+    let report_out = args.report_out.filter(|s| !s.trim().is_empty());
     run_mix_cli(
         &app,
         playlist.to_string_lossy().as_ref(),
@@ -388,6 +404,8 @@ fn mix_editor_remix(app: AppHandle, args: MixEditorRemixArgs) -> Result<serde_js
         None,
         args.deterministic,
         args.lufs,
+        report_out.as_deref(),
+        args.no_loudness_norm,
     )
 }
 
@@ -414,6 +432,34 @@ fn push_transition_model_args(
     }
 }
 
+fn push_report_and_loudness_args(
+    owned: &mut Vec<String>,
+    report_out: Option<&str>,
+    no_loudness_norm: bool,
+    deterministic: bool,
+    lufs: Option<f64>,
+) {
+    if let Some(path) = report_out.filter(|s| !s.is_empty()) {
+        owned.push("--report-out".into());
+        owned.push(path.into());
+    }
+    if no_loudness_norm {
+        owned.push("--no-loudness-norm".into());
+    }
+    if deterministic {
+        owned.push("--deterministic".into());
+    } else {
+        owned.push("--no-deterministic".into());
+        // CLI ignores --lufs under --deterministic; peak-limit skips normalize targets.
+        // Use `--lufs=-23` form so clap does not treat a leading '-' as a flag.
+        if !no_loudness_norm {
+            if let Some(target) = lufs {
+                owned.push(format!("--lufs={target}"));
+            }
+        }
+    }
+}
+
 fn run_mix_cli(
     app: &AppHandle,
     playlist: &str,
@@ -427,6 +473,8 @@ fn run_mix_cli(
     playlist_name: Option<&str>,
     deterministic: bool,
     lufs: Option<f64>,
+    report_out: Option<&str>,
+    no_loudness_norm: bool,
 ) -> Result<serde_json::Value, String> {
     let mut owned: Vec<String> = vec![
         "mix".into(),
@@ -453,16 +501,13 @@ fn run_mix_cli(
         owned.push(d.into());
     }
     push_transition_model_args(&mut owned, no_transition_model, transition_model);
-    if deterministic {
-        owned.push("--deterministic".into());
-    } else {
-        owned.push("--no-deterministic".into());
-        // CLI ignores --lufs under --deterministic; only forward when Strict QA is off.
-        // Use `--lufs=-23` form so clap does not treat a leading '-' as a flag.
-        if let Some(target) = lufs {
-            owned.push(format!("--lufs={target}"));
-        }
-    }
+    push_report_and_loudness_args(
+        &mut owned,
+        report_out,
+        no_loudness_norm,
+        deterministic,
+        lufs,
+    );
 
     let refs: Vec<&str> = owned.iter().map(|s| s.as_str()).collect();
     let (ok, stdout, stderr) = run_autodj(app, &refs)?;
@@ -483,6 +528,7 @@ fn mix(app: AppHandle, args: MixArgs) -> Result<serde_json::Value, String> {
     let model = args.transition_model.filter(|s| !s.trim().is_empty());
     let db = args.db.filter(|s| !s.trim().is_empty());
     let playlist_name = args.playlist_name.filter(|s| !s.trim().is_empty());
+    let report_out = args.report_out.filter(|s| !s.trim().is_empty());
     run_mix_cli(
         &app,
         &args.playlist,
@@ -496,6 +542,8 @@ fn mix(app: AppHandle, args: MixArgs) -> Result<serde_json::Value, String> {
         playlist_name.as_deref(),
         args.deterministic,
         args.lufs,
+        report_out.as_deref(),
+        args.no_loudness_norm,
     )
 }
 
@@ -541,6 +589,11 @@ struct RemixQueueArgs {
     deterministic: bool,
     /// Target LUFS when non-deterministic (CLI `--lufs`); ignored under Strict QA.
     lufs: Option<f64>,
+    /// MixReport JSON path (CLI `--report-out`); default `{out}.mixreport.json`.
+    report_out: Option<String>,
+    /// Peak-limit only (CLI `--no-loudness-norm`).
+    #[serde(default)]
+    no_loudness_norm: bool,
 }
 
 /// Rank next-track matches for the now-playing track (CLI `suggest`).
@@ -628,14 +681,14 @@ fn remix_queue_next(app: AppHandle, args: RemixQueueArgs) -> Result<serde_json::
     }
     let model = args.transition_model.filter(|s| !s.is_empty());
     push_transition_model_args(&mut owned, args.no_transition_model, model.as_deref());
-    if args.deterministic {
-        owned.push("--deterministic".into());
-    } else {
-        owned.push("--no-deterministic".into());
-        if let Some(target) = args.lufs {
-            owned.push(format!("--lufs={target}"));
-        }
-    }
+    let report_out = args.report_out.filter(|s| !s.is_empty());
+    push_report_and_loudness_args(
+        &mut owned,
+        report_out.as_deref(),
+        args.no_loudness_norm,
+        args.deterministic,
+        args.lufs,
+    );
     let refs: Vec<&str> = owned.iter().map(|s| s.as_str()).collect();
     let (ok, stdout, stderr) = run_autodj(&app, &refs)?;
     if !ok {
@@ -691,6 +744,7 @@ fn automix_folder(app: AppHandle, args: AutomixFolderArgs) -> Result<serde_json:
 
     let hints = args.policy_hints.filter(|s| !s.trim().is_empty());
     let model = args.transition_model.filter(|s| !s.trim().is_empty());
+    let report_out = args.report_out.filter(|s| !s.trim().is_empty());
     let playlist_s = playlist_path.to_string_lossy().into_owned();
     run_mix_cli(
         &app,
@@ -705,6 +759,8 @@ fn automix_folder(app: AppHandle, args: AutomixFolderArgs) -> Result<serde_json:
         None,
         args.deterministic,
         args.lufs,
+        report_out.as_deref(),
+        args.no_loudness_norm,
     )
 }
 

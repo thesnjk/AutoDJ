@@ -1,26 +1,26 @@
 # Competitive automix sweep
 
-Living gap matrix. Updated 2026-11-11 after P68 UI/Docs polish (Firecrawl notes in local `.firecrawl/`, not committed). Every Gap needs an evidence path.
+Living gap matrix. Updated 2026-11-11 after **P74** competitive ungated closure (post-P73 niche flag parity + macOS Tauri compile). Firecrawl notes stay in local `.firecrawl/` (not committed). Every remaining **Gap** needs an evidence path; ungated product surfaces below are **Shipped** / **Parity (closed)**.
 
 ## Surface matrix
 
 | Surface | Competitor cue | AutoDJ status | Evidence |
 |---------|----------------|---------------|----------|
-| Offline automix render | djay Automix (playlist → continuous blend; Mix Now / cue points) | Parity-path MVP | `autodj-cli` `mix`; MixReport sidecar `{out}.mixreport.json` + Tauri Reveal MixReport; `crates/autodj-core/src/render.rs` |
-| Library I/O (wav/flac) | Serato / Rekordbox lossless libraries | Parity-path | `read_audio` / `write_audio` (`claxon` + `flacenc`); CLI `--out` `.wav`/`.flac`; CI analyze `loop_a_128.flac`; Tauri Output Browse wav+flac |
-| Feature extraction (BPM/key/sections) | Rekordbox / djay prep analysis | Parity-path | `analysis.rs` `AnalysisQuality` + octave fold; FFT hop spectral centroid (`spectral_centroid_hz`); MixReport `prep_quality_gate_pass`; gold `expected_analyze.json` + FLAC decode; Tauri Analyze Browse folder/file |
-| Harmonic suggestions | Rekordbox / DJ.Studio Camelot ordering | Parity MVP | `camelot.rs`; `key_pair_cost` / `suggest_next_keys`; `prefers_harmonic_neighbor` |
-| Energy-arc setcraft | Club open→peak→cool programming | Parity-path | `ArcPhase` + `pair_cost_at` + quiet opener; MixReport order |
-| Transition type palette | djay Filter / Echo / Tremolo / Riser / Dissolve / Neural Mix; SetFlow six-core (EQ, bass swap, cut, blend) | Parity-path | `eq.rs` Dissolve + Riser + Tremolo + Filter/Echo/EqSwap; Softmax 8-class (incl. dissolve); playlist `transition_out`; CI `--golden transitions` / `transition_model` / `transition_overrides`; Neural Mix / stems Later |
-| Mix-in / mix-out cueing | VirtualDJ Smart automix (outro→intro ~4–8s); djay start/end points | Parity-path | `cue.rs` `plan_segment_cues` + `CueOverrides` (`mix_in_secs`/`mix_out_secs`); MixReport `cue_mix_override_applied` + `cue_phrase_aligned`; CI `--golden cue_overrides` / `rekordbox_cue_overrides` |
-| Library prep (Rekordbox XML) | Rekordbox playlist export → DJ.Studio | Parity-path | `rekordbox.rs` + `--playlist` `.xml`; BPM/key/grid; Type 1/2 → absolute mix windows; `--preserve-order`; CI `--golden rekordbox` / `rekordbox_cue_overrides`; Automix Editor **Save playlist…** JSON export |
-| Stems-aware transitions | Serato Stems (vocal / melody / bass / drums pads) | Gap | no stem DSP; deferred v2 |
-| Phrase sync | Rekordbox phrase analysis / djay BPM+Beats sync | Parity-path | per-track `bars_per_phrase` + LCM join snap + measured `cue_phrase_aligned` + Softmax v3 phrase bars/mismatch; Automix Editor 4/8/16 pin |
-| Learning from setcraft | Mixonset / tracklist research tools | Parity-path | SoftmaxLogReg v3 15-dim + **8 classes** (incl. dissolve); `autodj-train eval` ≥ 0.90; CI `--golden transition_model` / `policy_hints`; Tauri Browse + Load demo for hints + Softmax model |
-| Live / controller | VirtualDJ / Serato dual-deck; djay Automix play / Mix Now | Parity-path (desktop shell) | Tauri Folder Automix + Mix & Listen + Mix Now seek (`join_timeline_secs`); Automix Editor seeded from MixReport cues/transitions; live dual-deck still Later |
-| Loudness / broadcast | EBU R 128 (−23 LUFS integrated; true-peak limits); radio-style continuous sets | Parity-path (measure+norm shipped) | `loudness.rs` + CLI `--lufs`; golden gate ±2 LU (`Docs/mix-quality-rubric.md`) |
-| Tempo blend | djay Sync + Tempo Blend | Parity-path | `stretch.rs` WSOLA `tempo_blend_head` + `tempo_blend_tail` (bidirectional); MixReport `tempo_blend_applied` + `tempo_stretch_gate_pass`; solver `stretch_clamp_excess` cost |
-| Spectral continuity eval | Mix-quality rubric adjacent flux | Parity-path | `eval.rs` hop-RMS ratio; MixReport `spectral_continuity_pass` + `join_continuity_pass` |
+| Offline automix render | djay Automix (playlist → continuous blend; Mix Now / cue points) | **Shipped** (Parity closed) | CLI `mix` + MixReport sidecar/Reveal; Tauri Folder Automix / Mix & Listen / Mix Now — P7, P37–P40, P57, P61, P73 |
+| Library I/O (wav/flac) | Serato / Rekordbox lossless libraries | **Shipped** (Parity closed) | `read_audio` / `write_audio` (claxon + flacenc); CI FLAC analyze; Tauri Browse — P53, P67 |
+| Feature extraction (BPM/key/sections) | Rekordbox / djay prep analysis | **Shipped** (Parity closed) | `AnalysisQuality`, spectral centroid, prep gates, Analyze Browse — P8, P23, P38, P64 |
+| Harmonic suggestions | Rekordbox / DJ.Studio Camelot ordering | **Shipped** (Parity closed) | `camelot.rs`; `key_pair_cost` / key-route discount; Set-order Camelot — P41, P43 |
+| Energy-arc setcraft | Club open→peak→cool programming | **Shipped** (Parity closed) | `ArcPhase` + solver costs; MixReport order — P4 |
+| Transition type palette | djay Filter / Echo / Tremolo / Riser / Dissolve / Neural Mix; SetFlow six-core | **Shipped** (Parity closed); Neural/stems Later | Softmax 8-class + EQ/FX goldens; `transition_out` — P2, P15, P28–P36; Neural Mix Later |
+| Mix-in / mix-out cueing | VirtualDJ Smart automix; djay start/end points | **Shipped** (Parity closed) | `plan_segment_cues` + `CueOverrides`; cue goldens; Editor — P1, P21, P33, P51, P55 |
+| Library prep (Rekordbox XML) | Rekordbox playlist export → DJ.Studio | **Shipped** (Parity closed) | `rekordbox.rs`; preserve-order goldens; Editor Save playlist — P10–P13, P55, P60 |
+| Stems-aware transitions | Serato Stems (vocal / melody / bass / drums pads) | **Gap** (Later / gated) | no stem DSP; needs user-owned stem path — v2 |
+| Phrase sync | Rekordbox phrase analysis / djay BPM+Beats sync | **Shipped** (Parity closed) | phrase bars + LCM + Softmax v3 phrase dims; Editor 4/8/16 — P24–P27, P59 |
+| Learning from setcraft | Mixonset / tracklist research tools | **Shipped** (Parity closed); live scrapes gated | SoftmaxLogReg v3 + offline policy_hints; Tauri Browse — P5–P6, P54, P58, P63, P66 |
+| Live / controller | VirtualDJ / Serato dual-deck; djay Automix play / Mix Now | **Shipped** desktop shell; dual-deck Later | Folder Automix + Mix & Listen + Mix Now + Editor — P7, P37–P51, P68; live dual-deck Later |
+| Loudness / broadcast | EBU R 128 (−23 LUFS); radio continuous sets | **Shipped** (Parity closed) | R128 + `--lufs` + broadcast golden; Tauri LUFS / peak-limit — P0, P49, P52, P73 |
+| Tempo blend | djay Sync + Tempo Blend | **Shipped** (Parity closed) | bidirectional WSOLA + stretch gates — P3, P17, P32 |
+| Spectral continuity eval | Mix-quality rubric adjacent flux | **Shipped** (Parity closed) | `eval.rs` hop-RMS; join continuity — P4, P12 |
 
 ## Citations (paraphrase + link only)
 
@@ -37,7 +37,7 @@ Living gap matrix. Updated 2026-11-11 after P68 UI/Docs polish (Firecrawl notes 
 - Mixonset: no stable public API docs scraped this pass; keep train path synthetic-only until a lawful ingest path is documented.
 - YouTube full-set scrapes: **forbidden** per `Docs/legal-data-policy.md`.
 - Live 1001Tracklists / Beatport HTTP clients: **gated** (ToS / anti-bot / paid API); use offline JSON/CSV fixtures + curated citations only.
-- Tauri CI on ubuntu WebKit: **deferred** this pass — Mac-local `npm run tauri dev` / `cargo check -p` via `apps/autodj-app/src-tauri`; existing Rust/python CI unchanged.
+- Ubuntu WebKit / full `tauri build`: **deferred** — CI runs `cargo check --manifest-path apps/autodj-app/src-tauri/Cargo.toml` on `macos-latest` only (P73); `npm run tauri dev` remains Mac-local.
 
 ## Persona re-rank (mix_impact × gap)
 
@@ -118,8 +118,9 @@ Formula note: `(competitor best − AutoDJ) × persona weight × mix_impact`. Be
 | **P70** | NEA-style professional writeup | **Shipped** — Analysis→Evaluation structure; persona + developer-led eval |
 | **P72** | Deepen NEA-style writeup | **Shipped** — mermaid diagrams; algorithm depth; CI/unit evidence tables; Appendix E placeholders |
 | **P73** | CLI↔Tauri niche flags + macOS Tauri compile | **Shipped** — `--report-out` / `--no-loudness-norm` in Advanced; CI `cargo check` src-tauri on macos-latest |
+| **P74** | Competitive ungated closure & matrix honesty | **Shipped** — surface matrix re-labeled Shipped/Parity (closed); stems Gap only; writeup/README closure |
 | Later | Stems / live dual-deck; neural phrase ML | gated / user-owned audio |
 
 ## Re-rank bias
 
-Prefer agent-doable product code that closes remaining mix-quality gaps before brochure fluff. P0–P73 are in place; stems remain gated.
+**Ungated product backlog is empty** after P0–P74. Default next agent work: Docs/competitive honesty from git evidence, deepen writeup if thin, or idle with merge cmds—**never** pick-lists, **never** start stems without a user-owned stem path. Stems / live dual-deck / neural phrase ML remain Later/gated.

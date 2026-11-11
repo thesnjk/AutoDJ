@@ -18,11 +18,11 @@ cargo run -p autodj-cli -- mix --golden rekordbox --out /tmp/autodj-rekordbox.wa
 cargo run -p autodj-cli -- mix --golden transitions --out /tmp/autodj-transitions.wav
 # Softmax artifact drives mix classes for all six builtins (committed transition_model.json)
 cargo run -p autodj-cli -- mix --golden transition_model --out /tmp/autodj-transition-model.wav
-# Optional: classic EBU R 128 programme loudness
-# cargo run -p autodj-cli -- mix --golden smoke --lufs -23 --out /tmp/autodj-smoke.wav
+# Optional: classic EBU R 128 on a real playlist (goldens always lock −14)
+# cargo run -p autodj-cli -- mix --playlist party.json --no-deterministic --lufs=-23 --out /tmp/autodj-broadcast.wav
 afplay /tmp/autodj-smoke.wav   # macOS
 ```
-Default export target is **−14 LUFS** (streaming-style). Pass `--lufs -23` for broadcast R 128.
+Default export target is **−14 LUFS** (streaming-style). Pass `--lufs=-23` for broadcast R 128 (equals form so clap accepts the negative).
 
 ## Your playlist
 
@@ -91,4 +91,4 @@ npm install
 npm run tauri dev
 ```
 
-Primary flow: **Browse…** a library folder of `wav`/`flac`, set output under `/tmp` or `$HOME`, leave **Preserve playlist order** unchecked, then **Automix folder**. AutoDJ writes a temp playlist, optionally analyzes into the Feature DB, Softmax-solves order, renders, and **Autoplay after mix** plays the continuous WAV. **Next matches** lists top neighbors for the now-playing track; **Queue & remix** keeps the played prefix, pins your pick, and re-solves the remainder. Click a track in **Set order (AutoDJ)** to seek (rows show Camelot + BPM + phrase bars + prep trusted/weak); join ticks under the player mark transitions; click a tick or Transition row to seek; **Mix Now** / `N` jumps to the next join (`join_timeline_secs`); `Shift+N` jumps to the previous. The report panel also shows gates (hover for rubric criteria; Strict QA fail callout; **Listen while playing** checklist) and Transitions with key route / ΔBPM / edge cost. JSON/Rekordbox playlists remain under **Advanced**. Strict QA (deterministic) needs trusted BPM (or playlist BPM overrides); gold loops may need Strict QA off. CLI: `autodj suggest --folder … --from …` / `autodj remix --folder … --prefix … --next …`. CLI resolution: `AUTODJ_BIN` → `autodj` on `PATH` → `cargo run -p autodj-cli` from the repo root.
+Primary flow: **Browse…** a library folder of `wav`/`flac`, set output under `/tmp` or `$HOME`, leave **Preserve playlist order** unchecked, then **Automix folder**. AutoDJ writes a temp playlist, optionally analyzes into the Feature DB, Softmax-solves order, renders, and **Autoplay after mix** plays the continuous WAV. **Next matches** lists top neighbors for the now-playing track; **Queue & remix** keeps the played prefix, pins your pick, and re-solves the remainder. Click a track in **Set order (AutoDJ)** to seek (rows show Camelot + BPM + phrase bars + prep trusted/weak); join ticks under the player mark transitions; click a tick or Transition row to seek; **Mix Now** / `N` jumps to the next join (`join_timeline_secs`); `Shift+N` jumps to the previous. The report panel also shows gates (hover for rubric criteria; Strict QA fail callout; **Listen while playing** checklist) and Transitions with key route / ΔBPM / edge cost. JSON/Rekordbox playlists remain under **Advanced**. Strict QA (deterministic) needs trusted BPM (or playlist BPM overrides) and locks loudness to −14 LUFS; with Strict QA off, pick **Streaming (−14)** or **Broadcast (−23)**. Gold loops may need Strict QA off. CLI: `autodj suggest --folder … --from …` / `autodj remix --folder … --prefix … --next …`. CLI resolution: `AUTODJ_BIN` → `autodj` on `PATH` → `cargo run -p autodj-cli` from the repo root.

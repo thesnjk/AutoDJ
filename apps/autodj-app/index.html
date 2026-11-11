@@ -76,7 +76,15 @@
             <input id="deterministic" type="checkbox" checked />
             <span>Strict QA gates (deterministic)</span>
           </span>
-          <span class="hint">Hard-fail beat-phase, peak, join, bass, stretch (matches CLI default)</span>
+          <span class="hint">Hard-fail beat-phase, peak, join, bass, stretch; locks loudness to −14 LUFS</span>
+        </label>
+        <label>
+          Loudness target
+          <select id="lufs-target">
+            <option value="-14" selected>Streaming (−14 LUFS)</option>
+            <option value="-23">Broadcast (−23 LUFS)</option>
+          </select>
+          <span class="hint">Ignored when Strict QA is on (CLI locks −14)</span>
         </label>
         <label>
           Feature DB

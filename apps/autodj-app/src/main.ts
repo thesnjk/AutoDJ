@@ -196,6 +196,24 @@ function fmt(n: number | null | undefined, digits = 3): string {
   return n.toFixed(digits);
 }
 
+/** Selected LUFS preset (−14 streaming / −23 broadcast); null when Strict QA locks −14. */
+function selectedLufs(deterministic: boolean): number | null {
+  if (deterministic) return null;
+  const raw = $<HTMLSelectElement>("lufs-target")?.value ?? "-14";
+  const n = Number.parseFloat(raw);
+  return Number.isFinite(n) ? n : -14;
+}
+
+function syncLufsControl() {
+  const locked = $<HTMLInputElement>("deterministic")?.checked ?? true;
+  const sel = $<HTMLSelectElement>("lufs-target");
+  if (!sel) return;
+  sel.disabled = locked;
+  sel.title = locked
+    ? "Strict QA locks loudness to −14 LUFS"
+    : "Target integrated loudness for normalize";
+}
+
 /** Short pass criteria from Docs/mix-quality-rubric.md (automated table). */
 const GATE_RUBRIC: Record<string, string> = {
   prep: "Trusted when !sparse && bpm_conf ≥ 0.25 (or playlist BPM override). Hard-fail under Strict QA.",
@@ -765,6 +783,7 @@ async function queueRemix(nextPath: string) {
   const db = $<HTMLInputElement>("db")?.value.trim() || null;
   const deterministic =
     $<HTMLInputElement>("deterministic")?.checked ?? true;
+  const lufs = selectedLufs(deterministic);
   setBusy(true);
   appendLog(`--- queue remix → ${basename(nextPath)} ---`);
   try {
@@ -779,6 +798,7 @@ async function queueRemix(nextPath: string) {
         transitionModel,
         db,
         deterministic,
+        lufs,
       },
     });
     lastMatchesCueIndex = -1;
@@ -868,6 +888,11 @@ window.addEventListener("DOMContentLoaded", async () => {
   const outEl = $<HTMLInputElement>("out");
   if (outEl) outEl.value = "/tmp/autodj-mix.wav";
 
+  syncLufsControl();
+  $<HTMLInputElement>("deterministic")?.addEventListener("change", () => {
+    syncLufsControl();
+  });
+
   const audio = $<HTMLAudioElement>("mix-player");
   audio?.addEventListener("timeupdate", () => updateNowPlayingHighlight());
   audio?.addEventListener("seeked", () => updateNowPlayingHighlight());
@@ -950,6 +975,7 @@ window.addEventListener("DOMContentLoaded", async () => {
         $<HTMLInputElement>("preserve-order")?.checked ?? false;
       const deterministic =
         $<HTMLInputElement>("deterministic")?.checked ?? true;
+      const lufs = selectedLufs(deterministic);
       if (!folder || !out) {
         showPlainReport("Set library folder and output WAV paths", true);
         return;
@@ -967,6 +993,7 @@ window.addEventListener("DOMContentLoaded", async () => {
             db,
             preserveOrder,
             deterministic,
+            lufs,
           },
         });
         await finishMixReport(report, out, deterministic);
@@ -1014,6 +1041,7 @@ window.addEventListener("DOMContentLoaded", async () => {
       $<HTMLInputElement>("playlist-name")?.value.trim() || null;
     const deterministic =
       $<HTMLInputElement>("deterministic")?.checked ?? true;
+    const lufs = selectedLufs(deterministic);
     if (!playlist || !out) {
       showPlainReport(
         "Set playlist (JSON or Rekordbox XML) and output WAV paths",
@@ -1035,6 +1063,7 @@ window.addEventListener("DOMContentLoaded", async () => {
           preserveOrder,
           playlistName,
           deterministic,
+          lufs,
         },
       });
       await finishMixReport(report, out, deterministic);

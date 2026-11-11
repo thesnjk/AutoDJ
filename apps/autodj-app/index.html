@@ -11,13 +11,13 @@
     <div class="atmosphere" aria-hidden="true"></div>
     <main class="shell">
       <header class="hero">
-        <p class="brand">AutoDJ</p>
+        <h1 class="brand">AutoDJ</h1>
         <p class="tagline">Folder → AutoDJ picks order → mix → listen</p>
       </header>
 
       <section class="player" aria-label="Mix player">
         <div id="mix-timeline" class="mix-timeline">
-          <audio id="mix-player" controls preload="metadata"></audio>
+          <audio id="mix-player" controls preload="metadata" aria-label="Mix playback"></audio>
           <div id="cue-segments" class="cue-segments" aria-hidden="true"></div>
           <div id="join-markers" class="join-markers" aria-hidden="true"></div>
         </div>
@@ -32,7 +32,7 @@
               <input id="autoplay" type="checkbox" checked />
               <span>Autoplay after mix</span>
             </span>
-            <span class="hint">Plays the continuous Automix WAV when Mix succeeds</span>
+            <span class="hint">Plays the continuous mix when Mix succeeds (HTML5 may prefer WAV over FLAC)</span>
           </label>
         </div>
         <p class="hint player-hint">Cue spans + join ticks · Automix Editor: set mix-in/out + phrase bars (4/8/16) on Set order and transition type on Transitions, then Apply &amp; re-mix or Save playlist… (wires Advanced + preserve order for Mix playlist / CLI <code>--playlist</code>) · <kbd>N</kbd> / Mix Now → next join · <kbd>Shift</kbd>+<kbd>N</kbd> → previous</p>

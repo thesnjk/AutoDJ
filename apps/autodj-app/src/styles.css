@@ -270,12 +270,13 @@ body {
 
 .path-row {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.5rem;
   align-items: stretch;
 }
 
 .path-row input {
-  flex: 1;
+  flex: 1 1 12rem;
   min-width: 0;
 }
 
@@ -681,6 +682,11 @@ button.primary:hover:not(:disabled) {
   background: rgba(20, 24, 32, 0.55);
 }
 
+.matches-list li.matches-empty {
+  color: var(--muted);
+  border-style: dashed;
+}
+
 .matches-meta {
   color: var(--muted);
   flex: 1 1 auto;
@@ -753,6 +759,16 @@ button.primary:hover:not(:disabled) {
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+@media (max-width: 640px) {
+  .path-row input {
+    flex: 1 1 100%;
+  }
+
+  button.browse {
+    flex: 1 1 auto;
   }
 }
 

@@ -109,9 +109,9 @@ Formula note: `(competitor best − AutoDJ) × persona weight × mix_impact`. Be
 | **P62** | Load editor playlist into Advanced | **Shipped** — Save playlist… fills `#playlist` + preserve-order |
 | **P63** | Advanced Softmax model Browse | **Shipped** — Browse… + Load committed → `transition_model.json` |
 | **P64** | Analyze input Browse | **Shipped** — Browse folder… + Browse file… (wav/flac) |
-| Next | Feature DB `#db` Browse | sqlite open/save dialog for Feature DB path |
+| **P65** | Feature DB `#db` Browse | **Shipped** — Browse… (open) + New… (save) for `.sqlite` |
 | Later | Stems / live dual-deck; neural phrase ML | gated / user-owned audio |
 
 ## Re-rank bias
 
-Prefer agent-doable product code that closes remaining mix-quality gaps before brochure fluff. P0–P64 are in place; stems remain gated.
+Prefer agent-doable product code that closes remaining mix-quality gaps before brochure fluff. P0–P65 are in place; stems remain gated.

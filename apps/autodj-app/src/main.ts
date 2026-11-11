@@ -152,6 +152,8 @@ function setBusy(busy: boolean) {
     "btn-browse-out",
     "btn-browse-analyze-folder",
     "btn-browse-analyze-file",
+    "btn-browse-db",
+    "btn-new-db",
     "btn-editor-apply",
     "btn-editor-save",
     "btn-editor-reset",
@@ -1268,6 +1270,32 @@ async function browseOut() {
   }
 }
 
+async function browseDbOpen() {
+  const selected = await open({
+    multiple: false,
+    directory: false,
+    title: "Select feature database",
+    filters: [{ name: "SQLite", extensions: ["sqlite"] }],
+  });
+  if (typeof selected === "string") {
+    const el = $<HTMLInputElement>("db");
+    if (el) el.value = selected;
+  }
+}
+
+async function browseDbNew() {
+  const current = $<HTMLInputElement>("db")?.value.trim() || "features.sqlite";
+  const selected = await save({
+    title: "Create feature database",
+    filters: [{ name: "SQLite", extensions: ["sqlite"] }],
+    defaultPath: current,
+  });
+  if (typeof selected === "string") {
+    const el = $<HTMLInputElement>("db");
+    if (el) el.value = selected;
+  }
+}
+
 async function browsePolicyHints() {
   const selected = await open({
     multiple: false,
@@ -1538,6 +1566,24 @@ window.addEventListener("DOMContentLoaded", async () => {
       }
     },
   );
+
+  $<HTMLButtonElement>("btn-browse-db")?.addEventListener("click", async () => {
+    try {
+      await browseDbOpen();
+    } catch (e) {
+      showPlainReport(String(e), true);
+      appendLog(String(e));
+    }
+  });
+
+  $<HTMLButtonElement>("btn-new-db")?.addEventListener("click", async () => {
+    try {
+      await browseDbNew();
+    } catch (e) {
+      showPlainReport(String(e), true);
+      appendLog(String(e));
+    }
+  });
 
   $<HTMLButtonElement>("btn-browse-policy-hints")?.addEventListener(
     "click",

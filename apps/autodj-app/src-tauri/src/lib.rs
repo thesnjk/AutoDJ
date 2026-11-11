@@ -301,6 +301,163 @@ fn mix(app: AppHandle, args: MixArgs) -> Result<serde_json::Value, String> {
     )
 }
 
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct SuggestMatchesArgs {
+    folder: String,
+    from: String,
+    #[serde(default = "default_top_n")]
+    top: usize,
+    genre: String,
+    policy_hints: Option<String>,
+    transition_model: Option<String>,
+    db: Option<String>,
+    #[serde(default)]
+    position: usize,
+    set_len: Option<usize>,
+}
+
+fn default_top_n() -> usize {
+    5
+}
+
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct RemixQueueArgs {
+    folder: String,
+    /// Already-played paths including the current track.
+    prefix: Vec<String>,
+    next: String,
+    out: String,
+    genre: String,
+    policy_hints: Option<String>,
+    transition_model: Option<String>,
+    db: Option<String>,
+    #[serde(default = "default_deterministic")]
+    deterministic: bool,
+}
+
+/// Rank next-track matches for the now-playing track (CLI `suggest`).
+#[tauri::command]
+fn suggest_matches(app: AppHandle, args: SuggestMatchesArgs) -> Result<serde_json::Value, String> {
+    let mut owned: Vec<String> = vec![
+        "suggest".into(),
+        "--folder".into(),
+        args.folder,
+        "--from".into(),
+        args.from,
+        "--top".into(),
+        args.top.to_string(),
+        "--genre".into(),
+        args.genre,
+        "--position".into(),
+        args.position.to_string(),
+    ];
+    if let Some(n) = args.set_len {
+        owned.push("--set-len".into());
+        owned.push(n.to_string());
+    }
+    if let Some(h) = args.policy_hints.filter(|s| !s.is_empty()) {
+        owned.push("--policy-hints".into());
+        owned.push(h);
+    }
+    if let Some(d) = args.db.filter(|s| !s.is_empty()) {
+        owned.push("--db".into());
+        owned.push(d);
+    }
+    let resolved_default;
+    if let Some(m) = args.transition_model.filter(|s| !s.is_empty()) {
+        owned.push("--transition-model".into());
+        owned.push(m);
+    } else {
+        resolved_default = resolve_committed_transition_model().ok();
+        if let Some(ref path) = resolved_default {
+            owned.push("--transition-model".into());
+            owned.push(path.clone());
+        }
+    }
+    let refs: Vec<&str> = owned.iter().map(|s| s.as_str()).collect();
+    let (ok, stdout, stderr) = run_autodj(&app, &refs)?;
+    if !ok {
+        return Err(stderr.if_empty(stdout));
+    }
+    extract_json(&stdout).ok_or_else(|| {
+        format!(
+            "suggest succeeded but JSON not found in stdout:\n{}",
+            stdout.chars().take(800).collect::<String>()
+        )
+    })
+}
+
+/// Pin next track after played prefix, solve remainder, preserve-order mix (CLI `remix`).
+#[tauri::command]
+fn remix_queue_next(app: AppHandle, args: RemixQueueArgs) -> Result<serde_json::Value, String> {
+    if args.prefix.is_empty() {
+        return Err("remix requires a non-empty prefix (including current track)".into());
+    }
+    emit_progress(
+        &app,
+        &format!(
+            "queue remix: prefix={} next={}",
+            args.prefix.len(),
+            Path::new(&args.next)
+                .file_name()
+                .and_then(|s| s.to_str())
+                .unwrap_or(&args.next)
+        ),
+    );
+    let mut owned: Vec<String> = vec![
+        "remix".into(),
+        "--folder".into(),
+        args.folder,
+        "--next".into(),
+        args.next,
+        "--out".into(),
+        args.out,
+        "--genre".into(),
+        args.genre,
+    ];
+    for p in &args.prefix {
+        owned.push("--prefix".into());
+        owned.push(p.clone());
+    }
+    if let Some(h) = args.policy_hints.filter(|s| !s.is_empty()) {
+        owned.push("--policy-hints".into());
+        owned.push(h);
+    }
+    if let Some(d) = args.db.filter(|s| !s.is_empty()) {
+        owned.push("--db".into());
+        owned.push(d);
+    }
+    let resolved_default;
+    if let Some(m) = args.transition_model.filter(|s| !s.is_empty()) {
+        owned.push("--transition-model".into());
+        owned.push(m);
+    } else {
+        resolved_default = resolve_committed_transition_model().ok();
+        if let Some(ref path) = resolved_default {
+            owned.push("--transition-model".into());
+            owned.push(path.clone());
+        }
+    }
+    if args.deterministic {
+        owned.push("--deterministic".into());
+    } else {
+        owned.push("--no-deterministic".into());
+    }
+    let refs: Vec<&str> = owned.iter().map(|s| s.as_str()).collect();
+    let (ok, stdout, stderr) = run_autodj(&app, &refs)?;
+    if !ok {
+        return Err(stderr.if_empty(stdout));
+    }
+    extract_json(&stdout).ok_or_else(|| {
+        format!(
+            "remix succeeded but MixReport JSON not found in stdout:\n{}",
+            stdout.chars().take(800).collect::<String>()
+        )
+    })
+}
+
 /// Scan a folder of wav/flac, build a temp playlist, optionally analyze into `--db`, then mix.
 #[tauri::command]
 fn automix_folder(app: AppHandle, args: AutomixFolderArgs) -> Result<serde_json::Value, String> {
@@ -471,6 +628,8 @@ pub fn run() {
             analyze,
             mix,
             automix_folder,
+            suggest_matches,
+            remix_queue_next,
             path_exists
         ])
         .run(tauri::generate_context!())

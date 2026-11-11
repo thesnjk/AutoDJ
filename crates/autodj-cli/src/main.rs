@@ -17,8 +17,9 @@ use autodj_core::{
     DEFAULT_TARGET_LUFS, DEFAULT_TRUE_PEAK_LIMIT, LUFS_TOLERANCE_LU,
 };
 use autodj_graph::{
-    apply_transition_overrides, crossfade_secs_for_class, load_policy_hints_map,
-    predict_transition_class_edge, preserve_order, solve_order, GenrePolicy, TransitionModel,
+    apply_transition_overrides, build_remix_order, crossfade_secs_for_class, load_policy_hints_map,
+    predict_transition_class_edge, preserve_order, rank_next_matches, solve_order, GenrePolicy,
+    TransitionModel,
 };
 use autodj_io::{read_wav, write_wav};
 use clap::{Parser, Subcommand};
@@ -88,6 +89,90 @@ enum Commands {
         #[arg(long, default_value_t = false)]
         no_transition_model: bool,
     },
+    /// Rank next-track matches from a folder for Automix Matching.
+    Suggest {
+        /// Library folder (wav/flac).
+        #[arg(long)]
+        folder: PathBuf,
+        /// Current / from track path.
+        #[arg(long)]
+        from: PathBuf,
+        /// Max candidates to return.
+        #[arg(long, default_value_t = 5)]
+        top: usize,
+        /// Genre policy id.
+        #[arg(long, default_value = "house")]
+        genre: String,
+        /// Feature DB (optional; analyzes on the fly if missing).
+        #[arg(long)]
+        db: Option<PathBuf>,
+        /// Softmax transition model JSON.
+        #[arg(long)]
+        transition_model: Option<PathBuf>,
+        /// Skip Softmax; use genre preferred_transition.
+        #[arg(long, default_value_t = false)]
+        no_transition_model: bool,
+        /// Optional genre policy hints JSON.
+        #[arg(long)]
+        policy_hints: Option<PathBuf>,
+        /// Placement index of the from-track in the current set (energy-arc phase).
+        #[arg(long, default_value_t = 0)]
+        position: usize,
+        /// Set length for energy-arc phase (defaults to folder track count).
+        #[arg(long)]
+        set_len: Option<usize>,
+    },
+    /// Remix a folder set: keep played prefix, pin next, solve remainder, preserve-order mix.
+    Remix {
+        /// Library folder (wav/flac) used to resolve remaining tracks.
+        #[arg(long)]
+        folder: PathBuf,
+        /// Already-played paths including the current track (repeatable).
+        #[arg(long = "prefix", required = true)]
+        prefix: Vec<PathBuf>,
+        /// Forced next track path.
+        #[arg(long)]
+        next: PathBuf,
+        /// Output WAV path.
+        #[arg(long, default_value = "mix.wav")]
+        out: PathBuf,
+        /// Genre policy id.
+        #[arg(long, default_value = "house")]
+        genre: String,
+        /// Feature DB (optional).
+        #[arg(long)]
+        db: Option<PathBuf>,
+        #[arg(long, default_value_t = true)]
+        deterministic: bool,
+        #[arg(long, default_value_t = false)]
+        no_deterministic: bool,
+        #[arg(long, default_value_t = DEFAULT_TARGET_LUFS)]
+        lufs: f64,
+        #[arg(long, default_value_t = false)]
+        no_loudness_norm: bool,
+        #[arg(long)]
+        policy_hints: Option<PathBuf>,
+        #[arg(long)]
+        transition_model: Option<PathBuf>,
+        #[arg(long, default_value_t = false)]
+        no_transition_model: bool,
+    },
+}
+
+#[derive(Debug, Serialize)]
+struct SuggestCandidateReport {
+    path: String,
+    cost: f32,
+    key: String,
+    bpm: f32,
+    class: TransitionClass,
+    on_route: bool,
+}
+
+#[derive(Debug, Serialize)]
+struct SuggestReport {
+    from: String,
+    candidates: Vec<SuggestCandidateReport>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -235,6 +320,80 @@ fn main() -> Result<()> {
     let cli = Cli::parse();
     match cli.command {
         Commands::Analyze { input, db } => cmd_analyze(&input, &db),
+        Commands::Suggest {
+            folder,
+            from,
+            top,
+            genre,
+            db,
+            transition_model,
+            no_transition_model,
+            policy_hints,
+            position,
+            set_len,
+        } => {
+            let policy = resolve_policy(&genre, policy_hints.as_deref())?;
+            let mut model = load_transition_model(transition_model.as_deref())?;
+            if model.is_none() && !no_transition_model {
+                let committed = resolve_committed_transition_model()?;
+                model = load_transition_model(Some(&committed))?;
+            }
+            let report = cmd_suggest(
+                &folder,
+                &from,
+                top,
+                &policy,
+                db.as_deref(),
+                model.as_ref(),
+                position,
+                set_len,
+            )?;
+            println!("{}", serde_json::to_string_pretty(&report)?);
+            Ok(())
+        }
+        Commands::Remix {
+            folder,
+            prefix,
+            next,
+            out,
+            genre,
+            db,
+            deterministic: deterministic_flag,
+            no_deterministic,
+            lufs,
+            no_loudness_norm,
+            policy_hints,
+            transition_model,
+            no_transition_model,
+        } => {
+            let deterministic = deterministic_flag && !no_deterministic;
+            let target = if no_loudness_norm {
+                None
+            } else if deterministic {
+                Some(DEFAULT_TARGET_LUFS)
+            } else {
+                Some(lufs)
+            };
+            let policy = resolve_policy(&genre, policy_hints.as_deref())?;
+            let mut model = load_transition_model(transition_model.as_deref())?;
+            if model.is_none() && !no_transition_model {
+                let committed = resolve_committed_transition_model()?;
+                model = load_transition_model(Some(&committed))?;
+            }
+            let report = cmd_remix(
+                &folder,
+                &prefix,
+                &next,
+                &out,
+                policy,
+                db.as_deref(),
+                target,
+                model.as_ref(),
+                deterministic,
+            )?;
+            println!("{}", serde_json::to_string_pretty(&report)?);
+            Ok(())
+        }
         Commands::Mix {
             playlist,
             playlist_name,
@@ -349,6 +508,166 @@ fn resolve_policy(genre: &str, hints_path: Option<&Path>) -> Result<GenrePolicy>
     } else {
         Ok(base)
     }
+}
+
+fn path_key(p: &Path) -> String {
+    p.canonicalize()
+        .unwrap_or_else(|_| p.to_path_buf())
+        .to_string_lossy()
+        .into_owned()
+}
+
+fn paths_equal(a: &Path, b: &Path) -> bool {
+    path_key(a) == path_key(b)
+}
+
+/// Load wav/flac features from a folder (DB hit or on-the-fly analyze).
+fn load_folder_features(
+    folder: &Path,
+    db: Option<&Path>,
+    genre_id: &str,
+) -> Result<Vec<TrackFeatures>> {
+    let paths = collect_audio(folder)?;
+    if paths.is_empty() {
+        bail!("no wav/flac in {}", folder.display());
+    }
+    let conn = db.map(open_db).transpose()?;
+    let mut features = Vec::with_capacity(paths.len());
+    for path in paths {
+        let mut feats = if let Some(conn) = conn.as_ref() {
+            load_features(conn, &path)?.unwrap_or_else(|| {
+                analyze_path(&path).expect("analyze fallback")
+            })
+        } else {
+            analyze_path(&path)?
+        };
+        resolve_track_phrase(&mut feats, genre_id);
+        feats.path.replace(path);
+        features.push(feats);
+    }
+    Ok(features)
+}
+
+fn cmd_suggest(
+    folder: &Path,
+    from: &Path,
+    top: usize,
+    policy: &GenrePolicy,
+    db: Option<&Path>,
+    model: Option<&TransitionModel>,
+    position: usize,
+    set_len: Option<usize>,
+) -> Result<SuggestReport> {
+    let features = load_folder_features(folder, db, &policy.id)?;
+    let from_idx = features
+        .iter()
+        .position(|f| {
+            f.path
+                .as_ref()
+                .map(|p| paths_equal(p, from))
+                .unwrap_or(false)
+        })
+        .with_context(|| format!("--from not found in folder: {}", from.display()))?;
+    let set_len = set_len.unwrap_or(features.len());
+    let ranked = rank_next_matches(
+        from_idx,
+        &features,
+        policy,
+        model,
+        top,
+        position,
+        set_len,
+    );
+    let candidates = ranked
+        .into_iter()
+        .map(|c| {
+            let feats = &features[c.index];
+            SuggestCandidateReport {
+                path: feats
+                    .path
+                    .as_ref()
+                    .map(|p| p.display().to_string())
+                    .unwrap_or_default(),
+                cost: c.cost,
+                key: feats.key.as_str(),
+                bpm: feats.bpm,
+                class: c.transition,
+                on_route: c.key_on_route,
+            }
+        })
+        .collect();
+    Ok(SuggestReport {
+        from: path_key(from),
+        candidates,
+    })
+}
+
+fn cmd_remix(
+    folder: &Path,
+    prefix: &[PathBuf],
+    next: &Path,
+    out: &Path,
+    policy: GenrePolicy,
+    db: Option<&Path>,
+    target_lufs: Option<f64>,
+    model: Option<&TransitionModel>,
+    deterministic: bool,
+) -> Result<MixReport> {
+    if prefix.is_empty() {
+        bail!("remix requires at least one --prefix path (including current)");
+    }
+    let features = load_folder_features(folder, db, &policy.id)?;
+    let index_of = |want: &Path| -> Result<usize> {
+        features
+            .iter()
+            .position(|f| {
+                f.path
+                    .as_ref()
+                    .map(|p| paths_equal(p, want))
+                    .unwrap_or(false)
+            })
+            .with_context(|| format!("path not in folder: {}", want.display()))
+    };
+    let mut prefix_idxs = Vec::with_capacity(prefix.len());
+    for p in prefix {
+        prefix_idxs.push(index_of(p)?);
+    }
+    let next_idx = index_of(next)?;
+    let order = build_remix_order(&features, &prefix_idxs, next_idx, &policy, model);
+    if order.is_empty() {
+        bail!("remix order empty (check prefix/next overlap)");
+    }
+    let mut paths = Vec::with_capacity(order.len());
+    for &i in &order {
+        let p = features[i]
+            .path
+            .clone()
+            .context("track missing path")?;
+        paths.push(serde_json::json!({ "path": path_key(&p) }));
+    }
+    let playlist_json = serde_json::json!({
+        "genre": policy.id,
+        "tracks": paths,
+    });
+    let playlist_path = std::env::temp_dir().join(format!(
+        "autodj-remix-playlist-{}.json",
+        std::process::id()
+    ));
+    fs::write(
+        &playlist_path,
+        serde_json::to_string_pretty(&playlist_json)?,
+    )?;
+    cmd_mix(
+        &playlist_path,
+        None,
+        out,
+        policy,
+        db,
+        target_lufs,
+        model,
+        deterministic,
+        true, // preserve_order
+    )
 }
 
 fn cmd_analyze(input: &Path, db: &Path) -> Result<()> {

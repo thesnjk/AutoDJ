@@ -52,8 +52,25 @@ type MixReport = {
   join_timeline_secs?: number[];
 };
 
+type SuggestCandidate = {
+  path: string;
+  cost: number;
+  key: string;
+  bpm: number;
+  class: string;
+  on_route: boolean;
+};
+
+type SuggestReport = {
+  from: string;
+  candidates: SuggestCandidate[];
+};
+
 /** Last successful MixReport — drives now-playing highlight + Mix Now. */
 let lastMixReport: MixReport | null = null;
+/** Cue index used for the last matches refresh (avoid redundant suggests). */
+let lastMatchesCueIndex = -1;
+let matchesInFlight = false;
 
 const $ = <T extends HTMLElement>(id: string) =>
   document.getElementById(id) as T | null;
@@ -79,6 +96,11 @@ function setBusy(busy: boolean) {
     const btn = $<HTMLButtonElement>(id);
     if (btn) btn.disabled = busy;
   }
+  document
+    .querySelectorAll<HTMLButtonElement>(".matches-list button")
+    .forEach((btn) => {
+      btn.disabled = busy;
+    });
 }
 
 function showPlainReport(text: string, error = false) {
@@ -310,10 +332,10 @@ function highlightPlayingTrack(index: number) {
   });
 }
 
-function updateNowPlayingHighlight() {
+function currentCueIndex(): number {
   const audio = $<HTMLAudioElement>("mix-player");
   const cues = lastMixReport?.cues;
-  if (!audio || !cues || cues.length === 0) return;
+  if (!audio || !cues || cues.length === 0) return 0;
   const t = audio.currentTime;
   let idx = 0;
   for (let i = 0; i < cues.length; i++) {
@@ -321,7 +343,148 @@ function updateNowPlayingHighlight() {
       idx = i;
     }
   }
+  return idx;
+}
+
+function updateNowPlayingHighlight() {
+  const cues = lastMixReport?.cues;
+  if (!cues || cues.length === 0) return;
+  const idx = currentCueIndex();
   highlightPlayingTrack(idx);
+  if (idx !== lastMatchesCueIndex) {
+    void refreshMatchesForCue(idx);
+  }
+}
+
+function clearMatchesPanel() {
+  const panel = $<HTMLDivElement>("matches-panel");
+  const list = $<HTMLUListElement>("matches-list");
+  if (list) list.replaceChildren();
+  if (panel) panel.hidden = true;
+  lastMatchesCueIndex = -1;
+}
+
+function renderMatches(candidates: SuggestCandidate[]) {
+  const panel = $<HTMLDivElement>("matches-panel");
+  const list = $<HTMLUListElement>("matches-list");
+  if (!panel || !list) return;
+  list.replaceChildren();
+  if (candidates.length === 0) {
+    panel.hidden = true;
+    return;
+  }
+  for (const c of candidates) {
+    const li = document.createElement("li");
+    const meta = document.createElement("span");
+    meta.className = "matches-meta";
+    meta.textContent = `${basename(c.path)} · ${c.key} · ${fmt(c.bpm, 1)} BPM · cost ${fmt(c.cost, 2)} · ${c.class}`;
+    li.appendChild(meta);
+    if (c.on_route) {
+      const badge = document.createElement("span");
+      badge.className = "matches-route";
+      badge.textContent = "key route";
+      li.appendChild(badge);
+    }
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.textContent = "Queue & remix";
+    btn.addEventListener("click", () => {
+      void queueRemix(c.path);
+    });
+    li.appendChild(btn);
+    list.appendChild(li);
+  }
+  panel.hidden = false;
+}
+
+async function refreshMatchesForCue(cueIndex: number) {
+  const folder = $<HTMLInputElement>("folder")?.value.trim() ?? "";
+  const order = lastMixReport?.order ?? [];
+  if (!folder || order.length < 2 || cueIndex < 0 || cueIndex >= order.length) {
+    clearMatchesPanel();
+    return;
+  }
+  if (matchesInFlight) return;
+  matchesInFlight = true;
+  lastMatchesCueIndex = cueIndex;
+  const from = order[cueIndex];
+  const genre = $<HTMLSelectElement>("genre")?.value ?? "house";
+  const policyHints =
+    $<HTMLInputElement>("policy-hints")?.value.trim() || null;
+  const transitionModel =
+    $<HTMLInputElement>("transition-model")?.value.trim() || null;
+  const db = $<HTMLInputElement>("db")?.value.trim() || null;
+  try {
+    const report = await invoke<SuggestReport>("suggest_matches", {
+      args: {
+        folder,
+        from,
+        top: 5,
+        genre,
+        policyHints,
+        transitionModel,
+        db,
+        position: cueIndex,
+        setLen: order.length,
+      },
+    });
+    // Drop stale responses if the cue moved while we were fetching.
+    if (lastMatchesCueIndex !== cueIndex) return;
+    renderMatches(report.candidates ?? []);
+  } catch (e) {
+    appendLog(`matches: ${e}`);
+    clearMatchesPanel();
+  } finally {
+    matchesInFlight = false;
+  }
+}
+
+async function queueRemix(nextPath: string) {
+  const folder = $<HTMLInputElement>("folder")?.value.trim() ?? "";
+  const out = $<HTMLInputElement>("out")?.value.trim() ?? "";
+  const order = lastMixReport?.order ?? [];
+  const cueIndex = currentCueIndex();
+  if (!folder || !out || order.length === 0) {
+    showPlainReport("Need a folder Automix result before Queue & remix", true);
+    return;
+  }
+  const prefix = order.slice(0, cueIndex + 1);
+  if (prefix.some((p) => p === nextPath)) {
+    showPlainReport("Pick a track that is not already in the played prefix", true);
+    return;
+  }
+  const genre = $<HTMLSelectElement>("genre")?.value ?? "house";
+  const policyHints =
+    $<HTMLInputElement>("policy-hints")?.value.trim() || null;
+  const transitionModel =
+    $<HTMLInputElement>("transition-model")?.value.trim() || null;
+  const db = $<HTMLInputElement>("db")?.value.trim() || null;
+  const deterministic =
+    $<HTMLInputElement>("deterministic")?.checked ?? true;
+  setBusy(true);
+  appendLog(`--- queue remix → ${basename(nextPath)} ---`);
+  try {
+    const report = await invoke<MixReport>("remix_queue_next", {
+      args: {
+        folder,
+        prefix,
+        next: nextPath,
+        out,
+        genre,
+        policyHints,
+        transitionModel,
+        db,
+        deterministic,
+      },
+    });
+    lastMatchesCueIndex = -1;
+    await finishMixReport(report, out, deterministic);
+  } catch (e) {
+    showPlainReport(String(e), true);
+    appendLog(String(e));
+  } finally {
+    setBusy(false);
+  }
 }
 
 async function refreshBin() {
@@ -377,6 +540,7 @@ async function finishMixReport(
   deterministic: boolean,
 ) {
   lastMixReport = report;
+  lastMatchesCueIndex = -1;
   renderMixReport(report, deterministic);
   const autoplay = $<HTMLInputElement>("autoplay")?.checked ?? true;
   const playPath = report.out?.trim() || out;

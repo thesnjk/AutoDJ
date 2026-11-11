@@ -376,6 +376,80 @@ button.primary:hover:not(:disabled) {
   background: rgba(196, 163, 90, 0.12);
 }
 
+.matches-panel {
+  display: grid;
+  gap: 0.45rem;
+  margin-top: 0.35rem;
+  padding-top: 0.65rem;
+  border-top: 1px solid var(--line);
+}
+
+.matches-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.matches-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.matches-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem 0.65rem;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  line-height: 1.35;
+  padding: 0.35rem 0.45rem;
+  border: 1px solid var(--line);
+  background: rgba(20, 24, 32, 0.55);
+}
+
+.matches-meta {
+  color: var(--muted);
+  flex: 1 1 auto;
+}
+
+.matches-route {
+  color: var(--accent);
+  font-size: 0.7rem;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.matches-list button {
+  font-family: var(--font-body);
+  font-size: 0.72rem;
+  padding: 0.25rem 0.55rem;
+  border: 1px solid var(--accent-dim);
+  background: transparent;
+  color: var(--accent);
+  cursor: pointer;
+}
+
+.matches-list button:hover:not(:disabled) {
+  background: rgba(196, 163, 90, 0.12);
+}
+
+.matches-list button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.matches-hint {
+  margin: 0;
+}
+
 .log-wrap {
   animation: rise 0.7s ease-out 0.2s both;
 }

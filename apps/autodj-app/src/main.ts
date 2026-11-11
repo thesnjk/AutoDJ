@@ -92,13 +92,23 @@ type SuggestReport = {
 
 /** Last successful MixReport — drives now-playing highlight + Mix Now. */
 let lastMixReport: MixReport | null = null;
-/** Continuous radio loop (P81/P82). */
+/** Continuous radio loop (P81–P83). */
 let radioActive = false;
 let radioAdvanceInFlight = false;
 let radioGeneration = 0;
 const RADIO_PRE_RENDER_SECS = 20;
 const RADIO_HANDOFF_EPS_SECS = 0.15;
 const RADIO_HORIZON = 3;
+/** ~4 min play window per track for virtual set length. */
+const RADIO_TRACK_WINDOW_SECS = 240;
+const RADIO_SET_MINUTES_KEY = "autodj.radioSetMinutes";
+const RADIO_VIBE_KEY = "autodj.radioVibe";
+
+const RADIO_VIBE_GENRE: Record<string, string> = {
+  standard: "house",
+  chill: "open_format",
+  peak: "trance",
+};
 
 type PendingRadioHandoff = {
   gen: number;
@@ -111,6 +121,12 @@ type PendingRadioHandoff = {
 };
 
 let pendingRadioHandoff: PendingRadioHandoff | null = null;
+/** Timed set target seconds; null = Continuous. */
+let radioTargetSecs: number | null = null;
+let radioVirtualSetLen = 40;
+let radioGlobalTrackIndex = 0;
+/** Completed mix duration accumulated across WAV swaps. */
+let radioElapsedSecs = 0;
 /** Cue index used for the last matches refresh (avoid redundant suggests). */
 let lastMatchesCueIndex = -1;
 let matchesInFlight = false;
@@ -1500,6 +1516,74 @@ function syncRadioButtons() {
   const stop = $<HTMLButtonElement>("btn-stop-radio");
   if (stop) stop.disabled = !radioActive;
   if (start) start.disabled = radioActive || cliBusy;
+  const setLen = $<HTMLSelectElement>("radio-set-length");
+  const vibe = $<HTMLSelectElement>("radio-vibe");
+  if (setLen) setLen.disabled = radioActive || cliBusy;
+  if (vibe) vibe.disabled = radioActive || cliBusy;
+}
+
+function loadRadioPrefs() {
+  const setEl = $<HTMLSelectElement>("radio-set-length");
+  const vibeEl = $<HTMLSelectElement>("radio-vibe");
+  try {
+    const mins = localStorage.getItem(RADIO_SET_MINUTES_KEY);
+    if (setEl && mins !== null && ["0", "30", "45", "60", "90"].includes(mins)) {
+      setEl.value = mins;
+    }
+    const vibe = localStorage.getItem(RADIO_VIBE_KEY);
+    if (vibeEl && vibe && vibe in RADIO_VIBE_GENRE) {
+      vibeEl.value = vibe;
+    }
+  } catch {
+    /* ignore */
+  }
+  applyRadioVibeToGenre();
+}
+
+function saveRadioSetMinutes() {
+  const setEl = $<HTMLSelectElement>("radio-set-length");
+  if (!setEl) return;
+  try {
+    localStorage.setItem(RADIO_SET_MINUTES_KEY, setEl.value);
+  } catch {
+    /* ignore */
+  }
+}
+
+function applyRadioVibeToGenre() {
+  const vibeEl = $<HTMLSelectElement>("radio-vibe");
+  const genreEl = $<HTMLSelectElement>("genre");
+  if (!vibeEl || !genreEl) return;
+  const vibe = vibeEl.value;
+  const genre = RADIO_VIBE_GENRE[vibe] ?? "house";
+  genreEl.value = genre;
+  try {
+    localStorage.setItem(RADIO_VIBE_KEY, vibe);
+  } catch {
+    /* ignore */
+  }
+}
+
+function mixReportDurationSecs(report: MixReport | null): number {
+  if (!report) return 0;
+  const cues = report.cues ?? [];
+  if (cues.length === 0) return 0;
+  const last = cues[cues.length - 1]!;
+  return Number.isFinite(last.mix_timeline_end_secs)
+    ? last.mix_timeline_end_secs
+    : 0;
+}
+
+function radioWallClockSecs(): number {
+  const audio = $<HTMLAudioElement>("mix-player");
+  return radioElapsedSecs + (audio?.currentTime ?? 0);
+}
+
+function radioSetComplete(): boolean {
+  if (radioTargetSecs === null) return false;
+  if (radioWallClockSecs() >= radioTargetSecs) return true;
+  if (radioGlobalTrackIndex >= radioVirtualSetLen - 1) return true;
+  return false;
 }
 
 function stopRadio(reason = "stopped") {
@@ -1512,6 +1596,14 @@ function stopRadio(reason = "stopped") {
   radioAdvanceInFlight = false;
   pendingRadioHandoff = null;
   appendLog(`--- radio ${reason} ---`);
+  if (reason === "set complete") {
+    const hint = $<HTMLParagraphElement>("listen-hint");
+    if (hint) {
+      hint.hidden = false;
+      hint.textContent = "Radio set complete — press Start radio for another set";
+    }
+    showPlainReport("Radio set complete", false);
+  }
   syncRadioButtons();
 }
 
@@ -1547,9 +1639,28 @@ async function commitPendingRadioHandoff(forceLate: boolean) {
         : "radio: handoff swap",
     );
   }
+  // Progress in the leaving mix, then subtract the seek offset in the new mix
+  // so wall-clock = radioElapsedSecs + audio.currentTime stays continuous.
+  const playedInOld = Math.min(
+    mixReportDurationSecs(lastMixReport) || Number.POSITIVE_INFINITY,
+    Math.max(t, pending.commitAtSecs),
+  );
+  const seekSecs =
+    pending.report.join_timeline_secs?.[pending.seekJoinIndex] ?? 0;
+  radioElapsedSecs += playedInOld - seekSecs;
   await finishMixReport(pending.report, pending.out, pending.deterministic, {
     seekJoinIndex: pending.seekJoinIndex,
   });
+  radioGlobalTrackIndex += 1;
+  appendLog(
+    `radio arc ${radioGlobalTrackIndex}/${radioVirtualSetLen}` +
+      (radioTargetSecs !== null
+        ? ` · ${Math.floor(radioWallClockSecs() / 60)}/${Math.floor(radioTargetSecs / 60)} min`
+        : ""),
+  );
+  if (radioSetComplete()) {
+    stopRadio("set complete");
+  }
 }
 
 function maybeRadioAdvanceFromPlayhead() {
@@ -1558,11 +1669,25 @@ function maybeRadioAdvanceFromPlayhead() {
   if (!audio) return;
   const t = audio.currentTime;
 
+  if (radioSetComplete()) {
+    stopRadio("set complete");
+    return;
+  }
+
   if (pendingRadioHandoff) {
     void commitPendingRadioHandoff(false);
     return;
   }
   if (cliBusy || radioAdvanceInFlight) return;
+
+  // Next prerender would add another track past the virtual set.
+  if (
+    radioTargetSecs !== null &&
+    radioGlobalTrackIndex >= radioVirtualSetLen - 1
+  ) {
+    stopRadio("set complete");
+    return;
+  }
 
   const target = radioTargetJoinSecs(t);
   if (!target) return;
@@ -1573,6 +1698,10 @@ function maybeRadioAdvanceFromPlayhead() {
 
 async function radioPrerender(commitAtSecs: number) {
   if (!radioActive || radioAdvanceInFlight || cliBusy || pendingRadioHandoff) {
+    return;
+  }
+  if (radioSetComplete()) {
+    stopRadio("set complete");
     return;
   }
   const gen = radioGeneration;
@@ -1588,6 +1717,7 @@ async function radioPrerender(commitAtSecs: number) {
   }
   radioAdvanceInFlight = true;
   const prefix = order.slice(0, cueIndex + 1);
+  applyRadioVibeToGenre();
   const genre = $<HTMLSelectElement>("genre")?.value ?? "house";
   const policyHints =
     $<HTMLInputElement>("policy-hints")?.value.trim() || null;
@@ -1598,7 +1728,9 @@ async function radioPrerender(commitAtSecs: number) {
   const lufs = selectedLufs(deterministic);
   const { reportOut, noLoudnessNorm } = nicheMixInvokeArgs();
   setBusy(true);
-  appendLog(`--- radio prerender (horizon ${RADIO_HORIZON}) ---`);
+  appendLog(
+    `--- radio prerender (horizon ${RADIO_HORIZON}, arc ${radioGlobalTrackIndex}/${radioVirtualSetLen}) ---`,
+  );
   try {
     const suggest = await invoke<SuggestReport>("suggest_matches", {
       args: {
@@ -1611,8 +1743,8 @@ async function radioPrerender(commitAtSecs: number) {
         transitionModel,
         noTransitionModel,
         db,
-        position: cueIndex,
-        setLen: order.length,
+        position: radioGlobalTrackIndex,
+        setLen: radioVirtualSetLen,
       },
     });
     if (gen !== radioGeneration || !radioActive) return;
@@ -1659,8 +1791,8 @@ async function radioPrerender(commitAtSecs: number) {
     appendLog(
       `radio: held remix until join @ ${commitAtSecs.toFixed(2)}s`,
     );
-    const audio = $<HTMLAudioElement>("mix-player");
-    const now = audio?.currentTime ?? 0;
+    const audioNow = $<HTMLAudioElement>("mix-player");
+    const now = audioNow?.currentTime ?? 0;
     if (now + RADIO_HANDOFF_EPS_SECS >= commitAtSecs) {
       await commitPendingRadioHandoff(true);
     }
@@ -1688,13 +1820,30 @@ async function startRadio() {
     );
     return;
   }
+  applyRadioVibeToGenre();
+  saveRadioSetMinutes();
+  const minsRaw = $<HTMLSelectElement>("radio-set-length")?.value ?? "0";
+  const mins = Number.parseInt(minsRaw, 10);
+  radioTargetSecs =
+    Number.isFinite(mins) && mins > 0 ? mins * 60 : null;
+  radioVirtualSetLen =
+    radioTargetSecs !== null
+      ? Math.max(2, Math.ceil(radioTargetSecs / RADIO_TRACK_WINDOW_SECS))
+      : 40;
+  radioGlobalTrackIndex = 0;
+  radioElapsedSecs = 0;
+
   const autoplay = $<HTMLInputElement>("autoplay");
   if (autoplay) autoplay.checked = true;
   radioActive = true;
   radioGeneration += 1;
   pendingRadioHandoff = null;
   syncRadioButtons();
-  appendLog("--- radio start ---");
+  appendLog(
+    radioTargetSecs !== null
+      ? `--- radio start (${mins} min, vibe arc ${radioVirtualSetLen}) ---`
+      : `--- radio start (continuous, vibe arc ${radioVirtualSetLen}) ---`,
+  );
   if (!lastMixReport?.order?.length) {
     const genre = $<HTMLSelectElement>("genre")?.value ?? "house";
     const policyHints =
@@ -2262,7 +2411,15 @@ window.addEventListener("DOMContentLoaded", async () => {
   );
 
   renderLibraryRoots();
+  loadRadioPrefs();
   syncRadioButtons();
+
+  $<HTMLSelectElement>("radio-set-length")?.addEventListener("change", () => {
+    saveRadioSetMinutes();
+  });
+  $<HTMLSelectElement>("radio-vibe")?.addEventListener("change", () => {
+    applyRadioVibeToGenre();
+  });
 
   $<HTMLButtonElement>("btn-start-radio")?.addEventListener("click", () => {
     void startRadio();

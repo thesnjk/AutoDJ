@@ -14,7 +14,7 @@ use autodj_core::{
     CamelotKey, CrossfadeParams, CueOverrides, MixPlan, MixSegment, TrackFeatures,
     TransitionClass, DEFAULT_BASS_OVERLAP_LIMIT,
     DEFAULT_BEAT_PHASE_LIMIT_MS, DEFAULT_JOIN_FLUX_RATIO, DEFAULT_MAX_FLUX_RATIO,
-    DEFAULT_TARGET_LUFS, DEFAULT_TRUE_PEAK_LIMIT, LUFS_TOLERANCE_LU,
+    BROADCAST_TARGET_LUFS, DEFAULT_TARGET_LUFS, DEFAULT_TRUE_PEAK_LIMIT, LUFS_TOLERANCE_LU,
 };
 use autodj_graph::{
     apply_transition_overrides, build_remix_order, crossfade_secs_for_class, load_policy_hints_map,
@@ -61,7 +61,7 @@ enum Commands {
         /// Genre policy id.
         #[arg(long, default_value = "house")]
         genre: String,
-        /// Built-in golden suite: `smoke`, `rekordbox`, `transitions`, `transition_model`, `cue_overrides`, or `transition_overrides`.
+        /// Built-in golden suite: `smoke`, `broadcast`, `rekordbox`, `transitions`, `transition_model`, `cue_overrides`, or `transition_overrides`.
         #[arg(long)]
         golden: Option<String>,
         /// Feature DB (optional; analyzes on the fly if missing).
@@ -436,10 +436,13 @@ fn main() -> Result<()> {
             let policy = resolve_policy(&genre, policy_hints.as_deref())?;
             if let Some(name) = golden {
                 // Golden suites use fixed LUFS unless --no-loudness-norm.
+                // Most suites lock streaming −14; `broadcast` locks EBU R 128 −23.
                 // smoke / rekordbox / transitions omit the Softmax model for preferred_transition
                 // bit-compat; only `transition_model` loads the committed artifact.
                 let golden_target = if no_loudness_norm {
                     None
+                } else if name.as_str() == "broadcast" {
+                    Some(BROADCAST_TARGET_LUFS)
                 } else {
                     Some(DEFAULT_TARGET_LUFS)
                 };
@@ -451,6 +454,7 @@ fn main() -> Result<()> {
                         None,
                         deterministic,
                     ),
+                    "broadcast" => cmd_golden_broadcast(&out, policy, golden_target, deterministic),
                     "rekordbox" => cmd_golden_rekordbox(
                         &out,
                         policy,
@@ -1243,6 +1247,61 @@ fn cmd_golden_smoke(
                 cue.bars_per_phrase
             );
         }
+    }
+    println!("{}", serde_json::to_string_pretty(&report)?);
+    Ok(())
+}
+
+/// EBU R 128 broadcast loudness golden: same gold loops as smoke, target −23 LUFS.
+fn cmd_golden_broadcast(
+    out: &Path,
+    policy: GenrePolicy,
+    target_lufs: Option<f64>,
+    deterministic: bool,
+) -> Result<()> {
+    let root = workspace_testdata()?;
+    let playlist = root.join("party.json");
+    if !playlist.exists() {
+        let json = serde_json::json!({
+            "genre": "house",
+            "tracks": [
+                {"path": root.join("gold/loop_a_128.wav"), "key": "8A", "bpm": 128.0},
+                {"path": root.join("gold/loop_b_128.wav"), "key": "9A", "bpm": 128.0},
+                {"path": root.join("gold/loop_c_140.wav"), "key": "10A", "bpm": 140.0}
+            ]
+        });
+        fs::write(&playlist, serde_json::to_string_pretty(&json)?)?;
+    }
+    let report = cmd_mix(
+        &playlist,
+        None,
+        out,
+        policy,
+        None,
+        target_lufs,
+        None,
+        deterministic,
+        false,
+    )?;
+    if report.target_lufs != Some(BROADCAST_TARGET_LUFS) {
+        bail!(
+            "broadcast golden: expected target_lufs {}, got {:?}",
+            BROADCAST_TARGET_LUFS,
+            report.target_lufs
+        );
+    }
+    if report.loudness_gate_pass != Some(true) {
+        bail!(
+            "broadcast golden: expected loudness_gate_pass true, got {:?}",
+            report.loudness_gate_pass
+        );
+    }
+    match report.integrated_lufs {
+        Some(measured) if within_lufs_tolerance(measured, BROADCAST_TARGET_LUFS) => {}
+        Some(measured) => bail!(
+            "broadcast golden: integrated_lufs {measured} outside ±{LUFS_TOLERANCE_LU} LU of {BROADCAST_TARGET_LUFS}"
+        ),
+        None => bail!("broadcast golden: missing integrated_lufs"),
     }
     println!("{}", serde_json::to_string_pretty(&report)?);
     Ok(())

@@ -12,17 +12,19 @@
 
 ```bash
 cargo run -p autodj-cli -- mix --golden smoke --out /tmp/autodj-smoke.wav
+# EBU R 128 broadcast loudness (−23 LUFS) on the same gold loops
+cargo run -p autodj-cli -- mix --golden broadcast --out /tmp/autodj-broadcast.wav
 # Rekordbox XML path (preserve-order setlist from testdata/rekordbox/gold_playlist.xml)
 cargo run -p autodj-cli -- mix --golden rekordbox --out /tmp/autodj-rekordbox.wav
 # Full builtin genre palette preferred classes (incl. uk_garage / open_format)
 cargo run -p autodj-cli -- mix --golden transitions --out /tmp/autodj-transitions.wav
 # Softmax artifact drives mix classes for all six builtins (committed transition_model.json)
 cargo run -p autodj-cli -- mix --golden transition_model --out /tmp/autodj-transition-model.wav
-# Optional: classic EBU R 128 on a real playlist (goldens always lock −14)
-# cargo run -p autodj-cli -- mix --playlist party.json --no-deterministic --lufs=-23 --out /tmp/autodj-broadcast.wav
+# Ordinary playlist broadcast target (Strict QA off; equals form so clap accepts the negative)
+# cargo run -p autodj-cli -- mix --playlist party.json --no-deterministic --lufs=-23 --out /tmp/autodj-broadcast-mix.wav
 afplay /tmp/autodj-smoke.wav   # macOS
 ```
-Default export target is **−14 LUFS** (streaming-style). Pass `--lufs=-23` for broadcast R 128 (equals form so clap accepts the negative).
+Default export target is **−14 LUFS** (streaming-style). Pass `--lufs=-23` for broadcast R 128, or use `--golden broadcast` for the CI-locked −23 suite.
 
 ## Your playlist
 

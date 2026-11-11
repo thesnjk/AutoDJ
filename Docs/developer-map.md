@@ -14,6 +14,7 @@ Thin index for humans and agents. Prefer linking one Doc at a time.
 | `apps/autodj-app/` | Tauri 2 shell (Vite + TS over CLI) |
 | `testdata/gold/` | Royalty-free synthetic WAV + `loop_a_128.flac` fixtures |
 | `Docs/` | Specs, legal, rubrics |
+| `Docs/project-writeup.md` | Living project narrative + capability ledger |
 
 ## Platform
 
@@ -50,6 +51,7 @@ cd apps/autodj-app && npm install && cargo check --manifest-path src-tauri/Cargo
 
 ## Docs pointers
 
+- Project writeup (narrative): `Docs/project-writeup.md`
 - Architecture: `Docs/architecture.md`
 - Legal ingest: `Docs/legal-data-policy.md`
 - Mix quality: `Docs/mix-quality-rubric.md`

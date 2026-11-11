@@ -6,7 +6,7 @@ Automated gates (CI) plus listening checklist for v1+.
 
 | Check | Pass criterion |
 |-------|----------------|
-| Golden smoke CLI | `autodj mix --golden smoke` exits 0 and writes WAV + `{out}.mixreport.json` sidecar (CI asserts file exists) |
+| Golden smoke CLI | `autodj mix --golden smoke` exits 0 and writes output audio (WAV or FLAC per `--out`) + `{out}.mixreport.json` sidecar (CI asserts WAV sidecar exists) |
 | Golden broadcast CLI | `autodj mix --golden broadcast` exits 0; MixReport `target_lufs` −23 (`BROADCAST_TARGET_LUFS`), `loudness_gate_pass`, `integrated_lufs` within ±2 LU |
 | Golden rekordbox CLI | `autodj mix --golden rekordbox` exits 0; MixReport `preserve_order: true`; setlist order a→b→c from `testdata/rekordbox/gold_playlist.xml` (hard-fail if `preserve_order` returns non-sequential indices) |
 | Golden transitions CLI | `autodj mix --golden transitions` exits 0; all six builtins (house/trance/hip_hop/drum_and_bass/uk_garage/open_format) edges match `preferred_transition` and class-aware `policy_crossfade_secs` via `crossfade_secs_for_class` (trance `riser` / open_format `tremolo` / uk_garage `dissolve` / DnB 0 / hip_hop ~1 / house 8 / …) |
@@ -27,8 +27,8 @@ Automated gates (CI) plus listening checklist for v1+.
 | Solver unit tests | Harmonic neighbor preferred; key-route discount (`key_pair_cost` / `suggest_next_keys`) beats closer-BPM off-route; energy-arc quiet opener + rise/fall (`autodj-graph` tests) |
 | EQ / bass-swap DSP | `eq_swap_gains` + `apply_eq_swap_crossfade` unit tests; house golden uses `EqSwap` (evidence: `eq.rs`, `render.rs`) |
 | Dissolve FX DSP | `apply_dissolve_out_crossfade` staggered band-kill unit test; uk_garage golden uses `Dissolve` (evidence: `eq.rs`, `render.rs`) |
-| Transition classifier (train gate) | `autodj-train eval` accuracy ≥ 0.90 on `eval/gold/synthetic_holdout.jsonl` (evidence: SoftmaxLogReg v3 15-dim **8-class** incl. dissolve, CI python job). Ordinary `mix` defaults to committed Softmax; v1/v2 JSON still load; smoke/rekordbox/transitions goldens keep `preferred_transition` (`--no-transition-model`) |
-| Gold analyze (BPM/key/sections) | `testdata/gold/*.wav` BPM within ±1 of `expected_analyze.json`; frozen key string; `intro_end < drop_start < outro_start`; not sparse (evidence: `analysis::tests::gold_analyze_matches_expected`) |
+| Transition classifier (train gate) | `autodj-train eval` accuracy ≥ 0.90 on `eval/gold/synthetic_holdout.jsonl` (evidence: SoftmaxLogReg v3 15-dim **8-class** incl. dissolve, CI python job). Ordinary `mix` defaults to committed Softmax; v1/v2 JSON still load; smoke/rekordbox/transitions goldens omit Softmax by construction (genre `preferred_transition`, equivalent to `--no-transition-model`) |
+| Gold analyze (BPM/key/sections) | `testdata/gold/*.wav` BPM within ±1 of `expected_analyze.json`; frozen key string; `intro_end < drop_start < outro_start`; not sparse (evidence: `analysis::tests::gold_analyze_matches_expected`). FLAC decode parity: CI `analyze --input testdata/gold/loop_a_128.flac` + `autodj-io` `flac_gold_matches_wav` |
 | Spectral centroid (FFT) | Hop-averaged magnitude centroid (Hann 2048 / hop 1024 via `realfft`); 440 Hz tone within ±8%; silence → 0 (evidence: `analysis::tests::spectral_centroid_*`) |
 | Mix timeline (Mix Now) | MixReport `join_timeline_secs` + cue `mix_timeline_start_secs`/`end_secs` from renderer `segment_start_indices` (evidence: smoke JSON; Tauri Mix Now / `N`·`Shift+N` / set-order seek / join markers) |
 | Automix Matching | `rank_next_matches` prefers key-route over closer-BPM off-route; `build_remix_order` pins forced next after prefix (evidence: `autodj-graph` tests; CLI `suggest` / `remix`) |

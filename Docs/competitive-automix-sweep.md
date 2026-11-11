@@ -1,13 +1,14 @@
 # Competitive automix sweep
 
-Living gap matrix. Updated 2026-11-09 after Firecrawl research (raw notes in local `.firecrawl/`, not committed). Every Gap needs an evidence path.
+Living gap matrix. Updated 2026-11-11 after P68 UI/Docs polish (Firecrawl notes in local `.firecrawl/`, not committed). Every Gap needs an evidence path.
 
 ## Surface matrix
 
 | Surface | Competitor cue | AutoDJ status | Evidence |
 |---------|----------------|---------------|----------|
 | Offline automix render | djay Automix (playlist → continuous blend; Mix Now / cue points) | Parity-path MVP | `autodj-cli` `mix`; MixReport sidecar `{out}.mixreport.json` + Tauri Reveal MixReport; `crates/autodj-core/src/render.rs` |
-| Feature extraction (BPM/key/sections) | Rekordbox / djay prep analysis | Parity-path | `analysis.rs` `AnalysisQuality` + octave fold; FFT hop spectral centroid (`spectral_centroid_hz`); MixReport `prep_quality_gate_pass`; gold `expected_analyze.json` regression; Tauri Analyze Browse folder/file |
+| Library I/O (wav/flac) | Serato / Rekordbox lossless libraries | Parity-path | `read_audio` / `write_audio` (`claxon` + `flacenc`); CLI `--out` `.wav`/`.flac`; CI analyze `loop_a_128.flac`; Tauri Output Browse wav+flac |
+| Feature extraction (BPM/key/sections) | Rekordbox / djay prep analysis | Parity-path | `analysis.rs` `AnalysisQuality` + octave fold; FFT hop spectral centroid (`spectral_centroid_hz`); MixReport `prep_quality_gate_pass`; gold `expected_analyze.json` + FLAC decode; Tauri Analyze Browse folder/file |
 | Harmonic suggestions | Rekordbox / DJ.Studio Camelot ordering | Parity MVP | `camelot.rs`; `key_pair_cost` / `suggest_next_keys`; `prefers_harmonic_neighbor` |
 | Energy-arc setcraft | Club open→peak→cool programming | Parity-path | `ArcPhase` + `pair_cost_at` + quiet opener; MixReport order |
 | Transition type palette | djay Filter / Echo / Tremolo / Riser / Dissolve / Neural Mix; SetFlow six-core (EQ, bass swap, cut, blend) | Parity-path | `eq.rs` Dissolve + Riser + Tremolo + Filter/Echo/EqSwap; Softmax 8-class (incl. dissolve); playlist `transition_out`; CI `--golden transitions` / `transition_model` / `transition_overrides`; Neural Mix / stems Later |
@@ -112,8 +113,9 @@ Formula note: `(competitor best − AutoDJ) × persona weight × mix_impact`. Be
 | **P65** | Feature DB `#db` Browse | **Shipped** — Browse… (open) + New… (save) for `.sqlite` |
 | **P66** | Tauri `--no-transition-model` | **Shipped** — Advanced Skip Softmax checkbox → CLI flag |
 | **P67** | FLAC export parity | **Shipped** — `write_audio` / `flacenc`; `--out` `.wav`/`.flac` |
+| **P68** | UI reliability + Docs completeness | **Shipped** — busy guards, honest autoplay, folder infer for matches, Doc accuracy |
 | Later | Stems / live dual-deck; neural phrase ML | gated / user-owned audio |
 
 ## Re-rank bias
 
-Prefer agent-doable product code that closes remaining mix-quality gaps before brochure fluff. P0–P67 are in place; stems remain gated.
+Prefer agent-doable product code that closes remaining mix-quality gaps before brochure fluff. P0–P68 are in place; stems remain gated.

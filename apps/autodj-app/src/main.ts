@@ -95,6 +95,8 @@ let lastMixReport: MixReport | null = null;
 /** Cue index used for the last matches refresh (avoid redundant suggests). */
 let lastMatchesCueIndex = -1;
 let matchesInFlight = false;
+/** True while a CLI invoke is in flight (blocks Mix Now / form edits). */
+let cliBusy = false;
 
 /** Draft track for Automix Editor (only non-null fields are written to playlist JSON). */
 type EditorTrackDraft = {
@@ -141,32 +143,19 @@ function appendLog(line: string) {
 }
 
 function setBusy(busy: boolean) {
-  for (const id of [
-    "btn-version",
-    "btn-analyze",
-    "btn-mix",
-    "btn-automix-folder",
-    "btn-mix-now",
-    "btn-browse-playlist",
-    "btn-browse-folder",
-    "btn-browse-out",
-    "btn-browse-analyze-folder",
-    "btn-browse-analyze-file",
-    "btn-browse-db",
-    "btn-new-db",
-    "btn-editor-apply",
-    "btn-editor-save",
-    "btn-editor-reset",
-  ]) {
-    const btn = $<HTMLButtonElement>(id);
-    if (btn) btn.disabled = busy;
-  }
+  cliBusy = busy;
   document
-    .querySelectorAll<HTMLButtonElement>(".matches-list button")
-    .forEach((btn) => {
-      btn.disabled = busy;
+    .querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLButtonElement>(
+      ".controls input, .controls select, .controls button, .player-actions input, .player-actions button, .matches-list button",
+    )
+    .forEach((el) => {
+      el.disabled = busy;
     });
-  if (!busy) syncEditorButtons();
+  if (!busy) {
+    syncEditorButtons();
+    syncLufsControl();
+    syncTransitionModelControls();
+  }
 }
 
 function syncEditorButtons() {
@@ -309,6 +298,38 @@ function basename(path: string | undefined): string {
   if (!path) return "?";
   const parts = path.split(/[/\\]/);
   return parts[parts.length - 1] || path;
+}
+
+/** Parent directory of a path, or null if none. */
+function parentDir(path: string): string | null {
+  const norm = path.replace(/\\/g, "/");
+  const i = norm.lastIndexOf("/");
+  if (i <= 0) return null;
+  return norm.slice(0, i);
+}
+
+/** Longest common parent directory across absolute paths. */
+function commonParentDir(paths: string[]): string | null {
+  if (paths.length === 0) return null;
+  let common = parentDir(paths[0]);
+  if (!common) return null;
+  for (let i = 1; i < paths.length; i++) {
+    const p = parentDir(paths[i]);
+    if (!p) return null;
+    while (common && p !== common && !p.startsWith(`${common}/`)) {
+      const next = parentDir(common);
+      if (!next || next === common) return null;
+      common = next;
+    }
+  }
+  return common;
+}
+
+/** Library folder for suggest/remix: typed `#folder`, else common parent of MixReport.order. */
+function libraryFolderForMatches(): string | null {
+  const typed = $<HTMLInputElement>("folder")?.value.trim() ?? "";
+  if (typed) return typed;
+  return commonParentDir(lastMixReport?.order ?? []);
 }
 
 function pathsMatch(a: string, b: string): boolean {
@@ -812,18 +833,26 @@ function renderMixReport(r: MixReport, deterministic: boolean) {
   panel.replaceChildren(...kids);
 }
 
-/** Load the rendered mix into the HTML5 player; autoplay when requested. */
-async function loadMixPlayer(outPath: string, autoplay: boolean) {
+/**
+ * Load the rendered mix into the HTML5 player; autoplay when requested.
+ * @returns true when playback actually started
+ */
+async function loadMixPlayer(
+  outPath: string,
+  autoplay: boolean,
+): Promise<boolean> {
   const audio = $<HTMLAudioElement>("mix-player");
-  if (!audio || !outPath) return;
+  if (!audio || !outPath) return false;
   audio.src = convertFileSrc(outPath);
   audio.load();
   renderMixTimeline();
-  if (!autoplay) return;
+  if (!autoplay) return false;
   try {
     await audio.play();
+    return true;
   } catch (e) {
     appendLog(`autoplay blocked or failed: ${e}`);
+    return false;
   }
 }
 
@@ -980,6 +1009,7 @@ function seekToTrack(index: number) {
 }
 
 function mixNowSeek() {
+  if (cliBusy) return;
   const audio = $<HTMLAudioElement>("mix-player");
   const joins = lastMixReport?.join_timeline_secs ?? [];
   if (!audio || joins.length === 0) {
@@ -1000,6 +1030,7 @@ function mixNowSeek() {
 
 /** Seek to the previous join before the playhead (Shift+N). */
 function mixNowSeekPrev() {
+  if (cliBusy) return;
   const audio = $<HTMLAudioElement>("mix-player");
   const joins = lastMixReport?.join_timeline_secs ?? [];
   if (!audio || joins.length === 0) {
@@ -1134,10 +1165,24 @@ function renderMatches(candidates: SuggestCandidate[]) {
 }
 
 async function refreshMatchesForCue(cueIndex: number) {
-  const folder = $<HTMLInputElement>("folder")?.value.trim() ?? "";
   const order = lastMixReport?.order ?? [];
-  if (!folder || order.length < 2 || cueIndex < 0 || cueIndex >= order.length) {
+  if (order.length < 2 || cueIndex < 0 || cueIndex >= order.length) {
     clearMatchesPanel();
+    return;
+  }
+  const folder = libraryFolderForMatches();
+  if (!folder) {
+    const panel = $<HTMLDivElement>("matches-panel");
+    const list = $<HTMLUListElement>("matches-list");
+    if (list) {
+      list.replaceChildren();
+      const li = document.createElement("li");
+      li.className = "matches-empty";
+      li.textContent = "Set library folder for Next matches";
+      list.appendChild(li);
+    }
+    if (panel) panel.hidden = false;
+    lastMatchesCueIndex = cueIndex;
     return;
   }
   if (matchesInFlight) return;
@@ -1176,12 +1221,15 @@ async function refreshMatchesForCue(cueIndex: number) {
 }
 
 async function queueRemix(nextPath: string) {
-  const folder = $<HTMLInputElement>("folder")?.value.trim() ?? "";
+  const folder = libraryFolderForMatches();
   const out = $<HTMLInputElement>("out")?.value.trim() ?? "";
   const order = lastMixReport?.order ?? [];
   const cueIndex = currentCueIndex();
   if (!folder || !out || order.length === 0) {
-    showPlainReport("Need a folder Automix result before Queue & remix", true);
+    showPlainReport(
+      "Set library folder (or Automix folder) before Queue & remix",
+      true,
+    );
     return;
   }
   const prefix = order.slice(0, cueIndex + 1);
@@ -1374,13 +1422,25 @@ async function finishMixReport(
   renderMixReport(report, deterministic);
   const autoplay = $<HTMLInputElement>("autoplay")?.checked ?? true;
   const playPath = report.out?.trim() || out;
-  await loadMixPlayer(playPath, autoplay);
+  const played = await loadMixPlayer(playPath, autoplay);
   renderMixTimeline();
-  appendLog(
-    autoplay
-      ? `mix complete — playing ${basename(playPath)}`
-      : `mix complete — loaded ${basename(playPath)} (autoplay off)`,
-  );
+  const listenHint = $<HTMLParagraphElement>("listen-hint");
+  if (autoplay && !played) {
+    appendLog(
+      `mix complete — loaded ${basename(playPath)} (press play)`,
+    );
+    if (listenHint) {
+      listenHint.hidden = false;
+      listenHint.textContent =
+        "Autoplay failed — press play on the player";
+    }
+  } else {
+    appendLog(
+      autoplay
+        ? `mix complete — playing ${basename(playPath)}`
+        : `mix complete — loaded ${basename(playPath)} (autoplay off)`,
+    );
+  }
   const sidecar = mixReportSidecarPath(playPath);
   try {
     const exists = await invoke<boolean>("path_exists", { path: sidecar });
@@ -1513,6 +1573,16 @@ window.addEventListener("DOMContentLoaded", async () => {
   audio?.addEventListener("seeked", () => updateNowPlayingHighlight());
   audio?.addEventListener("loadedmetadata", () => renderMixTimeline());
   audio?.addEventListener("durationchange", () => renderMixTimeline());
+  audio?.addEventListener("error", () => {
+    const msg = audio.error?.message ?? "decode failed";
+    appendLog(`player: failed to load/decode (${msg})`);
+    const hint = $<HTMLParagraphElement>("listen-hint");
+    if (hint) {
+      hint.hidden = false;
+      hint.textContent =
+        "Could not decode mix audio — try WAV if FLAC fails in-browser";
+    }
+  });
 
   $<HTMLButtonElement>("btn-mix-now")?.addEventListener("click", () => {
     mixNowSeek();
@@ -1533,6 +1603,7 @@ window.addEventListener("DOMContentLoaded", async () => {
   syncEditorButtons();
 
   window.addEventListener("keydown", (ev) => {
+    if (cliBusy) return;
     if (ev.metaKey || ev.ctrlKey || ev.altKey) return;
     if (isTypingTarget(ev.target)) return;
     if (ev.key !== "n" && ev.key !== "N") return;
@@ -1695,7 +1766,7 @@ window.addEventListener("DOMContentLoaded", async () => {
         $<HTMLInputElement>("deterministic")?.checked ?? true;
       const lufs = selectedLufs(deterministic);
       if (!folder || !out) {
-        showPlainReport("Set library folder and output WAV paths", true);
+        showPlainReport("Set library folder and output audio paths", true);
         return;
       }
       setBusy(true);
@@ -1762,7 +1833,7 @@ window.addEventListener("DOMContentLoaded", async () => {
     const lufs = selectedLufs(deterministic);
     if (!playlist || !out) {
       showPlainReport(
-        "Set playlist (JSON or Rekordbox XML) and output WAV paths",
+        "Set playlist (JSON or Rekordbox XML) and output audio paths",
         true,
       );
       return;

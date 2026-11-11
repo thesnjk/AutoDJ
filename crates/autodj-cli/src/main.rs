@@ -44,7 +44,7 @@ enum Commands {
         #[arg(long, default_value = "features.sqlite")]
         db: PathBuf,
     },
-    /// Mix a playlist JSON or Rekordbox XML (or golden smoke) to WAV.
+    /// Mix a playlist JSON or Rekordbox XML (or golden smoke) to WAV or FLAC.
     Mix {
         /// Playlist JSON or Rekordbox DJ_PLAYLISTS XML path.
         #[arg(long)]

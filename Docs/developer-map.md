@@ -16,7 +16,7 @@ Thin index for humans and agents. Prefer linking one Doc at a time.
 | `testdata/gold/` | Royalty-free synthetic WAV + `loop_a_128.flac` fixtures |
 | `Docs/` | Specs, legal, rubrics |
 | `Docs/project-writeup.md` | Thesis-grade writeup + living capability ledger |
-| `Docs/data-contracts.md` | Normative playlist / MixReport / Softmax / SQLite / hints shapes |
+| `Docs/data-contracts.md` | Normative playlist / MixReport / Softmax / SQLite / hints / suggest+remix CLI shapes |
 
 ## Platform
 

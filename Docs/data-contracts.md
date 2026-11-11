@@ -1,6 +1,6 @@
 # AutoDJ data contracts
 
-Normative shapes for playlist ingest, MixReport export, Softmax artefacts, Feature DB, and policy hints. Extracted from shipped code (`crates/autodj-cli`, `autodj-graph`, `python/autodj_train`). Do not invent fields.
+Normative shapes for playlist ingest, MixReport export, Softmax artefacts, Feature DB, policy hints, and suggest/remix CLI. Extracted from shipped code (`crates/autodj-cli`, `autodj-graph`, `python/autodj_train`). Do not invent fields.
 
 Companion: [`project-writeup.md`](project-writeup.md) §2.3 · [`architecture.md`](architecture.md) · [`getting-started.md`](getting-started.md)
 
@@ -179,6 +179,69 @@ Shared Rust enum `TransitionClass` (`autodj-core`): `LinearCrossfade`, `EqSwap`,
 
 ---
 
-## 7. Suggest / matching stdout
+## 7. Suggest CLI (`autodj suggest`)
 
-`SuggestCandidateReport`: `path`, `cost`, `key`, `bpm`, `class`, `on_route` (plus ranking context from CLI). Consumed by Tauri Next matches.
+Ranks next-track neighbors from a library folder via `rank_next_matches` (Softmax / genre policy). Used by Tauri **Next matches** and continuous radio prerender. User-facing examples: [`getting-started.md`](getting-started.md) (Automix matching).
+
+### 7.1 Inputs (clap)
+
+| Flag | Type | Default | Semantics |
+|------|------|---------|-----------|
+| `--folder` | path | required | Library directory (`wav`/`flac`); Tauri may stage a temp symlink union of Radio libraries |
+| `--from` | path | required | Current / from track (must resolve inside folder after canonicalize) |
+| `--top` | usize | `5` | Max candidates returned |
+| `--genre` | string | `house` | Builtin policy id |
+| `--db` | path? | none | Feature DB; analyzes on the fly when missing |
+| `--transition-model` | path? | committed Softmax when present | Softmax JSON |
+| `--no-transition-model` | bool | false | Use genre `preferred_transition` |
+| `--policy-hints` | path? | none | Optional setcraft hints JSON |
+| `--position` | usize | `0` | Placement index of `--from` in the virtual set (energy-arc phase). Radio passes a global track index, not horizon length |
+| `--set-len` | usize? | folder track count | Virtual set length for `arc_phase`. Radio timed sets pass `ceil(targetSecs/240)` (or 40 continuous) |
+
+### 7.2 Stdout JSON (`SuggestReport`)
+
+Pretty-printed JSON (last object on stdout for Tauri extract):
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `from` | string | Canonical path key of `--from` |
+| `candidates` | array | Ranked `SuggestCandidateReport` |
+
+#### Candidate (`SuggestCandidateReport`)
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `path` | string | Canonical track path |
+| `cost` | number | `pair_cost_edge` score (lower better) |
+| `key` | string | Camelot key |
+| `bpm` | number | BPM |
+| `class` | string | Snake_case `TransitionClass` |
+| `on_route` | bool | Harmonic route from `suggest_next_keys` |
+
+---
+
+## 8. Remix CLI (`autodj remix`)
+
+Keeps a played **prefix** (including now-playing), pins **next**, then greedy-solves a remainder via `build_remix_order`, and runs a preserve-order mix. Used by Tauri **Queue & remix** and radio handoff (`--horizon 3`).
+
+### 8.1 Inputs (clap)
+
+| Flag | Type | Default | Semantics |
+|------|------|---------|-----------|
+| `--folder` | path | required | Library for remainder candidates (same staging rules as suggest) |
+| `--prefix` | path (repeatable) | required ≥1 | Already-played paths including current |
+| `--next` | path | required | Forced next track (must not already be in prefix) |
+| `--out` | path | `mix.wav` | Output WAV/FLAC |
+| `--genre` | string | `house` | Builtin policy id |
+| `--db` | path? | none | Feature DB |
+| `--deterministic` / `--no-deterministic` | bool | deterministic true | Strict MixReport gates |
+| `--lufs` | number | −14 | Target when non-deterministic |
+| `--no-loudness-norm` | bool | false | Peak-limit only |
+| `--policy-hints` | path? | none | Optional hints |
+| `--transition-model` / `--no-transition-model` | — | Softmax default | Same as mix/suggest |
+| `--report-out` | path? | `{out}.mixreport.json` | MixReport sidecar path |
+| `--horizon` | usize? | none (full remainder) | Cap order length to `max(horizon, prefix.len()+1)` after `prefix + next + greedy tail`. Continuous radio always passes `3` |
+
+### 8.2 Output
+
+Same **MixReport** JSON as ordinary `mix` (stdout + sidecar). Order is preserve-order: prefix paths, then forced next, then truncated greedy remainder. See §2 MixReport.

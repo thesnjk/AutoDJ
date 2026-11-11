@@ -42,4 +42,6 @@ Automated gates (CI) plus listening checklist for v1+.
 - [ ] Subjective loudness even across the set (automated gate covers ±2 LU; listen for pumping / over-limiting)
 - [ ] Large BPM gaps (±15%+) — automated stretch-clamp gate covers gold; listen for residual warble on real sets |
 
+Tauri MixReport panel: gate pills carry rubric tooltips; Strict QA fail callout lists failed hard gates; **Listen while playing** mirrors this checklist (evidence: `apps/autodj-app/src/main.ts`).
+
 Fail any automated row → block merge. Listening fails → open follow-up issue, do not paper over with doc-only checkboxes.

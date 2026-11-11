@@ -6,7 +6,7 @@ Living gap matrix. Updated 2026-11-09 after Firecrawl research (raw notes in loc
 
 | Surface | Competitor cue | AutoDJ status | Evidence |
 |---------|----------------|---------------|----------|
-| Offline automix render | djay Automix (playlist → continuous blend; Mix Now / cue points) | Parity-path MVP | `autodj-cli` `mix`; `crates/autodj-core/src/render.rs` |
+| Offline automix render | djay Automix (playlist → continuous blend; Mix Now / cue points) | Parity-path MVP | `autodj-cli` `mix`; MixReport sidecar `{out}.mixreport.json`; `crates/autodj-core/src/render.rs` |
 | Feature extraction (BPM/key/sections) | Rekordbox / djay prep analysis | Parity-path | `analysis.rs` `AnalysisQuality` + octave fold; FFT hop spectral centroid (`spectral_centroid_hz`); MixReport `prep_quality_gate_pass`; gold `expected_analyze.json` regression |
 | Harmonic suggestions | Rekordbox / DJ.Studio Camelot ordering | Parity MVP | `camelot.rs`; `key_pair_cost` / `suggest_next_keys`; `prefers_harmonic_neighbor` |
 | Energy-arc setcraft | Club open→peak→cool programming | Parity-path | `ArcPhase` + `pair_cost_at` + quiet opener; MixReport order |
@@ -101,9 +101,10 @@ Formula note: `(competitor best − AutoDJ) × persona weight × mix_impact`. Be
 | **P54** | Policy-hints E2E golden | **Shipped** — `--golden policy_hints`; house 12s vs builtin 8s |
 | **P55** | Rekordbox absolute cue remap | **Shipped** — Type 1/2 → `mix_in_secs`/`mix_out_secs`; `--golden rekordbox_cue_overrides` |
 | **P56** | Automix Editor baseline seed + CI | **Shipped** — seed mix-in/out + `transition_out` from MixReport; clippy allow on suggest/remix |
-| Next | MixReport sidecar export | `--report-out` / Save MixReport beside WAV |
+| **P57** | MixReport sidecar export | **Shipped** — `{out}.mixreport.json` + optional `--report-out`; CI smoke sidecar assert |
+| Next | Tauri policy-hints discoverability | browse + demo preset for setcraft hints |
 | Later | Stems / live dual-deck; neural phrase ML | gated / user-owned audio |
 
 ## Re-rank bias
 
-Prefer agent-doable product code that closes remaining mix-quality gaps before brochure fluff. P0–P56 are in place; stems remain gated.
+Prefer agent-doable product code that closes remaining mix-quality gaps before brochure fluff. P0–P57 are in place; stems remain gated.

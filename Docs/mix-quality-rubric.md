@@ -6,7 +6,7 @@ Automated gates (CI) plus listening checklist for v1+.
 
 | Check | Pass criterion |
 |-------|----------------|
-| Golden smoke CLI | `autodj mix --golden smoke` exits 0 and writes WAV |
+| Golden smoke CLI | `autodj mix --golden smoke` exits 0 and writes WAV + `{out}.mixreport.json` sidecar (CI asserts file exists) |
 | Golden broadcast CLI | `autodj mix --golden broadcast` exits 0; MixReport `target_lufs` −23 (`BROADCAST_TARGET_LUFS`), `loudness_gate_pass`, `integrated_lufs` within ±2 LU |
 | Golden rekordbox CLI | `autodj mix --golden rekordbox` exits 0; MixReport `preserve_order: true`; setlist order a→b→c from `testdata/rekordbox/gold_playlist.xml` (hard-fail if `preserve_order` returns non-sequential indices) |
 | Golden transitions CLI | `autodj mix --golden transitions` exits 0; all six builtins (house/trance/hip_hop/drum_and_bass/uk_garage/open_format) edges match `preferred_transition` and class-aware `policy_crossfade_secs` via `crossfade_secs_for_class` (trance `riser` / open_format `tremolo` / uk_garage `dissolve` / DnB 0 / hip_hop ~1 / house 8 / …) |

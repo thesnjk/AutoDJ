@@ -88,6 +88,9 @@ enum Commands {
         /// Skip Softmax; use genre `preferred_transition` per edge (goldens do this by default).
         #[arg(long, default_value_t = false)]
         no_transition_model: bool,
+        /// MixReport JSON path (default: `{out}.mixreport.json`).
+        #[arg(long)]
+        report_out: Option<PathBuf>,
     },
     /// Rank next-track matches from a folder for Automix Matching.
     Suggest {
@@ -156,6 +159,9 @@ enum Commands {
         transition_model: Option<PathBuf>,
         #[arg(long, default_value_t = false)]
         no_transition_model: bool,
+        /// MixReport JSON path (default: `{out}.mixreport.json`).
+        #[arg(long)]
+        report_out: Option<PathBuf>,
     },
 }
 
@@ -379,6 +385,7 @@ fn main() -> Result<()> {
             policy_hints,
             transition_model,
             no_transition_model,
+            report_out,
         } => {
             let deterministic = deterministic_flag && !no_deterministic;
             let target = if no_loudness_norm {
@@ -405,8 +412,7 @@ fn main() -> Result<()> {
                 model.as_ref(),
                 deterministic,
             )?;
-            println!("{}", serde_json::to_string_pretty(&report)?);
-            Ok(())
+            emit_mix_report(&report, &out, report_out.as_deref())
         }
         Commands::Mix {
             playlist,
@@ -423,6 +429,7 @@ fn main() -> Result<()> {
             policy_hints,
             transition_model,
             no_transition_model,
+            report_out,
         } => {
             let deterministic = deterministic_flag && !no_deterministic;
             // Deterministic: fixed default LUFS (ignore --lufs) + hard beat/peak gates.
@@ -446,6 +453,7 @@ fn main() -> Result<()> {
                 } else {
                     Some(DEFAULT_TARGET_LUFS)
                 };
+                let report_out = report_out.as_deref();
                 return match name.as_str() {
                     "smoke" => cmd_golden_smoke(
                         &out,
@@ -453,35 +461,46 @@ fn main() -> Result<()> {
                         golden_target,
                         None,
                         deterministic,
+                        report_out,
                     ),
-                    "broadcast" => cmd_golden_broadcast(&out, policy, golden_target, deterministic),
+                    "broadcast" => {
+                        cmd_golden_broadcast(&out, policy, golden_target, deterministic, report_out)
+                    }
                     "rekordbox" => cmd_golden_rekordbox(
                         &out,
                         policy,
                         golden_target,
                         None,
                         deterministic,
+                        report_out,
                     ),
                     "transitions" => cmd_golden_transitions(
                         &out,
                         golden_target,
                         None,
                         deterministic,
+                        report_out,
                     ),
                     "transition_model" => {
-                        cmd_golden_transition_model(&out, golden_target, deterministic)
+                        cmd_golden_transition_model(&out, golden_target, deterministic, report_out)
                     }
                     "cue_overrides" => {
-                        cmd_golden_cue_overrides(&out, golden_target, deterministic)
+                        cmd_golden_cue_overrides(&out, golden_target, deterministic, report_out)
                     }
-                    "rekordbox_cue_overrides" => {
-                        cmd_golden_rekordbox_cue_overrides(&out, golden_target, deterministic)
-                    }
-                    "transition_overrides" => {
-                        cmd_golden_transition_overrides(&out, golden_target, deterministic)
-                    }
+                    "rekordbox_cue_overrides" => cmd_golden_rekordbox_cue_overrides(
+                        &out,
+                        golden_target,
+                        deterministic,
+                        report_out,
+                    ),
+                    "transition_overrides" => cmd_golden_transition_overrides(
+                        &out,
+                        golden_target,
+                        deterministic,
+                        report_out,
+                    ),
                     "policy_hints" => {
-                        cmd_golden_policy_hints(&out, golden_target, deterministic)
+                        cmd_golden_policy_hints(&out, golden_target, deterministic, report_out)
                     }
                     other => bail!("unknown golden suite: {other}"),
                 };
@@ -503,10 +522,47 @@ fn main() -> Result<()> {
                 deterministic,
                 keep_order,
             )?;
-            println!("{}", serde_json::to_string_pretty(&report)?);
-            Ok(())
+            emit_mix_report(&report, &out, report_out.as_deref())
         }
     }
+}
+
+/// Default MixReport sidecar path: `{out}.mixreport.json`.
+fn default_mix_report_sidecar_path(out: &Path) -> PathBuf {
+    PathBuf::from(format!("{}.mixreport.json", out.display()))
+}
+
+fn resolve_mix_report_sidecar(out: &Path, report_out: Option<&Path>) -> PathBuf {
+    match report_out {
+        Some(p) => p.to_path_buf(),
+        None => default_mix_report_sidecar_path(out),
+    }
+}
+
+/// Write MixReport JSON to disk (pretty).
+fn write_mix_report_sidecar(report: &MixReport, path: &Path) -> Result<()> {
+    let json = serde_json::to_string_pretty(report)?;
+    fs::write(path, json)
+        .with_context(|| format!("write MixReport sidecar {}", path.display()))?;
+    Ok(())
+}
+
+/// Persist MixReport beside the WAV (or `--report-out`) and print to stdout.
+fn emit_mix_report(report: &MixReport, out: &Path, report_out: Option<&Path>) -> Result<()> {
+    let path = resolve_mix_report_sidecar(out, report_out);
+    write_mix_report_sidecar(report, &path)?;
+    println!("{}", serde_json::to_string_pretty(report)?);
+    Ok(())
+}
+
+/// Persist arbitrary report JSON (golden summaries) beside the WAV and print to stdout.
+fn emit_report_json<T: Serialize>(value: &T, out: &Path, report_out: Option<&Path>) -> Result<()> {
+    let path = resolve_mix_report_sidecar(out, report_out);
+    let json = serde_json::to_string_pretty(value)?;
+    fs::write(&path, &json)
+        .with_context(|| format!("write MixReport sidecar {}", path.display()))?;
+    println!("{json}");
+    Ok(())
 }
 
 fn load_transition_model(path: Option<&Path>) -> Result<Option<TransitionModel>> {
@@ -1210,6 +1266,7 @@ fn cmd_golden_smoke(
     target_lufs: Option<f64>,
     model: Option<&TransitionModel>,
     deterministic: bool,
+    report_out: Option<&Path>,
 ) -> Result<()> {
     let root = workspace_testdata()?;
     let playlist = root.join("party.json");
@@ -1256,8 +1313,7 @@ fn cmd_golden_smoke(
             );
         }
     }
-    println!("{}", serde_json::to_string_pretty(&report)?);
-    Ok(())
+    emit_mix_report(&report, out, report_out)
 }
 
 /// EBU R 128 broadcast loudness golden: same gold loops as smoke, target −23 LUFS.
@@ -1266,6 +1322,7 @@ fn cmd_golden_broadcast(
     policy: GenrePolicy,
     target_lufs: Option<f64>,
     deterministic: bool,
+    report_out: Option<&Path>,
 ) -> Result<()> {
     let root = workspace_testdata()?;
     let playlist = root.join("party.json");
@@ -1311,8 +1368,7 @@ fn cmd_golden_broadcast(
         ),
         None => bail!("broadcast golden: missing integrated_lufs"),
     }
-    println!("{}", serde_json::to_string_pretty(&report)?);
-    Ok(())
+    emit_mix_report(&report, out, report_out)
 }
 
 fn cmd_golden_rekordbox(
@@ -1321,6 +1377,7 @@ fn cmd_golden_rekordbox(
     target_lufs: Option<f64>,
     model: Option<&TransitionModel>,
     deterministic: bool,
+    report_out: Option<&Path>,
 ) -> Result<()> {
     let root = workspace_testdata()?;
     let playlist = root.join("rekordbox/gold_playlist.xml");
@@ -1347,8 +1404,7 @@ fn cmd_golden_rekordbox(
     if !report.prep_quality_gate_pass {
         bail!("rekordbox golden: expected prep_quality_gate_pass");
     }
-    println!("{}", serde_json::to_string_pretty(&report)?);
-    Ok(())
+    emit_mix_report(&report, out, report_out)
 }
 
 /// Multi-genre golden: assert each edge class matches genre `preferred_transition`.
@@ -1357,6 +1413,7 @@ fn cmd_golden_transitions(
     target_lufs: Option<f64>,
     model: Option<&TransitionModel>,
     deterministic: bool,
+    report_out: Option<&Path>,
 ) -> Result<()> {
     let root = workspace_testdata()?;
     // Genre-less fixture so playlist genre cannot override CLI policy (unlike party.json).
@@ -1444,8 +1501,7 @@ fn cmd_golden_transitions(
             "loudness_gate_pass": report.loudness_gate_pass,
         }));
     }
-    println!("{}", serde_json::to_string_pretty(&summaries)?);
-    Ok(())
+    emit_report_json(&summaries, out, report_out)
 }
 
 /// Policy-hints E2E golden: house mix with hinted default_crossfade_secs (12 vs builtin 8).
@@ -1453,6 +1509,7 @@ fn cmd_golden_policy_hints(
     out: &Path,
     target_lufs: Option<f64>,
     deterministic: bool,
+    report_out: Option<&Path>,
 ) -> Result<()> {
     let root = workspace_testdata()?;
     let hints_path = root.join("policy_hints_golden.json");
@@ -1545,18 +1602,15 @@ fn cmd_golden_policy_hints(
             );
         }
     }
-    println!(
-        "{}",
-        serde_json::to_string_pretty(&serde_json::json!({
-            "genre": report.genre,
-            "default_crossfade_secs": policy.default_crossfade_secs,
-            "builtin_default_crossfade_secs": builtin.default_crossfade_secs,
-            "transitions": report.transitions,
-            "preserve_order": report.preserve_order,
-            "loudness_gate_pass": report.loudness_gate_pass,
-        }))?
-    );
-    Ok(())
+    let summary = serde_json::json!({
+        "genre": report.genre,
+        "default_crossfade_secs": policy.default_crossfade_secs,
+        "builtin_default_crossfade_secs": builtin.default_crossfade_secs,
+        "transitions": report.transitions,
+        "preserve_order": report.preserve_order,
+        "loudness_gate_pass": report.loudness_gate_pass,
+    });
+    emit_report_json(&summary, out, report_out)
 }
 
 /// Softmax E2E golden: per-genre mix with committed model; classes must match predictions.
@@ -1564,6 +1618,7 @@ fn cmd_golden_transition_model(
     out: &Path,
     target_lufs: Option<f64>,
     deterministic: bool,
+    report_out: Option<&Path>,
 ) -> Result<()> {
     let model_path = resolve_committed_transition_model()?;
     let raw = fs::read_to_string(&model_path)
@@ -1646,8 +1701,7 @@ fn cmd_golden_transition_model(
         }));
     }
 
-    println!("{}", serde_json::to_string_pretty(&summaries)?);
-    Ok(())
+    emit_report_json(&summaries, out, report_out)
 }
 
 /// Golden: playlist `transition_out` pins MixReport edge classes.
@@ -1655,6 +1709,7 @@ fn cmd_golden_transition_overrides(
     out: &Path,
     target_lufs: Option<f64>,
     deterministic: bool,
+    report_out: Option<&Path>,
 ) -> Result<()> {
     let root = workspace_testdata()?;
     let playlist_path = root.join("transition_overrides_playlist.json");
@@ -1719,8 +1774,7 @@ fn cmd_golden_transition_overrides(
             );
         }
     }
-    println!("{}", serde_json::to_string_pretty(&report)?);
-    Ok(())
+    emit_mix_report(&report, out, report_out)
 }
 
 /// Golden: playlist absolute mix-in/out overrides pin CueReport play windows.
@@ -1728,6 +1782,7 @@ fn cmd_golden_cue_overrides(
     out: &Path,
     target_lufs: Option<f64>,
     deterministic: bool,
+    report_out: Option<&Path>,
 ) -> Result<()> {
     let root = workspace_testdata()?;
     let playlist_path = root.join("cue_overrides_playlist.json");
@@ -1745,8 +1800,7 @@ fn cmd_golden_cue_overrides(
         deterministic,
         "cue_overrides",
     )?;
-    println!("{}", serde_json::to_string_pretty(&report)?);
-    Ok(())
+    emit_mix_report(&report, out, report_out)
 }
 
 /// Golden: Rekordbox XML Type 1/2 POSITION_MARK → absolute mix windows.
@@ -1754,6 +1808,7 @@ fn cmd_golden_rekordbox_cue_overrides(
     out: &Path,
     target_lufs: Option<f64>,
     deterministic: bool,
+    report_out: Option<&Path>,
 ) -> Result<()> {
     let root = workspace_testdata()?;
     let playlist_path = root.join("rekordbox/cue_overrides_playlist.xml");
@@ -1774,8 +1829,7 @@ fn cmd_golden_rekordbox_cue_overrides(
     if !report.preserve_order {
         bail!("rekordbox_cue_overrides golden: expected preserve_order");
     }
-    println!("{}", serde_json::to_string_pretty(&report)?);
-    Ok(())
+    emit_mix_report(&report, out, report_out)
 }
 
 fn run_cue_override_golden(

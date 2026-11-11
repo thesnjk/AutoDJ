@@ -25,6 +25,7 @@ Primary runtime: **macOS Apple Silicon**. Offline path uses pure Rust (`eq.rs`, 
 cargo test --workspace
 cargo clippy --workspace -- -D warnings
 cargo run -p autodj-cli -- mix --golden smoke --out /tmp/autodj-smoke.wav
+# → /tmp/autodj-smoke.wav.mixreport.json
 cargo run -p autodj-cli -- mix --golden broadcast --out /tmp/autodj-broadcast.wav
 cargo run -p autodj-cli -- mix --golden policy_hints --out /tmp/autodj-policy-hints.wav
 cargo run -p autodj-cli -- mix --golden rekordbox_cue_overrides --out /tmp/autodj-rb-cues.wav

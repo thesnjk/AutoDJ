@@ -88,9 +88,10 @@ Formula note: `(competitor best − AutoDJ) × persona weight × mix_impact`. Be
 | **P41** | Key-route harmonic discount | **Shipped** — `key_pair_cost` + `HARMONIC_ROUTE_DISCOUNT` via `suggest_next_keys` in `pair_cost_edge` |
 | **P42** | Automix Matching UX | **Shipped** — `rank_next_matches` + CLI `suggest`/`remix`; Tauri Next matches + Queue & remix |
 | **P43** | Set-order Camelot + BPM | **Shipped** — cue `key`; transition key/ΔBPM/route/cost; Set order + Transitions UI |
+| **P44** | Join timeline markers | **Shipped** — player join ticks from `join_timeline_secs`; Transition row click→seek |
 | Next | Listening-rubric polish (user libraries) | ungated polish needing real audio |
 | Later | Stems / live dual-deck; Rekordbox absolute cue remap; neural phrase ML | gated / user-owned audio / RB semantics |
 
 ## Re-rank bias
 
-Prefer agent-doable product code that closes remaining mix-quality gaps before brochure fluff. P0–P43 are in place; stems remain gated.
+Prefer agent-doable product code that closes remaining mix-quality gaps before brochure fluff. P0–P44 are in place; stems remain gated.

@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Synthetic AutoDJ fixture — Type 1/2 → absolute mix_in/out (mirrors cue_overrides_playlist.json). -->
+<DJ_PLAYLISTS Version="1.0.0">
+  <PRODUCT Name="AutoDJ" Version="0.1.0" Company="AutoDJ"/>
+  <COLLECTION Entries="3">
+    <TRACK TrackID="1" Name="loop_a_128" Artist="fixture" AverageBpm="128.00" Tonality="8A"
+           Location="../gold/loop_a_128.wav" Kind="WAV File">
+      <TEMPO Inizio="0.0" Bpm="128.00" Metro="4/4" Battito="1"/>
+      <POSITION_MARK Name="Fade In" Type="1" Start="0.46875" Num="-1"/>
+      <POSITION_MARK Name="Fade Out" Type="2" Start="6.09375" Num="-1"/>
+    </TRACK>
+    <TRACK TrackID="2" Name="loop_b_128" Artist="fixture" AverageBpm="128.00" Tonality="9A"
+           Location="../gold/loop_b_128.wav" Kind="WAV File">
+      <TEMPO Inizio="0.0" Bpm="128.00" Metro="4/4" Battito="1"/>
+      <POSITION_MARK Name="Fade In" Type="1" Start="0.9375" Num="-1"/>
+      <POSITION_MARK Name="Fade Out" Type="2" Start="6.5625" Num="-1"/>
+    </TRACK>
+    <TRACK TrackID="3" Name="loop_c_140" Artist="fixture" AverageBpm="140.00" Tonality="10A"
+           Location="../gold/loop_c_140.wav" Kind="WAV File">
+      <TEMPO Inizio="0.0" Bpm="140.00" Metro="4/4" Battito="1"/>
+      <POSITION_MARK Name="Fade In" Type="1" Start="0.4285714286" Num="-1"/>
+    </TRACK>
+  </COLLECTION>
+  <PLAYLISTS>
+    <NODE Type="0" Name="ROOT" Count="1">
+      <NODE Name="Gold Set" Type="1" KeyType="0" Entries="3">
+        <TRACK Key="1"/>
+        <TRACK Key="2"/>
+        <TRACK Key="3"/>
+      </NODE>
+    </NODE>
+  </PLAYLISTS>
+</DJ_PLAYLISTS>

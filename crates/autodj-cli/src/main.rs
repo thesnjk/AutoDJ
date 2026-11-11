@@ -61,7 +61,7 @@ enum Commands {
         /// Genre policy id.
         #[arg(long, default_value = "house")]
         genre: String,
-        /// Built-in golden suite: `smoke`, `broadcast`, `rekordbox`, `transitions`, `transition_model`, `cue_overrides`, `transition_overrides`, or `policy_hints`.
+        /// Built-in golden suite: `smoke`, `broadcast`, `rekordbox`, `transitions`, `transition_model`, `cue_overrides`, `transition_overrides`, `policy_hints`, or `rekordbox_cue_overrides`.
         #[arg(long)]
         golden: Option<String>,
         /// Feature DB (optional; analyzes on the fly if missing).
@@ -474,6 +474,9 @@ fn main() -> Result<()> {
                     "cue_overrides" => {
                         cmd_golden_cue_overrides(&out, golden_target, deterministic)
                     }
+                    "rekordbox_cue_overrides" => {
+                        cmd_golden_rekordbox_cue_overrides(&out, golden_target, deterministic)
+                    }
                     "transition_overrides" => {
                         cmd_golden_transition_overrides(&out, golden_target, deterministic)
                     }
@@ -740,8 +743,8 @@ fn load_playlist_file(
                     beat_offset_secs: t.beat_offset_secs,
                     intro_end: t.intro_end,
                     outro_start: t.outro_start,
-                    mix_in_secs: None,
-                    mix_out_secs: None,
+                    mix_in_secs: t.mix_in_secs,
+                    mix_out_secs: t.mix_out_secs,
                     transition_out: None,
                     bars_per_phrase: None,
                 })
@@ -1732,11 +1735,60 @@ fn cmd_golden_cue_overrides(
             playlist_path.display()
         );
     }
-    let pl = load_playlist_file(&playlist_path, None)?;
-    let policy = GenrePolicy::builtin("house");
-    let report = cmd_mix(
+    let report = run_cue_override_golden(
         &playlist_path,
         None,
+        out,
+        target_lufs,
+        deterministic,
+        "cue_overrides",
+    )?;
+    println!("{}", serde_json::to_string_pretty(&report)?);
+    Ok(())
+}
+
+/// Golden: Rekordbox XML Type 1/2 POSITION_MARK → absolute mix windows.
+fn cmd_golden_rekordbox_cue_overrides(
+    out: &Path,
+    target_lufs: Option<f64>,
+    deterministic: bool,
+) -> Result<()> {
+    let root = workspace_testdata()?;
+    let playlist_path = root.join("rekordbox/cue_overrides_playlist.xml");
+    if !playlist_path.exists() {
+        bail!(
+            "missing rekordbox_cue_overrides golden fixture: {}",
+            playlist_path.display()
+        );
+    }
+    let report = run_cue_override_golden(
+        &playlist_path,
+        Some("Gold Set"),
+        out,
+        target_lufs,
+        deterministic,
+        "rekordbox_cue_overrides",
+    )?;
+    if !report.preserve_order {
+        bail!("rekordbox_cue_overrides golden: expected preserve_order");
+    }
+    println!("{}", serde_json::to_string_pretty(&report)?);
+    Ok(())
+}
+
+fn run_cue_override_golden(
+    playlist_path: &Path,
+    playlist_name: Option<&str>,
+    out: &Path,
+    target_lufs: Option<f64>,
+    deterministic: bool,
+    label: &str,
+) -> Result<MixReport> {
+    let pl = load_playlist_file(playlist_path, playlist_name)?;
+    let policy = GenrePolicy::builtin("house");
+    let report = cmd_mix(
+        playlist_path,
+        playlist_name,
         out,
         policy,
         None,
@@ -1746,11 +1798,11 @@ fn cmd_golden_cue_overrides(
         true, // preserve order for stable cue indices
     )?;
     if !report.cue_mix_override_applied {
-        bail!("cue_overrides golden: expected cue_mix_override_applied");
+        bail!("{label} golden: expected cue_mix_override_applied");
     }
     if report.cues.len() != pl.tracks.len() {
         bail!(
-            "cue_overrides golden: expected {} cues, got {}",
+            "{label} golden: expected {} cues, got {}",
             pl.tracks.len(),
             report.cues.len()
         );
@@ -1765,7 +1817,7 @@ fn cmd_golden_cue_overrides(
             let delta = (cue.play_start_secs - expected).abs();
             if delta > half_beat + 1e-3 {
                 bail!(
-                    "cue_overrides golden: track {i} play_start {:.4} != override snap {:.4} (Δ={delta:.4})",
+                    "{label} golden: track {i} play_start {:.4} != override snap {:.4} (Δ={delta:.4})",
                     cue.play_start_secs,
                     expected
                 );
@@ -1776,15 +1828,14 @@ fn cmd_golden_cue_overrides(
             let delta = (cue.play_end_secs - expected).abs();
             if delta > half_beat + 1e-3 {
                 bail!(
-                    "cue_overrides golden: track {i} play_end {:.4} != override snap {:.4} (Δ={delta:.4})",
+                    "{label} golden: track {i} play_end {:.4} != override snap {:.4} (Δ={delta:.4})",
                     cue.play_end_secs,
                     expected
                 );
             }
         }
     }
-    println!("{}", serde_json::to_string_pretty(&report)?);
-    Ok(())
+    Ok(report)
 }
 
 fn resolve_committed_transition_model() -> Result<PathBuf> {

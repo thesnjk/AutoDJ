@@ -16,6 +16,8 @@ cargo run -p autodj-cli -- mix --golden smoke --out /tmp/autodj-smoke.wav
 cargo run -p autodj-cli -- mix --golden broadcast --out /tmp/autodj-broadcast.wav
 # Rekordbox XML path (preserve-order setlist from testdata/rekordbox/gold_playlist.xml)
 cargo run -p autodj-cli -- mix --golden rekordbox --out /tmp/autodj-rekordbox.wav
+# Rekordbox Type 1/2 → absolute mix windows
+cargo run -p autodj-cli -- mix --golden rekordbox_cue_overrides --out /tmp/autodj-rb-cues.wav
 # Full builtin genre palette preferred classes (incl. uk_garage / open_format)
 cargo run -p autodj-cli -- mix --golden transitions --out /tmp/autodj-transitions.wav
 # Softmax artifact drives mix classes for all six builtins (committed transition_model.json)
@@ -67,12 +69,13 @@ cargo run -p autodj-cli -- mix --playlist party.json --out mix.wav \
   --transition-model python/autodj_train/models/artifacts/transition_model.json
 ```
 
-Keys/BPM/`beat_offset_secs`/`intro_end`/`outro_start`/`bars_per_phrase` (`4`/`8`/`16`) in JSON (or Rekordbox TEMPO/Tonality/POSITION_MARK) override analyzer estimates when present. Absolute mix windows: optional `mix_in_secs` / `mix_out_secs` pin play start/end (beat-snapped; win over section heuristics — unlike `intro_end`/`outro_start`, which only bias the planner). Per-edge FX: optional `transition_out` (`hard_cut`, `eq_swap`, `filter_sweep`, `echo_out`, `tremolo`, `riser`, `dissolve`, `linear_crossfade`, …) pins the class for the edge **from this track to the next**, overriding Softmax/policy and recomputing class-aware crossfade length. Without an override, mix resolves phrase length per track via `estimate_bars_per_phrase` (section span) with a genre fallback. A playlist BPM override also satisfies the prep quality gate when analysis is sparse or low-confidence. Without `--preserve-order`, the solver may reorder for harmonic/energy-arc (DJ key-routes from `suggest_next_keys` get a bounded cost discount).
+Keys/BPM/`beat_offset_secs`/`intro_end`/`outro_start`/`bars_per_phrase` (`4`/`8`/`16`) in JSON (or Rekordbox TEMPO/Tonality) override analyzer estimates when present. Absolute mix windows: optional `mix_in_secs` / `mix_out_secs` (JSON) or Rekordbox `POSITION_MARK` Type 1/2 pin play start/end (beat-snapped; win over section heuristics — unlike `intro_end`/`outro_start`, which only bias the planner). Per-edge FX: optional `transition_out` (`hard_cut`, `eq_swap`, `filter_sweep`, `echo_out`, `tremolo`, `riser`, `dissolve`, `linear_crossfade`, …) pins the class for the edge **from this track to the next**, overriding Softmax/policy and recomputing class-aware crossfade length. Without an override, mix resolves phrase length per track via `estimate_bars_per_phrase` (section span) with a genre fallback. A playlist BPM override also satisfies the prep quality gate when analysis is sparse or low-confidence. Without `--preserve-order`, the solver may reorder for harmonic/energy-arc (DJ key-routes from `suggest_next_keys` get a bounded cost discount).
 
 Cue / transition override goldens:
 
 ```bash
 cargo run -p autodj-cli -- mix --golden cue_overrides --out /tmp/autodj-cues.wav
+cargo run -p autodj-cli -- mix --golden rekordbox_cue_overrides --out /tmp/autodj-rb-cues.wav
 cargo run -p autodj-cli -- mix --golden transition_overrides --out /tmp/autodj-to.wav
 ```
 

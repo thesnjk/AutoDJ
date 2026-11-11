@@ -1343,6 +1343,121 @@ async function browsePlaylist() {
   }
 }
 
+const LIBRARY_ROOTS_KEY = "autodj.libraryRoots";
+
+/** Persisted Radio libraries roots (localStorage). */
+function loadLibraryRoots(): string[] {
+  try {
+    const raw = localStorage.getItem(LIBRARY_ROOTS_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter((x): x is string => typeof x === "string")
+      .map((s) => s.trim())
+      .filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
+function saveLibraryRoots(roots: string[]) {
+  localStorage.setItem(LIBRARY_ROOTS_KEY, JSON.stringify(roots));
+}
+
+function syncPrimaryFolderFromRoots(roots: string[]) {
+  const folder = $<HTMLInputElement>("folder");
+  if (!folder) return;
+  if (!folder.value.trim() && roots.length > 0) {
+    folder.value = roots[0]!;
+  }
+}
+
+function renderLibraryRoots() {
+  const list = $<HTMLUListElement>("library-roots-list");
+  if (!list) return;
+  const roots = loadLibraryRoots();
+  list.replaceChildren();
+  if (roots.length === 0) {
+    const li = document.createElement("li");
+    li.className = "library-roots-empty";
+    li.textContent =
+      "No library roots yet — Add Music/Downloads folders you own";
+    list.appendChild(li);
+    return;
+  }
+  for (const root of roots) {
+    const li = document.createElement("li");
+    const path = document.createElement("span");
+    path.className = "root-path";
+    path.textContent = root;
+    path.title = root;
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.className = "browse";
+    remove.textContent = "Remove";
+    remove.addEventListener("click", () => {
+      const next = loadLibraryRoots().filter((r) => r !== root);
+      saveLibraryRoots(next);
+      renderLibraryRoots();
+    });
+    li.append(path, remove);
+    list.appendChild(li);
+  }
+}
+
+async function addLibraryRoot() {
+  const selected = await open({
+    multiple: false,
+    directory: true,
+    title: "Add library root",
+  });
+  if (typeof selected !== "string") return;
+  const roots = loadLibraryRoots();
+  if (!roots.includes(selected)) {
+    roots.push(selected);
+    saveLibraryRoots(roots);
+  }
+  syncPrimaryFolderFromRoots(roots);
+  renderLibraryRoots();
+}
+
+async function indexLibraryRoots() {
+  const roots = loadLibraryRoots();
+  const db = $<HTMLInputElement>("db")?.value.trim() || "features.sqlite";
+  if (roots.length === 0) {
+    showPlainReport("Add at least one Radio library root before Index", true);
+    return;
+  }
+  setBusy(true);
+  appendLog("--- index libraries ---");
+  try {
+    const out = await invoke<string>("analyze_libraries", {
+      args: { folders: roots, db },
+    });
+    appendLog(out.trim());
+    showPlainReport(out.trim() || `Indexed ${roots.length} root(s) → ${db}`);
+  } catch (e) {
+    showPlainReport(String(e), true);
+    appendLog(String(e));
+  } finally {
+    setBusy(false);
+  }
+}
+
+/** Roots for Automix: Radio libraries when set, else primary `#folder`. */
+function automixFoldersPayload(): {
+  folder: string;
+  folders: string[] | null;
+} {
+  const roots = loadLibraryRoots();
+  const folder = $<HTMLInputElement>("folder")?.value.trim() ?? "";
+  if (roots.length > 0) {
+    return { folder: folder || roots[0]!, folders: roots };
+  }
+  return { folder, folders: null };
+}
+
 async function browseFolder() {
   const selected = await open({
     multiple: false,
@@ -1829,10 +1944,31 @@ window.addEventListener("DOMContentLoaded", async () => {
     }
   });
 
+  $<HTMLButtonElement>("btn-add-library-root")?.addEventListener(
+    "click",
+    async () => {
+      try {
+        await addLibraryRoot();
+      } catch (e) {
+        showPlainReport(String(e), true);
+        appendLog(String(e));
+      }
+    },
+  );
+
+  $<HTMLButtonElement>("btn-index-libraries")?.addEventListener(
+    "click",
+    () => {
+      void indexLibraryRoots();
+    },
+  );
+
+  renderLibraryRoots();
+
   $<HTMLButtonElement>("btn-automix-folder")?.addEventListener(
     "click",
     async () => {
-      const folder = $<HTMLInputElement>("folder")?.value.trim() ?? "";
+      const { folder, folders } = automixFoldersPayload();
       const out = $<HTMLInputElement>("out")?.value.trim() ?? "";
       const genre = $<HTMLSelectElement>("genre")?.value ?? "house";
       const policyHints =
@@ -1845,16 +1981,24 @@ window.addEventListener("DOMContentLoaded", async () => {
         $<HTMLInputElement>("deterministic")?.checked ?? true;
       const lufs = selectedLufs(deterministic);
       const { reportOut, noLoudnessNorm } = nicheMixInvokeArgs();
-      if (!folder || !out) {
-        showPlainReport("Set library folder and output audio paths", true);
+      if ((!folder && !(folders && folders.length)) || !out) {
+        showPlainReport(
+          "Set Radio libraries (or library folder) and output audio paths",
+          true,
+        );
         return;
       }
       setBusy(true);
-      appendLog("--- automix folder ---");
+      appendLog(
+        folders && folders.length > 1
+          ? `--- automix libraries (${folders.length} roots) ---`
+          : "--- automix folder ---",
+      );
       try {
         const report = await invoke<MixReport>("automix_folder", {
           args: {
             folder,
+            folders,
             out,
             genre,
             policyHints,

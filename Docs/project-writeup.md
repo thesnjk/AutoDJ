@@ -1,6 +1,6 @@
 # AutoDJ — Professional Project Writeup
 
-**Status:** P0–P78 on `main` (as of this revision).  
+**Status:** P0–P80 on `main` (as of this revision). Full-auto ladder: [`full-auto-roadmap.md`](full-auto-roadmap.md).  
 **Living document:** expand / append; never invent unshipped features.  
 **Companion specs:** [`competitive-automix-sweep.md`](competitive-automix-sweep.md) · [`architecture.md`](architecture.md) · [`data-contracts.md`](data-contracts.md) · [`getting-started.md`](getting-started.md) · [`mix-quality-rubric.md`](mix-quality-rubric.md) · [`legal-data-policy.md`](legal-data-policy.md) · [`developer-map.md`](developer-map.md) · [`genre-policy.md`](genre-policy.md)
 
@@ -803,7 +803,7 @@ Living checklist; **append** new P-rows here when shipping.
 
 - MixReport sidecar — **P57**; Reveal — **P61**  
 - Rekordbox / transitions / cue goldens — **P13**, **P15**, **P33–P34**, **P55**  
-- Folder Automix, Mix & Listen, Mix Now, Matching, Editor, Browse ladder, Skip Softmax, UI polish — **P37–P68**; busy-lock honesty + offline fonts — **P78**  
+- Folder Automix, Mix & Listen, Mix Now, Matching, Editor, Browse ladder, Skip Softmax, UI polish — **P37–P68**; busy-lock honesty + offline fonts — **P78**; Radio libraries multi-root index — **P80**  
 - Living writeup seed — **P69**; NEA-style expansion — **P70**; deepen diagrams/algorithms/evidence — **P72**  
 - CLI↔Tauri `--report-out` / `--no-loudness-norm` + macOS Tauri `cargo check` in CI — **P73**  
 - Competitive ungated closure & matrix honesty — **P74**  
@@ -852,3 +852,4 @@ Do not document these as shipped. Personas in §1.3 are product weights, **not**
 - **2026-11-11 — P74:** Competitive surface matrix re-labeled Shipped/Parity (closed); ungated product backlog empty; stems Gap only; README/writeup v1 closure.
 - **2026-11-11 — P76:** Thesis-grade writeup upgrade — REQ register, data-contracts.md, pair_cost closed form, Softmax metrics, failure modes, Tauri/CLI/ops verify matrix.  
 - **2026-11-11 — P78:** UI busy-lock covers MixReport Editor + cue/join seek; `aria-busy` on shell; offline system fonts (no Google CDN).
+- **2026-11-11 — P80:** Radio libraries — multi-root list (localStorage), Index → Feature DB (`analyze_libraries`), Automix unions roots; North Star Doc `full-auto-roadmap.md` (Next: P81 continuous radio).

@@ -121,8 +121,10 @@ Formula note: `(competitor best − AutoDJ) × persona weight × mix_impact`. Be
 | **P74** | Competitive ungated closure & matrix honesty | **Shipped** — surface matrix re-labeled Shipped/Parity (closed); stems Gap only; writeup/README closure |
 | **P76** | Thesis-grade writeup + data contracts | **Shipped** — REQ register; `data-contracts.md`; pair_cost model; Softmax metrics; failure/ops matrices |
 | **P78** | UI busy-lock honesty + offline polish | **Shipped** — report-panel/timeline busy lock; `aria-busy`; no Google Fonts CDN |
+| **P80** | Multi-root Radio libraries + Feature DB index | **Shipped** — Tauri roots list (localStorage); `analyze_libraries`; `automix_folder` unions roots; [`full-auto-roadmap.md`](full-auto-roadmap.md) |
 | Later | Stems / live dual-deck; neural phrase ML | gated / user-owned audio |
+| Next | **P81** continuous radio mode | full-auto ladder |
 
 ## Re-rank bias
 
-**Ungated product backlog is empty** after P0–P78. Default next agent work: idle with merge cmds, or Docs honesty from fresh git evidence—**never** pick-lists, **never** start stems without a user-owned stem path. Stems / live dual-deck / neural phrase ML remain Later/gated.
+Competitive ungated matrix closed after P0–P78. **Full-auto North Star** continues: ship **P81 → P82 → P83** per [`full-auto-roadmap.md`](full-auto-roadmap.md)—**never** idle while those phases remain, **never** pick-lists, **never** start stems without a user-owned stem path. Stems / live dual-deck / neural phrase ML / streaming OAuth / open-web scrape remain Later/gated.

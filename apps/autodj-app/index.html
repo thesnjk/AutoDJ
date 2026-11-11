@@ -12,7 +12,7 @@
     <main class="shell">
       <header class="hero">
         <h1 class="brand">AutoDJ</h1>
-        <p class="tagline">Folder → AutoDJ picks order → mix → listen</p>
+        <p class="tagline">Point at your libraries → AutoDJ picks, mixes, and keeps going</p>
       </header>
 
       <section class="player" aria-label="Mix player">
@@ -44,12 +44,24 @@
       </section>
 
       <section class="controls" aria-label="Mix controls">
+        <div class="library-roots" aria-label="Radio libraries">
+          <div class="library-roots-head">
+            <h2 class="library-roots-title">Radio libraries</h2>
+            <span class="hint">Multi-folder index for full-auto; persists locally</span>
+          </div>
+          <ul id="library-roots-list" class="library-roots-list"></ul>
+          <div class="actions library-roots-actions">
+            <button type="button" id="btn-add-library-root" class="browse">Add library root…</button>
+            <button type="button" id="btn-index-libraries" class="browse">Index libraries</button>
+          </div>
+        </div>
         <label>
           Library folder
           <span class="path-row">
             <input id="folder" type="text" spellcheck="false" placeholder="/path/to/tracks (wav/flac)" />
             <button type="button" id="btn-browse-folder" class="browse">Browse…</button>
           </span>
+          <span class="hint">Primary folder for Matching; Automix uses Radio libraries when set</span>
         </label>
         <label>
           Output audio

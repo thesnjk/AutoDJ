@@ -142,15 +142,37 @@ function appendLog(line: string) {
   log.scrollTop = log.scrollHeight;
 }
 
-function setBusy(busy: boolean) {
-  cliBusy = busy;
+/** Disable/enable interactive chrome while CLI runs (incl. dynamic report/timeline). */
+function applyBusyDom(busy: boolean) {
   document
     .querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLButtonElement>(
-      ".controls input, .controls select, .controls button, .player-actions input, .player-actions button, .matches-list button",
+      [
+        ".controls input",
+        ".controls select",
+        ".controls button",
+        ".player-actions input",
+        ".player-actions button",
+        ".matches-list button",
+        "#report-panel input",
+        "#report-panel select",
+        "#report-panel button",
+        "#cue-segments button",
+        "#join-markers button",
+      ].join(", "),
     )
     .forEach((el) => {
       el.disabled = busy;
     });
+  const shell = document.querySelector<HTMLElement>("main.shell");
+  if (shell) {
+    if (busy) shell.setAttribute("aria-busy", "true");
+    else shell.removeAttribute("aria-busy");
+  }
+}
+
+function setBusy(busy: boolean) {
+  cliBusy = busy;
+  applyBusyDom(busy);
   if (!busy) {
     syncEditorButtons();
     syncLufsControl();
@@ -892,6 +914,7 @@ function renderMixTimeline() {
   renderCueSegments();
   renderJoinMarkers();
   updateNowPlayingHighlight();
+  if (cliBusy) applyBusyDom(true);
 }
 
 /** Draw per-cue spans from cues[].mix_timeline_* under the player. */
@@ -1457,6 +1480,7 @@ async function finishMixReport(
   lastMatchesCueIndex = -1;
   seedEditorDraft(report);
   renderMixReport(report, deterministic);
+  if (cliBusy) applyBusyDom(true);
   const autoplay = $<HTMLInputElement>("autoplay")?.checked ?? true;
   const playPath = report.out?.trim() || out;
   const played = await loadMixPlayer(playPath, autoplay);

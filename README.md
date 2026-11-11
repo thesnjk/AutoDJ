@@ -4,7 +4,7 @@ Automatic DJ mix engine and learning pipeline. Analyze a library or playlist, so
 
 ## Status
 
-**P0–P76 shipped** on `main` — ungated competitive matrix closed (Shipped/Parity): Folder Automix, Softmax 8-class FX, Rekordbox + cues, FLAC I/O, MixReport gates, Tauri shell (incl. Advanced `--report-out` / peak-limit), macOS Tauri compile in CI, and a thesis-grade project writeup + [`Docs/data-contracts.md`](Docs/data-contracts.md). Narrative: [`Docs/project-writeup.md`](Docs/project-writeup.md). Matrix: [`Docs/competitive-automix-sweep.md`](Docs/competitive-automix-sweep.md). Later/gated only: stems, live dual-deck, neural phrase ML.
+**P0–P78 shipped** on `main` — ungated competitive matrix closed (Shipped/Parity): Folder Automix, Softmax 8-class FX, Rekordbox + cues, FLAC I/O, MixReport gates, Tauri shell (busy-lock honesty, offline fonts, Advanced `--report-out` / peak-limit), macOS Tauri compile in CI, and a thesis-grade project writeup + [`Docs/data-contracts.md`](Docs/data-contracts.md). Narrative: [`Docs/project-writeup.md`](Docs/project-writeup.md). Matrix: [`Docs/competitive-automix-sweep.md`](Docs/competitive-automix-sweep.md). Later/gated only: stems, live dual-deck, neural phrase ML.
 
 ## Quick start
 

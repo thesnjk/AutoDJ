@@ -1,5 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Syne:wght@600;700&family=IBM+Plex+Sans:wght@400;500&family=IBM+Plex+Mono:wght@400;500&display=swap");
-
+/* Offline-first type: no Google Fonts CDN (P78). Prefer distinctive local faces. */
 :root {
   --bg-0: #0c0e12;
   --bg-1: #141820;
@@ -10,9 +9,10 @@
   --line: rgba(232, 228, 220, 0.12);
   --danger: #c45a5a;
   --ok: #6a9a72;
-  --font-display: "Syne", sans-serif;
-  --font-body: "IBM Plex Sans", sans-serif;
-  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+  --font-display: "Avenir Next", "Futura", "Trebuchet MS", ui-rounded, ui-sans-serif,
+    system-ui, sans-serif;
+  --font-body: "Helvetica Neue", "Segoe UI", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "SF Mono", Menlo, Consolas, ui-monospace, monospace;
 }
 
 * {

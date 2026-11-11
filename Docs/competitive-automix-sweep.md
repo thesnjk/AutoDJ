@@ -120,8 +120,9 @@ Formula note: `(competitor best − AutoDJ) × persona weight × mix_impact`. Be
 | **P73** | CLI↔Tauri niche flags + macOS Tauri compile | **Shipped** — `--report-out` / `--no-loudness-norm` in Advanced; CI `cargo check` src-tauri on macos-latest |
 | **P74** | Competitive ungated closure & matrix honesty | **Shipped** — surface matrix re-labeled Shipped/Parity (closed); stems Gap only; writeup/README closure |
 | **P76** | Thesis-grade writeup + data contracts | **Shipped** — REQ register; `data-contracts.md`; pair_cost model; Softmax metrics; failure/ops matrices |
+| **P78** | UI busy-lock honesty + offline polish | **Shipped** — report-panel/timeline busy lock; `aria-busy`; no Google Fonts CDN |
 | Later | Stems / live dual-deck; neural phrase ML | gated / user-owned audio |
 
 ## Re-rank bias
 
-**Ungated product backlog is empty** after P0–P76. Default next agent work: idle with merge cmds, or Docs honesty from fresh git evidence—**never** pick-lists, **never** start stems without a user-owned stem path. Stems / live dual-deck / neural phrase ML remain Later/gated.
+**Ungated product backlog is empty** after P0–P78. Default next agent work: idle with merge cmds, or Docs honesty from fresh git evidence—**never** pick-lists, **never** start stems without a user-owned stem path. Stems / live dual-deck / neural phrase ML remain Later/gated.

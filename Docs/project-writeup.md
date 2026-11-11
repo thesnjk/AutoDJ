@@ -1,6 +1,6 @@
 # AutoDJ — Professional Project Writeup
 
-**Status:** P0–P76 on `main` (as of this revision).  
+**Status:** P0–P78 on `main` (as of this revision).  
 **Living document:** expand / append; never invent unshipped features.  
 **Companion specs:** [`competitive-automix-sweep.md`](competitive-automix-sweep.md) · [`architecture.md`](architecture.md) · [`data-contracts.md`](data-contracts.md) · [`getting-started.md`](getting-started.md) · [`mix-quality-rubric.md`](mix-quality-rubric.md) · [`legal-data-policy.md`](legal-data-policy.md) · [`developer-map.md`](developer-map.md) · [`genre-policy.md`](genre-policy.md)
 
@@ -103,7 +103,7 @@ Personas come from standing competitive re-rank guidance (not client interviews)
 | NFO1 | Deterministic CI goldens | All listed goldens exit 0 on CI |
 | NFO2 | Offline / on-device library privacy | No upload path; legal policy |
 | NFO3 | Modular maintainability | Cargo crates + Python train split |
-| NFO4 | Mac-first desktop usability | Tauri busy guards; path Browse; a11y basics (P68) |
+| NFO4 | Mac-first desktop usability | Tauri busy guards + `aria-busy`; path Browse; offline fonts (P68, P78) |
 | NFO5 | Lawful data only | No forbidden audio in git; gated scrapes |
 | NFO6 | Real-time-safe DSP discipline | Offline render path; no RT alloc on hot docs rules |
 
@@ -217,7 +217,7 @@ Requirements are **normative**: each REQ maps to at least one FO/NFO and automat
 | REQ-Q1 | Must | Emit MixReport sidecar + stdout JSON with hard gates | FO8 | sidecar CI |
 | REQ-R1 | Must | Ingest Rekordbox XML with preserve-order fidelity | FO9 | rekordbox goldens |
 | REQ-K1 | Must | Rank next matches / pin remix from same cost surface | FO10 | suggest/remix tests |
-| REQ-U1 | Should | Desktop shell over CLI with busy/honest listen | FO11, NFO4 | Tauri P37–P73 |
+| REQ-U1 | Should | Desktop shell over CLI with busy/honest listen | FO11, NFO4 | Tauri P37–P73, P78 |
 | REQ-P1 | Should | Offline policy hints merge into genre policy | FO12 | `policy_hints` golden |
 | REQ-I1 | Must | Encode/decode WAV and FLAC | FO13 | io tests; P67 |
 | REQ-N1 | Must | CI reproduces goldens on ubuntu + macos | NFO1 | `.github/workflows/ci.yml` |
@@ -362,7 +362,7 @@ Multi-BPM joins: `tempo_blend_head` + `tempo_blend_tail` (WSOLA) with stretch ra
 **Main panel:** library folder, output audio, genre, preserve-order, Strict QA, LUFS, Feature DB Browse/New, Automix folder.  
 **Player:** HTML5 audio, cue segments, join ticks, Mix Now, Autoplay, Next matches, Automix Editor.  
 **Advanced:** playlist Browse, analyze Browse, policy hints, Softmax path / Skip Softmax.  
-**Reliability (P68):** full-form busy lock; Mix Now / `N` blocked while CLI busy; honest autoplay failure; folder infer for matches after Mix playlist.
+**Reliability (P68/P78):** busy lock covers controls, player actions, Matching, MixReport panel (incl. Editor), and cue/join seek chrome; `aria-busy` on `main.shell`; Mix Now / `N` blocked while CLI busy; honest autoplay failure; folder infer for matches; offline system font stack (no Google Fonts CDN).
 
 ```mermaid
 flowchart TB
@@ -622,7 +622,7 @@ Without clients, evaluation uses:
 | NFO1 | **Pass** | CI golden matrix |
 | NFO2 | **Pass** | local-only design; legal Doc |
 | NFO3 | **Pass** | crate/train split |
-| NFO4 | **Pass / Mac-local UX** | P68 UX; P73 macOS Tauri `cargo check` in CI; WebKit deferred |
+| NFO4 | **Pass / Mac-local UX** | P68/P78 busy+aria+offline fonts; P73 macOS Tauri `cargo check` in CI; WebKit deferred |
 | NFO5 | **Pass** | legal gates enforced in Docs + process |
 | NFO6 | **Pass (offline path)** | DSP in core; RT rules in standing orders |
 
@@ -803,7 +803,7 @@ Living checklist; **append** new P-rows here when shipping.
 
 - MixReport sidecar — **P57**; Reveal — **P61**  
 - Rekordbox / transitions / cue goldens — **P13**, **P15**, **P33–P34**, **P55**  
-- Folder Automix, Mix & Listen, Mix Now, Matching, Editor, Browse ladder, Skip Softmax, UI polish — **P37–P68**  
+- Folder Automix, Mix & Listen, Mix Now, Matching, Editor, Browse ladder, Skip Softmax, UI polish — **P37–P68**; busy-lock honesty + offline fonts — **P78**  
 - Living writeup seed — **P69**; NEA-style expansion — **P70**; deepen diagrams/algorithms/evidence — **P72**  
 - CLI↔Tauri `--report-out` / `--no-loudness-norm` + macOS Tauri `cargo check` in CI — **P73**  
 - Competitive ungated closure & matrix honesty — **P74**  
@@ -850,4 +850,5 @@ Do not document these as shipped. Personas in §1.3 are product weights, **not**
 - **2026-11-11 — P72:** Deepened NEA writeup — mermaid pipeline/Softmax/UI diagrams, algorithm subsections (§2.4.x), unit/CI evidence tables, MixReport gate excerpt, Appendix E screenshot placeholders.  
 - **2026-11-11 — P73:** Tauri Advanced MixReport path + Peak limit only; Reveal honours `--report-out`; CI macOS `cargo check` for `apps/autodj-app/src-tauri`.  
 - **2026-11-11 — P74:** Competitive surface matrix re-labeled Shipped/Parity (closed); ungated product backlog empty; stems Gap only; README/writeup v1 closure.
-- **2026-11-11 — P76:** Thesis-grade writeup upgrade — REQ register, data-contracts.md, pair_cost closed form, Softmax metrics, failure modes, Tauri/CLI/ops verify matrix.
+- **2026-11-11 — P76:** Thesis-grade writeup upgrade — REQ register, data-contracts.md, pair_cost closed form, Softmax metrics, failure modes, Tauri/CLI/ops verify matrix.  
+- **2026-11-11 — P78:** UI busy-lock covers MixReport Editor + cue/join seek; `aria-busy` on shell; offline system fonts (no Google CDN).

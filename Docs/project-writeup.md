@@ -1,10 +1,10 @@
 # AutoDJ — Professional Project Writeup
 
-**Status:** P0–P73 on `main` (as of this revision).  
+**Status:** P0–P74 on `main` (as of this revision).  
 **Living document:** expand / append; never invent unshipped features.  
 **Companion specs:** [`competitive-automix-sweep.md`](competitive-automix-sweep.md) · [`architecture.md`](architecture.md) · [`getting-started.md`](getting-started.md) · [`mix-quality-rubric.md`](mix-quality-rubric.md) · [`legal-data-policy.md`](legal-data-policy.md) · [`developer-map.md`](developer-map.md) · [`genre-policy.md`](genre-policy.md)
 
-This writeup follows a professional project structure (Analysis → Design → Implementation → Testing → Evaluation → User Guide → Appendices). There are **no clients and no fabricated interviews**; Analysis uses product personas, and Evaluation is **developer-led** against measurable objectives and automated evidence. P72 deepens diagrams/algorithms/evidence; P73 closes niche CLI↔Tauri flag parity and adds macOS Tauri compile in CI.
+This writeup follows a professional project structure (Analysis → Design → Implementation → Testing → Evaluation → User Guide → Appendices). There are **no clients and no fabricated interviews**; Analysis uses product personas, and Evaluation is **developer-led** against measurable objectives and automated evidence. P74 records **v1 ungated competitive closure**: surface matrix re-labeled Shipped/Parity (closed); only stems remain Gap/Later.
 
 ---
 
@@ -20,7 +20,7 @@ This writeup follows a professional project structure (Analysis → Design → I
 8. [Appendices](#8-appendices)  
    - [A — Test evidence index](#appendix-a--test-evidence-index)  
    - [B — Data / legal sources](#appendix-b--data--legal-sources)  
-   - [C — Capability ledger](#appendix-c--capability-ledger-p0p73)  
+   - [C — Capability ledger](#appendix-c--capability-ledger-p0p74)  
    - [D — How this Doc grows](#appendix-d--how-this-doc-grows)  
    - [E — Screenshot placeholders](#appendix-e--screenshot-placeholders)
 
@@ -59,7 +59,7 @@ Personas come from standing competitive re-rank guidance (not client interviews)
 
 ### 1.4 Research into the problem
 
-**Competitive surface matrix** (summary): offline automix render, feature extraction, harmonic suggestions, energy-arc setcraft, transition FX palette, cueing, Rekordbox prep, phrase sync, learning from setcraft, loudness, tempo blend, spectral continuity. Stems / live dual-deck / neural phrase ML remain **Later / gated**.
+**Competitive surface matrix** (summary): offline automix, I/O, analysis, harmonic/energy-arc, FX palette (excl. Neural), cues, Rekordbox, phrase, offline learning, desktop shell, loudness, tempo blend, spectral continuity are **Shipped / Parity (closed)** as of P74. Stems / live dual-deck / neural phrase ML remain **Later / gated**.
 
 **Legal research:** [`legal-data-policy.md`](legal-data-policy.md) forbids commercial set scrapes and unlicensed stems in git/CI; tracklist ingest commits **statistics + citations only**; live 1001Tracklists / Beatport clients are gated.
 
@@ -108,7 +108,7 @@ Personas come from standing competitive re-rank guidance (not client interviews)
 
 #### 1.6.3 Objective prioritisation
 
-Shipped P0–P73 closed the ungated mix-quality, shell, Docs-depth, and niche CLI↔Tauri parity gaps. Remaining matrix **Gap** is stems-aware transitions (v2 / user-owned audio). Personas weighted bedroom DJ and radio continuous mix first—hence loudness, Folder Automix, Matching, and Editor before gated live/stems.
+Shipped P0–P74 closed the ungated mix-quality, shell, Docs-depth, niche CLI↔Tauri parity, and competitive-matrix honesty gaps. The competitive surface matrix now marks offline automix, I/O, analysis, harmonic/energy-arc, FX palette (excl. Neural), cues, Rekordbox, phrase, learning (offline), desktop shell, loudness, tempo blend, and spectral eval as **Shipped / Parity (closed)**. Remaining matrix **Gap** is stems-aware transitions (Later / user-owned audio); live dual-deck and neural phrase ML stay Later. Personas weighted bedroom DJ and radio continuous mix first—hence loudness, Folder Automix, Matching, and Editor before gated live/stems.
 
 ### 1.7 Modelling the problem
 
@@ -527,7 +527,7 @@ Without clients, evaluation uses:
 
 ### 5.6 Summary
 
-Against declared FO/NFO and the competitive ungated backlog through P73, AutoDJ **meets its v1 professional objectives**. Remaining gaps are explicitly Later/gated, not undocumented failures. P72 raised Docs depth; P73 closed niche CLI↔Tauri parity and added honest macOS Tauri compile in CI.
+Against declared FO/NFO and the competitive ungated backlog through P74, AutoDJ **meets its v1 professional objectives**. The competitive surface matrix is honest: ungated rows are Shipped/Parity (closed); remaining gaps are explicitly Later/gated (stems, live dual-deck, neural), not undocumented failures. P72 raised Docs depth; P73 closed niche CLI↔Tauri parity + macOS Tauri compile in CI; P74 closed matrix honesty.
 
 ---
 
@@ -618,7 +618,7 @@ Internal: all `Docs/*.md` listed in the front matter; MIT `LICENSE`.
 - Softmax trained on synthetic pairs; committed JSON artefact.  
 - Forbidden: commercial set scrapes, unlicensed stems (see legal policy).
 
-### Appendix C — Capability ledger (P0–P73)
+### Appendix C — Capability ledger (P0–P74)
 
 Living checklist; **append** new P-rows here when shipping.
 
@@ -662,6 +662,7 @@ Living checklist; **append** new P-rows here when shipping.
 - Folder Automix, Mix & Listen, Mix Now, Matching, Editor, Browse ladder, Skip Softmax, UI polish — **P37–P68**  
 - Living writeup seed — **P69**; NEA-style expansion — **P70**; deepen diagrams/algorithms/evidence — **P72**  
 - CLI↔Tauri `--report-out` / `--no-loudness-norm` + macOS Tauri `cargo check` in CI — **P73**  
+- Competitive ungated closure & matrix honesty — **P74**  
 - Softmax train/eval — **P6**
 
 ### Appendix D — How this Doc grows
@@ -689,4 +690,5 @@ Living checklist; **append** new P-rows here when shipping.
 - **2026-11-11 — P69:** Seeded living writeup + README refresh.  
 - **2026-11-11 — P70:** Expanded into full professional Analysis→Evaluation structure (persona-based; developer-led; no clients).  
 - **2026-11-11 — P72:** Deepened NEA writeup — mermaid pipeline/Softmax/UI diagrams, algorithm subsections (§2.4.x), unit/CI evidence tables, MixReport gate excerpt, Appendix E screenshot placeholders.  
-- **2026-11-11 — P73:** Tauri Advanced MixReport path + Peak limit only; Reveal honours `--report-out`; CI macOS `cargo check` for `apps/autodj-app/src-tauri`.
+- **2026-11-11 — P73:** Tauri Advanced MixReport path + Peak limit only; Reveal honours `--report-out`; CI macOS `cargo check` for `apps/autodj-app/src-tauri`.  
+- **2026-11-11 — P74:** Competitive surface matrix re-labeled Shipped/Parity (closed); ungated product backlog empty; stems Gap only; README/writeup v1 closure.

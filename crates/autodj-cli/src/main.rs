@@ -61,7 +61,7 @@ enum Commands {
         /// Genre policy id.
         #[arg(long, default_value = "house")]
         genre: String,
-        /// Built-in golden suite: `smoke`, `broadcast`, `rekordbox`, `transitions`, `transition_model`, `cue_overrides`, or `transition_overrides`.
+        /// Built-in golden suite: `smoke`, `broadcast`, `rekordbox`, `transitions`, `transition_model`, `cue_overrides`, `transition_overrides`, or `policy_hints`.
         #[arg(long)]
         golden: Option<String>,
         /// Feature DB (optional; analyzes on the fly if missing).
@@ -476,6 +476,9 @@ fn main() -> Result<()> {
                     }
                     "transition_overrides" => {
                         cmd_golden_transition_overrides(&out, golden_target, deterministic)
+                    }
+                    "policy_hints" => {
+                        cmd_golden_policy_hints(&out, golden_target, deterministic)
                     }
                     other => bail!("unknown golden suite: {other}"),
                 };
@@ -1437,6 +1440,117 @@ fn cmd_golden_transitions(
         }));
     }
     println!("{}", serde_json::to_string_pretty(&summaries)?);
+    Ok(())
+}
+
+/// Policy-hints E2E golden: house mix with hinted default_crossfade_secs (12 vs builtin 8).
+fn cmd_golden_policy_hints(
+    out: &Path,
+    target_lufs: Option<f64>,
+    deterministic: bool,
+) -> Result<()> {
+    let root = workspace_testdata()?;
+    let hints_path = root.join("policy_hints_golden.json");
+    if !hints_path.exists() {
+        bail!(
+            "missing policy hints golden fixture: {}",
+            hints_path.display()
+        );
+    }
+    let playlist = root.join("transitions_playlist.json");
+    if !playlist.exists() {
+        let json = serde_json::json!({
+            "tracks": [
+                {"path": "gold/loop_a_128.wav", "key": "8A", "bpm": 128.0},
+                {"path": "gold/loop_b_128.wav", "key": "9A", "bpm": 128.0},
+                {"path": "gold/loop_c_140.wav", "key": "10A", "bpm": 140.0}
+            ]
+        });
+        fs::write(&playlist, serde_json::to_string_pretty(&json)?)?;
+    }
+
+    let builtin = GenrePolicy::builtin("house");
+    let policy = resolve_policy("house", Some(&hints_path))?;
+    if (policy.default_crossfade_secs - 12.0).abs() > 1e-3 {
+        bail!(
+            "policy_hints golden: expected default_crossfade_secs 12.0 after hints, got {}",
+            policy.default_crossfade_secs
+        );
+    }
+    if (policy.default_crossfade_secs - builtin.default_crossfade_secs).abs() < 1e-3 {
+        bail!(
+            "policy_hints golden: hinted crossfade {} must differ from builtin {}",
+            policy.default_crossfade_secs,
+            builtin.default_crossfade_secs
+        );
+    }
+
+    let expected_class = TransitionClass::EqSwap;
+    let report = cmd_mix(
+        &playlist,
+        None,
+        out,
+        policy.clone(),
+        None,
+        target_lufs,
+        None,
+        deterministic,
+        true,
+    )?;
+    if report.genre != "house" {
+        bail!(
+            "policy_hints golden: expected genre house, got {}",
+            report.genre
+        );
+    }
+    if report.transitions.is_empty() {
+        bail!("policy_hints golden: no edges in MixReport");
+    }
+    for edge in &report.transitions {
+        if edge.class != expected_class {
+            bail!(
+                "policy_hints golden: edge {}→{} class {:?} != {:?}",
+                edge.from,
+                edge.to,
+                edge.class,
+                expected_class
+            );
+        }
+        let bpm = report
+            .cues
+            .get(edge.from)
+            .map(|c| c.bpm)
+            .unwrap_or(128.0);
+        let expected_xf = crossfade_secs_for_class(expected_class, &policy, bpm);
+        if (edge.policy_crossfade_secs - expected_xf).abs() > 1e-3 {
+            bail!(
+                "policy_hints golden: edge {}→{} policy_crossfade_secs {:.4} != hinted {:.4}",
+                edge.from,
+                edge.to,
+                edge.policy_crossfade_secs,
+                expected_xf
+            );
+        }
+        if (edge.policy_crossfade_secs - builtin.default_crossfade_secs).abs() < 1e-3 {
+            bail!(
+                "policy_hints golden: edge {}→{} still at builtin crossfade {:.4}",
+                edge.from,
+                edge.to,
+                builtin.default_crossfade_secs
+            );
+        }
+    }
+    println!(
+        "{}",
+        serde_json::to_string_pretty(&serde_json::json!({
+            "genre": report.genre,
+            "default_crossfade_secs": policy.default_crossfade_secs,
+            "builtin_default_crossfade_secs": builtin.default_crossfade_secs,
+            "transitions": report.transitions,
+            "preserve_order": report.preserve_order,
+            "loudness_gate_pass": report.loudness_gate_pass,
+        }))?
+    );
     Ok(())
 }
 

@@ -195,7 +195,11 @@ struct MixArgs {
 #[derive(serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct AutomixFolderArgs {
+    /// Primary library folder (used when `folders` is empty / omitted).
     folder: String,
+    /// Optional multi-root list (Radio libraries). When non-empty, union of wav/flac across roots.
+    #[serde(default)]
+    folders: Option<Vec<String>>,
     out: String,
     genre: String,
     policy_hints: Option<String>,
@@ -203,7 +207,7 @@ struct AutomixFolderArgs {
     /// Skip Softmax; use genre `preferred_transition` (CLI `--no-transition-model`).
     #[serde(default)]
     no_transition_model: bool,
-    /// Feature DB; when set, analyze folder into DB before mix.
+    /// Feature DB; when set, analyze each root into DB before mix.
     db: Option<String>,
     preserve_order: Option<bool>,
     #[serde(default = "default_deterministic")]
@@ -217,6 +221,14 @@ struct AutomixFolderArgs {
     no_loudness_norm: bool,
 }
 
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct AnalyzeLibrariesArgs {
+    /// Library root folders to analyze into `db`.
+    folders: Vec<String>,
+    db: String,
+}
+
 /// Collect wav/flac paths in a folder (sorted), mirroring CLI `collect_audio`.
 fn collect_folder_audio(folder: &Path) -> Result<Vec<PathBuf>, String> {
     if !folder.is_dir() {
@@ -228,6 +240,49 @@ fn collect_folder_audio(folder: &Path) -> Result<Vec<PathBuf>, String> {
         let path = entry.map_err(|e| format!("dir entry: {e}"))?.path();
         if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
             if matches!(ext.to_ascii_lowercase().as_str(), "wav" | "flac") {
+                out.push(path);
+            }
+        }
+    }
+    out.sort();
+    Ok(out)
+}
+
+/// Resolve Automix roots: non-empty `folders`, else single `folder`.
+fn resolve_library_roots(folder: &str, folders: Option<&[String]>) -> Result<Vec<PathBuf>, String> {
+    let mut roots: Vec<PathBuf> = Vec::new();
+    if let Some(list) = folders {
+        for s in list {
+            let t = s.trim();
+            if !t.is_empty() {
+                roots.push(PathBuf::from(t));
+            }
+        }
+    }
+    if roots.is_empty() {
+        let t = folder.trim();
+        if t.is_empty() {
+            return Err("set a library folder or Radio libraries roots".into());
+        }
+        roots.push(PathBuf::from(t));
+    }
+    Ok(roots)
+}
+
+/// Union wav/flac across roots; dedupe by canonical path; sorted for determinism.
+fn collect_roots_audio(roots: &[PathBuf]) -> Result<Vec<PathBuf>, String> {
+    use std::collections::BTreeSet;
+    let mut seen: BTreeSet<String> = BTreeSet::new();
+    let mut out: Vec<PathBuf> = Vec::new();
+    for root in roots {
+        let tracks = collect_folder_audio(root)?;
+        for path in tracks {
+            let key = path
+                .canonicalize()
+                .unwrap_or_else(|_| path.clone())
+                .to_string_lossy()
+                .into_owned();
+            if seen.insert(key) {
                 out.push(path);
             }
         }
@@ -702,24 +757,50 @@ fn remix_queue_next(app: AppHandle, args: RemixQueueArgs) -> Result<serde_json::
     })
 }
 
-/// Scan a folder of wav/flac, build a temp playlist, optionally analyze into `--db`, then mix.
+/// Analyze each library root into the Feature DB (Radio libraries index).
+#[tauri::command]
+fn analyze_libraries(app: AppHandle, args: AnalyzeLibrariesArgs) -> Result<String, String> {
+    let db = args.db.trim();
+    if db.is_empty() {
+        return Err("set Feature DB path".into());
+    }
+    let roots = resolve_library_roots("", Some(&args.folders))?;
+    let mut summaries = Vec::new();
+    for root in &roots {
+        let root_s = root.to_string_lossy().into_owned();
+        emit_progress(&app, &format!("analyze library root → {root_s}"));
+        let (ok, stdout, stderr) =
+            run_autodj(&app, &["analyze", "--input", &root_s, "--db", db])?;
+        if !ok {
+            return Err(stderr.if_empty(stdout));
+        }
+        summaries.push(format!("ok: {root_s}"));
+    }
+    Ok(summaries.join("\n"))
+}
+
+/// Scan one or more library roots of wav/flac, build a temp playlist, optionally analyze into `--db`, then mix.
 #[tauri::command]
 fn automix_folder(app: AppHandle, args: AutomixFolderArgs) -> Result<serde_json::Value, String> {
-    let folder = PathBuf::from(args.folder.trim());
-    let tracks = collect_folder_audio(&folder)?;
+    let roots = resolve_library_roots(&args.folder, args.folders.as_deref())?;
+    let tracks = collect_roots_audio(&roots)?;
     if tracks.len() < 2 {
+        let roots_s = roots
+            .iter()
+            .map(|p| p.display().to_string())
+            .collect::<Vec<_>>()
+            .join(", ");
         return Err(format!(
-            "need ≥2 wav/flac files in {}; found {}",
-            folder.display(),
+            "need ≥2 wav/flac files across library roots [{roots_s}]; found {}",
             tracks.len()
         ));
     }
     emit_progress(
         &app,
         &format!(
-            "folder automix: {} tracks in {}",
+            "library automix: {} tracks across {} root(s)",
             tracks.len(),
-            folder.display()
+            roots.len()
         ),
     );
 
@@ -731,15 +812,15 @@ fn automix_folder(app: AppHandle, args: AutomixFolderArgs) -> Result<serde_json:
 
     let db = args.db.filter(|s| !s.trim().is_empty());
     if let Some(ref db_path) = db {
-        let folder_s = folder.to_string_lossy().into_owned();
-        let (ok, stdout, stderr) = run_autodj(
-            &app,
-            &["analyze", "--input", &folder_s, "--db", db_path],
-        )?;
-        if !ok {
-            return Err(stderr.if_empty(stdout));
+        for root in &roots {
+            let root_s = root.to_string_lossy().into_owned();
+            let (ok, stdout, stderr) =
+                run_autodj(&app, &["analyze", "--input", &root_s, "--db", db_path])?;
+            if !ok {
+                return Err(stderr.if_empty(stdout));
+            }
+            emit_progress(&app, &format!("analyze {root_s} → {db_path}"));
         }
-        emit_progress(&app, &format!("analyze → {db_path}"));
     }
 
     let hints = args.policy_hints.filter(|s| !s.trim().is_empty());
@@ -887,6 +968,7 @@ pub fn run() {
             resolve_autodj_bin,
             autodj_version,
             analyze,
+            analyze_libraries,
             mix,
             automix_folder,
             suggest_matches,
@@ -899,4 +981,49 @@ pub fn run() {
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs::File;
+
+    #[test]
+    fn resolve_roots_prefers_folders_list() {
+        let roots = resolve_library_roots(
+            "/ignored",
+            Some(&["/a".into(), "  ".into(), "/b".into()]),
+        )
+        .unwrap();
+        assert_eq!(roots.len(), 2);
+        assert_eq!(roots[0], PathBuf::from("/a"));
+        assert_eq!(roots[1], PathBuf::from("/b"));
+    }
+
+    #[test]
+    fn resolve_roots_falls_back_to_folder() {
+        let roots = resolve_library_roots("/solo", Some(&[])).unwrap();
+        assert_eq!(roots, vec![PathBuf::from("/solo")]);
+    }
+
+    #[test]
+    fn collect_roots_dedupes_and_unions() {
+        let dir = std::env::temp_dir().join(format!(
+            "autodj-p80-roots-{}",
+            std::process::id()
+        ));
+        let _ = fs::remove_dir_all(&dir);
+        let a = dir.join("a");
+        let b = dir.join("b");
+        fs::create_dir_all(&a).unwrap();
+        fs::create_dir_all(&b).unwrap();
+        File::create(a.join("x.wav")).unwrap();
+        File::create(a.join("y.flac")).unwrap();
+        // Same basename in second root is a distinct path.
+        File::create(b.join("x.wav")).unwrap();
+        File::create(b.join("z.txt")).unwrap(); // ignored
+        let tracks = collect_roots_audio(&[a, b]).unwrap();
+        let _ = fs::remove_dir_all(&dir);
+        assert_eq!(tracks.len(), 3);
+    }
 }

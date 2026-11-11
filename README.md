@@ -4,7 +4,7 @@ Automatic DJ mix engine and learning pipeline. Analyze a library or playlist, so
 
 ## Status
 
-**P0–P78 shipped** on `main` — ungated competitive matrix closed (Shipped/Parity): Folder Automix, Softmax 8-class FX, Rekordbox + cues, FLAC I/O, MixReport gates, Tauri shell (busy-lock honesty, offline fonts, Advanced `--report-out` / peak-limit), macOS Tauri compile in CI, and a thesis-grade project writeup + [`Docs/data-contracts.md`](Docs/data-contracts.md). Narrative: [`Docs/project-writeup.md`](Docs/project-writeup.md). Matrix: [`Docs/competitive-automix-sweep.md`](Docs/competitive-automix-sweep.md). Later/gated only: stems, live dual-deck, neural phrase ML.
+**P0–P80 shipped** on `main` — ungated competitive matrix closed, plus full-auto **Radio libraries** (multi-root index → Feature DB → Automix across roots). Softmax 8-class FX, Rekordbox + cues, FLAC I/O, MixReport gates, Tauri shell, thesis-grade writeup + [`Docs/data-contracts.md`](Docs/data-contracts.md). Narrative: [`Docs/project-writeup.md`](Docs/project-writeup.md). Matrix: [`Docs/competitive-automix-sweep.md`](Docs/competitive-automix-sweep.md). Full-auto ladder: [`Docs/full-auto-roadmap.md`](Docs/full-auto-roadmap.md) (Next: **P81** continuous radio). Later/gated: stems, live dual-deck, neural phrase ML, streaming OAuth, open-web scrape.
 
 ## Quick start
 
@@ -40,6 +40,7 @@ Desktop (macOS): see [`Docs/getting-started.md`](Docs/getting-started.md) — `c
 | Doc | Role |
 |-----|------|
 | [`Docs/project-writeup.md`](Docs/project-writeup.md) | Full professional writeup (Analysis→Design→Implementation→Testing→Evaluation) + capability ledger |
+| [`Docs/full-auto-roadmap.md`](Docs/full-auto-roadmap.md) | North Star + P80–P83 phase ladder |
 | [`Docs/developer-map.md`](Docs/developer-map.md) | Layout, tests, hard rules |
 | [`Docs/getting-started.md`](Docs/getting-started.md) | First mix, CLI flags, Tauri |
 | [`Docs/architecture.md`](Docs/architecture.md) | Pipeline + crate roles |

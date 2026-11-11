@@ -86,9 +86,10 @@ Formula note: `(competitor best − AutoDJ) × persona weight × mix_impact`. Be
 | **P39** | Folder Automix one-shot | **Shipped** — Tauri `automix_folder`; scan wav/flac → Softmax solve → autoplay |
 | **P40** | Mix Now + cue timeline | **Shipped** — `join_timeline_secs` + cue `mix_timeline_*`; Mix Now seek; now-playing highlight |
 | **P41** | Key-route harmonic discount | **Shipped** — `key_pair_cost` + `HARMONIC_ROUTE_DISCOUNT` via `suggest_next_keys` in `pair_cost_edge` |
-| Next | Automix Matching UX | ungated product polish |
-| Later | Stems / live dual-deck; Rekordbox absolute cue remap; neural phrase ML; listening-rubric polish | gated / user-owned audio / RB semantics |
+| **P42** | Automix Matching UX | **Shipped** — `rank_next_matches` + CLI `suggest`/`remix`; Tauri Next matches + Queue & remix |
+| Next | Listening-rubric polish / Set-order Camelot+BPM | ungated polish (user libraries) |
+| Later | Stems / live dual-deck; Rekordbox absolute cue remap; neural phrase ML | gated / user-owned audio / RB semantics |
 
 ## Re-rank bias
 
-Prefer agent-doable product code that closes remaining mix-quality gaps before brochure fluff. P0–P41 are in place; stems remain gated.
+Prefer agent-doable product code that closes remaining mix-quality gaps before brochure fluff. P0–P42 are in place; stems remain gated.

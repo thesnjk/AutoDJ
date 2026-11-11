@@ -512,6 +512,113 @@ pub fn suggest_next_keys(current: CamelotKey) -> Vec<CamelotKey> {
     out
 }
 
+/// Ranked next-track suggestion for Automix Matching.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MatchCandidate {
+    /// Index into the candidate track list.
+    pub index: usize,
+    /// Pairwise edge cost (lower is better).
+    pub cost: f32,
+    /// Resolved transition class for the edge.
+    pub transition: TransitionClass,
+    /// True when `to.key` is in [`suggest_next_keys`] for the from-track.
+    pub key_on_route: bool,
+}
+
+/// Rank all tracks other than `from` by [`pair_cost_edge`], returning the best `top_n`.
+///
+/// `position_in_set` is the placement index of the from-track in the current set
+/// (used for energy-arc phase); `set_len` is the set size for [`arc_phase`].
+pub fn rank_next_matches(
+    from: usize,
+    tracks: &[TrackFeatures],
+    policy: &GenrePolicy,
+    model: Option<&TransitionModel>,
+    top_n: usize,
+    position_in_set: usize,
+    set_len: usize,
+) -> Vec<MatchCandidate> {
+    if tracks.is_empty() || from >= tracks.len() || top_n == 0 {
+        return Vec::new();
+    }
+    let phase = arc_phase(position_in_set.saturating_add(1).min(set_len.max(1)), set_len.max(1));
+    let from_key = tracks[from].key;
+    let mut scored: Vec<MatchCandidate> = tracks
+        .iter()
+        .enumerate()
+        .filter(|(j, _)| *j != from)
+        .map(|(j, b)| {
+            let cost = pair_cost_edge(&tracks[from], b, policy, phase, model);
+            let transition = resolve_transition_class(&tracks[from], b, policy, model);
+            let key_on_route = suggest_next_keys(from_key).contains(&b.key);
+            MatchCandidate {
+                index: j,
+                cost,
+                transition,
+                key_on_route,
+            }
+        })
+        .collect();
+    scored.sort_by(|a, b| {
+        a.cost
+            .partial_cmp(&b.cost)
+            .unwrap_or(std::cmp::Ordering::Equal)
+            .then_with(|| a.index.cmp(&b.index))
+    });
+    scored.truncate(top_n);
+    scored
+}
+
+/// Build a remix order: played `prefix` (including now-playing) + `forced_next` +
+/// greedy solve of the remaining tracks starting from `forced_next`.
+///
+/// Indices refer to `tracks`. Returns an empty vec if inputs are invalid.
+pub fn build_remix_order(
+    tracks: &[TrackFeatures],
+    prefix: &[usize],
+    forced_next: usize,
+    policy: &GenrePolicy,
+    model: Option<&TransitionModel>,
+) -> Vec<usize> {
+    let n = tracks.len();
+    if n == 0 || forced_next >= n {
+        return Vec::new();
+    }
+    if prefix.iter().any(|&i| i >= n) {
+        return Vec::new();
+    }
+    if prefix.contains(&forced_next) {
+        return Vec::new();
+    }
+    let mut used = std::collections::HashSet::new();
+    for &i in prefix {
+        used.insert(i);
+    }
+    used.insert(forced_next);
+
+    let remainder: Vec<usize> = (0..n).filter(|i| !used.contains(i)).collect();
+    if remainder.is_empty() {
+        let mut out = prefix.to_vec();
+        out.push(forced_next);
+        return out;
+    }
+
+    // Subset: forced_next first, then remainder — solve with start = 0.
+    let mut subset_idxs = Vec::with_capacity(1 + remainder.len());
+    subset_idxs.push(forced_next);
+    subset_idxs.extend_from_slice(&remainder);
+    let subset_feats: Vec<TrackFeatures> = subset_idxs
+        .iter()
+        .map(|&i| tracks[i].clone())
+        .collect();
+    let sol = solve_order(&subset_feats, policy, Some(0), model);
+    let mut out = prefix.to_vec();
+    for &si in &sol.order {
+        out.push(subset_idxs[si]);
+    }
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -588,6 +695,40 @@ mod tests {
             "key-route 9A should beat closer-BPM 10A; order={:?}",
             sol.order
         );
+    }
+
+    #[test]
+    fn rank_next_matches_prefers_key_route() {
+        let tracks = vec![
+            feat(124.0, "8A", -10.0),
+            feat(124.0, "10A", -10.0),
+            feat(127.0, "9A", -10.0),
+        ];
+        let policy = GenrePolicy::builtin("house");
+        let ranked = rank_next_matches(0, &tracks, &policy, None, 2, 0, 3);
+        assert_eq!(ranked.len(), 2);
+        assert_eq!(ranked[0].index, 2, "9A should rank first; got {:?}", ranked);
+        assert!(ranked[0].key_on_route);
+        assert!(!ranked[1].key_on_route);
+        assert!(ranked[0].cost < ranked[1].cost);
+    }
+
+    #[test]
+    fn build_remix_order_pins_forced_next() {
+        let tracks = vec![
+            feat(124.0, "8A", -10.0),
+            feat(125.0, "9A", -9.5),
+            feat(126.0, "10A", -9.0),
+            feat(174.0, "1A", -8.0),
+        ];
+        let policy = GenrePolicy::builtin("house");
+        let order = build_remix_order(&tracks, &[0], 2, &policy, None);
+        assert_eq!(order[0], 0);
+        assert_eq!(order[1], 2, "forced next pinned; order={:?}", order);
+        assert_eq!(order.len(), 4);
+        let mut seen = order.clone();
+        seen.sort();
+        assert_eq!(seen, vec![0, 1, 2, 3]);
     }
 
     #[test]

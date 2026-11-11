@@ -29,6 +29,18 @@ type CueReport = {
   mix_timeline_end_secs: number;
 };
 
+type PrepTrackReport = {
+  track: string;
+  sparse_audio: boolean;
+  bpm_confidence: number;
+  key_confidence: number;
+  bpm_octave_corrected: boolean;
+  bpm_overridden: boolean;
+  key_overridden: boolean;
+  beat_offset_overridden: boolean;
+  trusted: boolean;
+};
+
 type MixReport = {
   order?: string[];
   genre?: string;
@@ -54,6 +66,7 @@ type MixReport = {
   max_stretch_clamp_excess?: number;
   prep_quality_gate_pass?: boolean;
   cue_drop_aware?: boolean;
+  prep_tracks?: PrepTrackReport[];
   transitions?: TransitionEdge[];
   cues?: CueReport[];
   join_timeline_secs?: number[];
@@ -140,6 +153,39 @@ function basename(path: string | undefined): string {
   if (!path) return "?";
   const parts = path.split(/[/\\]/);
   return parts[parts.length - 1] || path;
+}
+
+function pathsMatch(a: string, b: string): boolean {
+  if (a === b) return true;
+  const na = a.replace(/\\/g, "/");
+  const nb = b.replace(/\\/g, "/");
+  if (na === nb) return true;
+  return basename(na) === basename(nb);
+}
+
+function findPrepForPath(
+  prepTracks: PrepTrackReport[] | undefined,
+  path: string,
+  index: number,
+): PrepTrackReport | undefined {
+  if (!prepTracks || prepTracks.length === 0) return undefined;
+  const byPath = prepTracks.find((p) => pathsMatch(p.track, path));
+  if (byPath) return byPath;
+  return prepTracks[index];
+}
+
+function prepTooltip(prep: PrepTrackReport): string {
+  const bits = [
+    prep.trusted ? "trusted" : "weak prep",
+    `bpm_conf ${fmt(prep.bpm_confidence, 2)}`,
+    `key_conf ${fmt(prep.key_confidence, 2)}`,
+    prep.sparse_audio ? "sparse" : "dense",
+  ];
+  if (prep.bpm_overridden) bits.push("BPM override");
+  if (prep.key_overridden) bits.push("key override");
+  if (prep.beat_offset_overridden) bits.push("beat offset override");
+  if (prep.bpm_octave_corrected) bits.push("octave corr");
+  return bits.join(" · ");
 }
 
 function fmt(n: number | null | undefined, digits = 3): string {
@@ -232,6 +278,7 @@ function renderMixReport(r: MixReport, deterministic: boolean) {
   orderUl.id = "set-order-list";
   const tracks = r.order ?? [];
   const cues = r.cues ?? [];
+  const prepTracks = r.prep_tracks ?? [];
   if (tracks.length === 0) {
     const li = document.createElement("li");
     li.textContent = "(none)";
@@ -241,13 +288,17 @@ function renderMixReport(r: MixReport, deterministic: boolean) {
       const li = document.createElement("li");
       li.dataset.index = String(i);
       const cue = cues[i];
+      const prep = findPrepForPath(prepTracks, path, i);
+      const titleBits = [path];
       if (cue) {
         li.dataset.start = String(cue.mix_timeline_start_secs);
         li.dataset.end = String(cue.mix_timeline_end_secs);
-        li.title = `${path} · ${fmt(cue.mix_timeline_start_secs, 1)}s–${fmt(cue.mix_timeline_end_secs, 1)}s`;
-      } else {
-        li.title = path;
+        titleBits.push(
+          `${fmt(cue.mix_timeline_start_secs, 1)}s–${fmt(cue.mix_timeline_end_secs, 1)}s`,
+        );
       }
+      if (prep) titleBits.push(prepTooltip(prep));
+      li.title = titleBits.join(" · ");
       const name = document.createElement("span");
       name.className = "set-order-name";
       name.textContent = basename(path);
@@ -258,6 +309,13 @@ function renderMixReport(r: MixReport, deterministic: boolean) {
         const key = cue.key?.trim() || "?";
         meta.textContent = `${key} · ${fmt(cue.bpm, 1)} BPM`;
         li.appendChild(meta);
+      }
+      if (prep) {
+        const pill = document.createElement("span");
+        pill.className = `gate set-order-prep ${prep.trusted ? "pass" : "fail"}`;
+        pill.textContent = prep.trusted ? "trusted" : "weak";
+        pill.title = prepTooltip(prep);
+        li.appendChild(pill);
       }
       li.tabIndex = 0;
       li.setAttribute("role", "button");

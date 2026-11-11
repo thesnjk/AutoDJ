@@ -116,7 +116,11 @@
           </label>
           <label>
             Analyze input (file or folder)
-            <input id="analyze-input" type="text" spellcheck="false" placeholder="/path/to/library" />
+            <span class="path-row">
+              <input id="analyze-input" type="text" spellcheck="false" placeholder="/path/to/library" />
+              <button type="button" id="btn-browse-analyze-folder" class="browse">Browse folder…</button>
+              <button type="button" id="btn-browse-analyze-file" class="browse">Browse file…</button>
+            </span>
           </label>
           <label class="optional">
             Policy hints (optional)

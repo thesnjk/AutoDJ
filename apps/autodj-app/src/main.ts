@@ -150,6 +150,8 @@ function setBusy(busy: boolean) {
     "btn-browse-playlist",
     "btn-browse-folder",
     "btn-browse-out",
+    "btn-browse-analyze-folder",
+    "btn-browse-analyze-file",
     "btn-editor-apply",
     "btn-editor-save",
     "btn-editor-reset",
@@ -1229,6 +1231,31 @@ async function browseFolder() {
   }
 }
 
+async function browseAnalyzeFolder() {
+  const selected = await open({
+    multiple: false,
+    directory: true,
+    title: "Select library to analyze",
+  });
+  if (typeof selected === "string") {
+    const el = $<HTMLInputElement>("analyze-input");
+    if (el) el.value = selected;
+  }
+}
+
+async function browseAnalyzeFile() {
+  const selected = await open({
+    multiple: false,
+    directory: false,
+    title: "Select audio file to analyze",
+    filters: [{ name: "Audio", extensions: ["wav", "flac"] }],
+  });
+  if (typeof selected === "string") {
+    const el = $<HTMLInputElement>("analyze-input");
+    if (el) el.value = selected;
+  }
+}
+
 async function browseOut() {
   const selected = await save({
     title: "Export mix WAV",
@@ -1487,6 +1514,30 @@ window.addEventListener("DOMContentLoaded", async () => {
       appendLog(String(e));
     }
   });
+
+  $<HTMLButtonElement>("btn-browse-analyze-folder")?.addEventListener(
+    "click",
+    async () => {
+      try {
+        await browseAnalyzeFolder();
+      } catch (e) {
+        showPlainReport(String(e), true);
+        appendLog(String(e));
+      }
+    },
+  );
+
+  $<HTMLButtonElement>("btn-browse-analyze-file")?.addEventListener(
+    "click",
+    async () => {
+      try {
+        await browseAnalyzeFile();
+      } catch (e) {
+        showPlainReport(String(e), true);
+        appendLog(String(e));
+      }
+    },
+  );
 
   $<HTMLButtonElement>("btn-browse-policy-hints")?.addEventListener(
     "click",

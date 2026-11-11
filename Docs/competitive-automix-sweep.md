@@ -98,9 +98,10 @@ Formula note: `(competitor best − AutoDJ) × persona weight × mix_impact`. Be
 | **P51** | Tauri Automix Editor | **Shipped** — mix-in/out + `transition_out` draft → `mix_editor_remix` preserve-order |
 | **P52** | Broadcast −23 CI golden | **Shipped** — `--golden broadcast` + CI; `BROADCAST_TARGET_LUFS` asserts |
 | **P53** | FLAC decode parity | **Shipped** — `claxon` + `read_audio`; gold `loop_a_128.flac`; CI analyze |
-| Next | Policy-hints E2E golden | `--policy-hints` shipped (P5); no dedicated CI golden |
-| Later | Stems / live dual-deck; Rekordbox absolute cue remap; neural phrase ML | gated / user-owned audio / RB semantics |
+| **P54** | Policy-hints E2E golden | **Shipped** — `--golden policy_hints`; house 12s vs builtin 8s |
+| Next | Rekordbox absolute cue remap | synthetic XML → `mix_in_secs`/`mix_out_secs` |
+| Later | Stems / live dual-deck; neural phrase ML | gated / user-owned audio |
 
 ## Re-rank bias
 
-Prefer agent-doable product code that closes remaining mix-quality gaps before brochure fluff. P0–P53 are in place; stems remain gated.
+Prefer agent-doable product code that closes remaining mix-quality gaps before brochure fluff. P0–P54 are in place; stems remain gated.

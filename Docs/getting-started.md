@@ -20,6 +20,8 @@ cargo run -p autodj-cli -- mix --golden rekordbox --out /tmp/autodj-rekordbox.wa
 cargo run -p autodj-cli -- mix --golden transitions --out /tmp/autodj-transitions.wav
 # Softmax artifact drives mix classes for all six builtins (committed transition_model.json)
 cargo run -p autodj-cli -- mix --golden transition_model --out /tmp/autodj-transition-model.wav
+# Offline setcraft policy hints (house crossfade 12s vs builtin 8s)
+cargo run -p autodj-cli -- mix --golden policy_hints --out /tmp/autodj-policy-hints.wav
 # Ordinary playlist broadcast target (Strict QA off; equals form so clap accepts the negative)
 # cargo run -p autodj-cli -- mix --playlist party.json --no-deterministic --lufs=-23 --out /tmp/autodj-broadcast-mix.wav
 afplay /tmp/autodj-smoke.wav   # macOS

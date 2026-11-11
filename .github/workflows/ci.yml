@@ -29,6 +29,8 @@ jobs:
         run: cargo run -p autodj-cli -- mix --golden broadcast --out /tmp/autodj-broadcast.wav
       - name: Analyze FLAC gold
         run: cargo run -p autodj-cli -- analyze --input testdata/gold/loop_a_128.flac --db /tmp/autodj-flac.sqlite
+      - name: Golden policy_hints
+        run: cargo run -p autodj-cli -- mix --golden policy_hints --out /tmp/autodj-policy-hints.wav
       - name: Golden rekordbox
         run: cargo run -p autodj-cli -- mix --golden rekordbox --out /tmp/autodj-rekordbox.wav
       - name: Golden transitions

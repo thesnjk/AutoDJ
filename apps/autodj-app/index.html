@@ -12,7 +12,7 @@
     <main class="shell">
       <header class="hero">
         <p class="brand">AutoDJ</p>
-        <p class="tagline">Playlist → AutoDJ picks order → mix → listen</p>
+        <p class="tagline">Folder → AutoDJ picks order → mix → listen</p>
       </header>
 
       <section class="player" aria-label="Mix player">
@@ -28,10 +28,10 @@
 
       <section class="controls" aria-label="Mix controls">
         <label>
-          Playlist (JSON or Rekordbox XML)
+          Library folder
           <span class="path-row">
-            <input id="playlist" type="text" spellcheck="false" placeholder="/path/to/party.json or gold_playlist.xml" />
-            <button type="button" id="btn-browse-playlist" class="browse">Browse…</button>
+            <input id="folder" type="text" spellcheck="false" placeholder="/path/to/tracks (wav/flac)" />
+            <button type="button" id="btn-browse-folder" class="browse">Browse…</button>
           </span>
         </label>
         <label>
@@ -40,24 +40,6 @@
             <input id="out" type="text" spellcheck="false" placeholder="/tmp/mix.wav" />
             <button type="button" id="btn-browse-out" class="browse">Browse…</button>
           </span>
-        </label>
-        <label class="check">
-          <span class="check-row">
-            <input id="preserve-order" type="checkbox" />
-            <span>Preserve playlist order</span>
-          </span>
-          <span class="hint">Keep Rekordbox setlist order (skip energy-arc reorder)</span>
-        </label>
-        <label class="check">
-          <span class="check-row">
-            <input id="deterministic" type="checkbox" checked />
-            <span>Strict QA gates (deterministic)</span>
-          </span>
-          <span class="hint">Hard-fail beat-phase, peak, join, bass, stretch (matches CLI default)</span>
-        </label>
-        <label class="optional">
-          Rekordbox playlist name (optional)
-          <input id="playlist-name" type="text" spellcheck="false" placeholder="Gold Set" />
         </label>
         <label>
           Genre
@@ -70,28 +52,60 @@
             <option value="open_format">open_format</option>
           </select>
         </label>
-        <label>
-          Analyze input (file or folder)
-          <input id="analyze-input" type="text" spellcheck="false" placeholder="/path/to/library" />
+        <label class="check">
+          <span class="check-row">
+            <input id="preserve-order" type="checkbox" />
+            <span>Preserve playlist order</span>
+          </span>
+          <span class="hint">Keep folder/JSON/Rekordbox order (skip energy-arc reorder)</span>
+        </label>
+        <label class="check">
+          <span class="check-row">
+            <input id="deterministic" type="checkbox" checked />
+            <span>Strict QA gates (deterministic)</span>
+          </span>
+          <span class="hint">Hard-fail beat-phase, peak, join, bass, stretch (matches CLI default)</span>
         </label>
         <label>
           Feature DB
           <input id="db" type="text" spellcheck="false" value="features.sqlite" />
         </label>
-        <label class="optional">
-          Policy hints (optional)
-          <input id="policy-hints" type="text" spellcheck="false" placeholder="demo_policy_hints.json" />
-        </label>
-        <label class="optional">
-          Transition model (optional; default: committed Softmax)
-          <input id="transition-model" type="text" spellcheck="false" placeholder="default: committed Softmax" />
-        </label>
 
         <div class="actions">
+          <button type="button" id="btn-automix-folder" class="primary">Automix folder</button>
           <button type="button" id="btn-version">Check CLI</button>
-          <button type="button" id="btn-analyze">Analyze</button>
-          <button type="button" id="btn-mix" class="primary">Mix</button>
         </div>
+
+        <details class="advanced">
+          <summary>Advanced: JSON / Rekordbox playlist</summary>
+          <label>
+            Playlist (JSON or Rekordbox XML)
+            <span class="path-row">
+              <input id="playlist" type="text" spellcheck="false" placeholder="/path/to/party.json or gold_playlist.xml" />
+              <button type="button" id="btn-browse-playlist" class="browse">Browse…</button>
+            </span>
+          </label>
+          <label class="optional">
+            Rekordbox playlist name (optional)
+            <input id="playlist-name" type="text" spellcheck="false" placeholder="Gold Set" />
+          </label>
+          <label>
+            Analyze input (file or folder)
+            <input id="analyze-input" type="text" spellcheck="false" placeholder="/path/to/library" />
+          </label>
+          <label class="optional">
+            Policy hints (optional)
+            <input id="policy-hints" type="text" spellcheck="false" placeholder="demo_policy_hints.json" />
+          </label>
+          <label class="optional">
+            Transition model (optional; default: committed Softmax)
+            <input id="transition-model" type="text" spellcheck="false" placeholder="default: committed Softmax" />
+          </label>
+          <div class="actions">
+            <button type="button" id="btn-analyze">Analyze</button>
+            <button type="button" id="btn-mix">Mix playlist</button>
+          </div>
+        </details>
       </section>
 
       <section class="status" aria-live="polite">

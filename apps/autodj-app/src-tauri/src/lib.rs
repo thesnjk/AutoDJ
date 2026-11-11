@@ -1,5 +1,6 @@
 //! AutoDJ desktop shell — thin Tauri wrapper over `autodj-cli`.
 
+use std::fs;
 use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
@@ -146,6 +147,8 @@ struct MixArgs {
     genre: String,
     policy_hints: Option<String>,
     transition_model: Option<String>,
+    /// Feature DB path (optional; analyzes on the fly when omitted).
+    db: Option<String>,
     /// Keep playlist order (Rekordbox setlist fidelity).
     preserve_order: Option<bool>,
     /// Rekordbox PLAYLISTS NODE name when the XML has multiple playlists.
@@ -155,52 +158,118 @@ struct MixArgs {
     deterministic: bool,
 }
 
-#[tauri::command]
-fn mix(app: AppHandle, args: MixArgs) -> Result<serde_json::Value, String> {
-    let mut cli_args: Vec<&str> = vec![
-        "mix",
-        "--playlist",
-        &args.playlist,
-        "--out",
-        &args.out,
-        "--genre",
-        &args.genre,
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct AutomixFolderArgs {
+    folder: String,
+    out: String,
+    genre: String,
+    policy_hints: Option<String>,
+    transition_model: Option<String>,
+    /// Feature DB; when set, analyze folder into DB before mix.
+    db: Option<String>,
+    preserve_order: Option<bool>,
+    #[serde(default = "default_deterministic")]
+    deterministic: bool,
+}
+
+/// Collect wav/flac paths in a folder (sorted), mirroring CLI `collect_audio`.
+fn collect_folder_audio(folder: &Path) -> Result<Vec<PathBuf>, String> {
+    if !folder.is_dir() {
+        return Err(format!("not a directory: {}", folder.display()));
+    }
+    let mut out = Vec::new();
+    let entries = fs::read_dir(folder).map_err(|e| format!("read_dir: {e}"))?;
+    for entry in entries {
+        let path = entry.map_err(|e| format!("dir entry: {e}"))?.path();
+        if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
+            if matches!(ext.to_ascii_lowercase().as_str(), "wav" | "flac") {
+                out.push(path);
+            }
+        }
+    }
+    out.sort();
+    Ok(out)
+}
+
+fn write_temp_playlist(genre: &str, tracks: &[PathBuf]) -> Result<PathBuf, String> {
+    let mut paths = Vec::with_capacity(tracks.len());
+    for t in tracks {
+        let abs = t
+            .canonicalize()
+            .unwrap_or_else(|_| t.clone())
+            .to_string_lossy()
+            .into_owned();
+        paths.push(serde_json::json!({ "path": abs }));
+    }
+    let json = serde_json::json!({
+        "genre": genre,
+        "tracks": paths,
+    });
+    let path = std::env::temp_dir().join(format!(
+        "autodj-folder-playlist-{}.json",
+        std::process::id()
+    ));
+    fs::write(&path, serde_json::to_string_pretty(&json).map_err(|e| e.to_string())?)
+        .map_err(|e| format!("write temp playlist: {e}"))?;
+    Ok(path)
+}
+
+fn run_mix_cli(
+    app: &AppHandle,
+    playlist: &str,
+    out: &str,
+    genre: &str,
+    policy_hints: Option<&str>,
+    transition_model: Option<&str>,
+    db: Option<&str>,
+    preserve_order: bool,
+    playlist_name: Option<&str>,
+    deterministic: bool,
+) -> Result<serde_json::Value, String> {
+    let mut owned: Vec<String> = vec![
+        "mix".into(),
+        "--playlist".into(),
+        playlist.into(),
+        "--out".into(),
+        out.into(),
+        "--genre".into(),
+        genre.into(),
     ];
-    let hints = args.policy_hints.filter(|s| !s.trim().is_empty());
-    let model = args.transition_model.filter(|s| !s.trim().is_empty());
-    let resolved_default = if model.is_none() {
-        resolve_committed_transition_model().ok()
+    if preserve_order {
+        owned.push("--preserve-order".into());
+    }
+    if let Some(name) = playlist_name.filter(|s| !s.is_empty()) {
+        owned.push("--playlist-name".into());
+        owned.push(name.into());
+    }
+    if let Some(h) = policy_hints.filter(|s| !s.is_empty()) {
+        owned.push("--policy-hints".into());
+        owned.push(h.into());
+    }
+    if let Some(d) = db.filter(|s| !s.is_empty()) {
+        owned.push("--db".into());
+        owned.push(d.into());
+    }
+    let resolved_default;
+    if let Some(m) = transition_model.filter(|s| !s.is_empty()) {
+        owned.push("--transition-model".into());
+        owned.push(m.into());
     } else {
-        None
-    };
-    let playlist_name = args
-        .playlist_name
-        .filter(|s| !s.trim().is_empty());
-    if args.preserve_order.unwrap_or(false) {
-        cli_args.push("--preserve-order");
+        resolved_default = resolve_committed_transition_model().ok();
+        if let Some(ref path) = resolved_default {
+            owned.push("--transition-model".into());
+            owned.push(path.clone());
+        }
     }
-    if let Some(ref name) = playlist_name {
-        cli_args.push("--playlist-name");
-        cli_args.push(name.as_str());
-    }
-    if let Some(ref h) = hints {
-        cli_args.push("--policy-hints");
-        cli_args.push(h.as_str());
-    }
-    if let Some(ref m) = model {
-        cli_args.push("--transition-model");
-        cli_args.push(m.as_str());
-    } else if let Some(ref path) = resolved_default {
-        cli_args.push("--transition-model");
-        cli_args.push(path.as_str());
-    }
-    if args.deterministic {
-        cli_args.push("--deterministic");
+    if deterministic {
+        owned.push("--deterministic".into());
     } else {
-        cli_args.push("--no-deterministic");
+        owned.push("--no-deterministic".into());
     }
 
-    let (ok, stdout, stderr) = run_autodj(&app, &cli_args)?;
+    let refs: Vec<&str> = owned.iter().map(|s| s.as_str()).collect();
+    let (ok, stdout, stderr) = run_autodj(app, &refs)?;
     if !ok {
         return Err(stderr.if_empty(stdout));
     }
@@ -210,6 +279,83 @@ fn mix(app: AppHandle, args: MixArgs) -> Result<serde_json::Value, String> {
             stdout.chars().take(800).collect::<String>()
         )
     })
+}
+
+#[tauri::command]
+fn mix(app: AppHandle, args: MixArgs) -> Result<serde_json::Value, String> {
+    let hints = args.policy_hints.filter(|s| !s.trim().is_empty());
+    let model = args.transition_model.filter(|s| !s.trim().is_empty());
+    let db = args.db.filter(|s| !s.trim().is_empty());
+    let playlist_name = args.playlist_name.filter(|s| !s.trim().is_empty());
+    run_mix_cli(
+        &app,
+        &args.playlist,
+        &args.out,
+        &args.genre,
+        hints.as_deref(),
+        model.as_deref(),
+        db.as_deref(),
+        args.preserve_order.unwrap_or(false),
+        playlist_name.as_deref(),
+        args.deterministic,
+    )
+}
+
+/// Scan a folder of wav/flac, build a temp playlist, optionally analyze into `--db`, then mix.
+#[tauri::command]
+fn automix_folder(app: AppHandle, args: AutomixFolderArgs) -> Result<serde_json::Value, String> {
+    let folder = PathBuf::from(args.folder.trim());
+    let tracks = collect_folder_audio(&folder)?;
+    if tracks.len() < 2 {
+        return Err(format!(
+            "need ≥2 wav/flac files in {}; found {}",
+            folder.display(),
+            tracks.len()
+        ));
+    }
+    emit_progress(
+        &app,
+        &format!(
+            "folder automix: {} tracks in {}",
+            tracks.len(),
+            folder.display()
+        ),
+    );
+
+    let playlist_path = write_temp_playlist(&args.genre, &tracks)?;
+    emit_progress(
+        &app,
+        &format!("wrote temp playlist {}", playlist_path.display()),
+    );
+
+    let db = args.db.filter(|s| !s.trim().is_empty());
+    if let Some(ref db_path) = db {
+        let folder_s = folder.to_string_lossy().into_owned();
+        let (ok, stdout, stderr) = run_autodj(
+            &app,
+            &["analyze", "--input", &folder_s, "--db", db_path],
+        )?;
+        if !ok {
+            return Err(stderr.if_empty(stdout));
+        }
+        emit_progress(&app, &format!("analyze → {db_path}"));
+    }
+
+    let hints = args.policy_hints.filter(|s| !s.trim().is_empty());
+    let model = args.transition_model.filter(|s| !s.trim().is_empty());
+    let playlist_s = playlist_path.to_string_lossy().into_owned();
+    run_mix_cli(
+        &app,
+        &playlist_s,
+        &args.out,
+        &args.genre,
+        hints.as_deref(),
+        model.as_deref(),
+        db.as_deref(),
+        args.preserve_order.unwrap_or(false),
+        None,
+        args.deterministic,
+    )
 }
 
 trait IfEmpty {
@@ -324,6 +470,7 @@ pub fn run() {
             autodj_version,
             analyze,
             mix,
+            automix_folder,
             path_exists
         ])
         .run(tauri::generate_context!())

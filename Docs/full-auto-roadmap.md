@@ -2,7 +2,7 @@
 
 **North Star:** Launch AutoDJ and leave it alone. The app sources music from **user-owned local library roots**, chooses the next track, decides **transition class + exact cue timing**, renders or hands off gaplessly, and keeps going until **Stop**. Minimal UI: Stop, library roots, Strict QA / vibe knobs.
 
-This is **not** “pick one folder → one-shot mix.” That flow remains as a power-user path; continuous radio is the product default once P81 ships.
+This is **not** “pick one folder → one-shot mix.” That flow remains as a power-user path; continuous radio is the product default (P81+).
 
 ## Locked defaults
 

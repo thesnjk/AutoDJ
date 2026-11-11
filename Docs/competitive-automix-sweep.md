@@ -7,7 +7,7 @@ Living gap matrix. Updated 2026-11-09 after Firecrawl research (raw notes in loc
 | Surface | Competitor cue | AutoDJ status | Evidence |
 |---------|----------------|---------------|----------|
 | Offline automix render | djay Automix (playlist → continuous blend; Mix Now / cue points) | Parity-path MVP | `autodj-cli` `mix`; MixReport sidecar `{out}.mixreport.json` + Tauri Reveal MixReport; `crates/autodj-core/src/render.rs` |
-| Feature extraction (BPM/key/sections) | Rekordbox / djay prep analysis | Parity-path | `analysis.rs` `AnalysisQuality` + octave fold; FFT hop spectral centroid (`spectral_centroid_hz`); MixReport `prep_quality_gate_pass`; gold `expected_analyze.json` regression |
+| Feature extraction (BPM/key/sections) | Rekordbox / djay prep analysis | Parity-path | `analysis.rs` `AnalysisQuality` + octave fold; FFT hop spectral centroid (`spectral_centroid_hz`); MixReport `prep_quality_gate_pass`; gold `expected_analyze.json` regression; Tauri Analyze Browse folder/file |
 | Harmonic suggestions | Rekordbox / DJ.Studio Camelot ordering | Parity MVP | `camelot.rs`; `key_pair_cost` / `suggest_next_keys`; `prefers_harmonic_neighbor` |
 | Energy-arc setcraft | Club open→peak→cool programming | Parity-path | `ArcPhase` + `pair_cost_at` + quiet opener; MixReport order |
 | Transition type palette | djay Filter / Echo / Tremolo / Riser / Dissolve / Neural Mix; SetFlow six-core (EQ, bass swap, cut, blend) | Parity-path | `eq.rs` Dissolve + Riser + Tremolo + Filter/Echo/EqSwap; Softmax 8-class (incl. dissolve); playlist `transition_out`; CI `--golden transitions` / `transition_model` / `transition_overrides`; Neural Mix / stems Later |
@@ -108,9 +108,10 @@ Formula note: `(competitor best − AutoDJ) × persona weight × mix_impact`. Be
 | **P61** | Tauri MixReport sidecar reveal | **Shipped** — log + Reveal MixReport… (`revealItemInDir`) |
 | **P62** | Load editor playlist into Advanced | **Shipped** — Save playlist… fills `#playlist` + preserve-order |
 | **P63** | Advanced Softmax model Browse | **Shipped** — Browse… + Load committed → `transition_model.json` |
-| Next | Analyze input Browse | file/folder picker for `#analyze-input` |
+| **P64** | Analyze input Browse | **Shipped** — Browse folder… + Browse file… (wav/flac) |
+| Next | Feature DB `#db` Browse | sqlite open/save dialog for Feature DB path |
 | Later | Stems / live dual-deck; neural phrase ML | gated / user-owned audio |
 
 ## Re-rank bias
 
-Prefer agent-doable product code that closes remaining mix-quality gaps before brochure fluff. P0–P63 are in place; stems remain gated.
+Prefer agent-doable product code that closes remaining mix-quality gaps before brochure fluff. P0–P64 are in place; stems remain gated.

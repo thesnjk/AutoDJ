@@ -103,6 +103,24 @@ body {
   opacity: 0.85;
 }
 
+.advanced {
+  margin-top: 0.5rem;
+  padding: 0.75rem 0 0;
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 0.85rem;
+}
+
+.advanced summary {
+  cursor: pointer;
+  font-family: var(--font-display);
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  color: var(--muted);
+  margin-bottom: 0.35rem;
+}
+
 .controls label.check {
   text-transform: none;
   letter-spacing: 0;

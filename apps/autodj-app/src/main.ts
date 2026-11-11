@@ -53,7 +53,9 @@ function setBusy(busy: boolean) {
     "btn-version",
     "btn-analyze",
     "btn-mix",
+    "btn-automix-folder",
     "btn-browse-playlist",
+    "btn-browse-folder",
     "btn-browse-out",
   ]) {
     const btn = $<HTMLButtonElement>(id);
@@ -258,6 +260,18 @@ async function browsePlaylist() {
   }
 }
 
+async function browseFolder() {
+  const selected = await open({
+    multiple: false,
+    directory: true,
+    title: "Select library folder",
+  });
+  if (typeof selected === "string") {
+    const el = $<HTMLInputElement>("folder");
+    if (el) el.value = selected;
+  }
+}
+
 async function browseOut() {
   const selected = await save({
     title: "Export mix WAV",
@@ -268,6 +282,22 @@ async function browseOut() {
     const el = $<HTMLInputElement>("out");
     if (el) el.value = selected;
   }
+}
+
+async function finishMixReport(
+  report: MixReport,
+  out: string,
+  deterministic: boolean,
+) {
+  renderMixReport(report, deterministic);
+  const autoplay = $<HTMLInputElement>("autoplay")?.checked ?? true;
+  const playPath = report.out?.trim() || out;
+  await loadMixPlayer(playPath, autoplay);
+  appendLog(
+    autoplay
+      ? `mix complete — playing ${basename(playPath)}`
+      : `mix complete — loaded ${basename(playPath)} (autoplay off)`,
+  );
 }
 
 window.addEventListener("DOMContentLoaded", async () => {
@@ -285,6 +315,18 @@ window.addEventListener("DOMContentLoaded", async () => {
     async () => {
       try {
         await browsePlaylist();
+      } catch (e) {
+        showPlainReport(String(e), true);
+        appendLog(String(e));
+      }
+    },
+  );
+
+  $<HTMLButtonElement>("btn-browse-folder")?.addEventListener(
+    "click",
+    async () => {
+      try {
+        await browseFolder();
       } catch (e) {
         showPlainReport(String(e), true);
         appendLog(String(e));
@@ -316,6 +358,50 @@ window.addEventListener("DOMContentLoaded", async () => {
     }
   });
 
+  $<HTMLButtonElement>("btn-automix-folder")?.addEventListener(
+    "click",
+    async () => {
+      const folder = $<HTMLInputElement>("folder")?.value.trim() ?? "";
+      const out = $<HTMLInputElement>("out")?.value.trim() ?? "";
+      const genre = $<HTMLSelectElement>("genre")?.value ?? "house";
+      const policyHints =
+        $<HTMLInputElement>("policy-hints")?.value.trim() || null;
+      const transitionModel =
+        $<HTMLInputElement>("transition-model")?.value.trim() || null;
+      const db = $<HTMLInputElement>("db")?.value.trim() || null;
+      const preserveOrder =
+        $<HTMLInputElement>("preserve-order")?.checked ?? false;
+      const deterministic =
+        $<HTMLInputElement>("deterministic")?.checked ?? true;
+      if (!folder || !out) {
+        showPlainReport("Set library folder and output WAV paths", true);
+        return;
+      }
+      setBusy(true);
+      appendLog("--- automix folder ---");
+      try {
+        const report = await invoke<MixReport>("automix_folder", {
+          args: {
+            folder,
+            out,
+            genre,
+            policyHints,
+            transitionModel,
+            db,
+            preserveOrder,
+            deterministic,
+          },
+        });
+        await finishMixReport(report, out, deterministic);
+      } catch (e) {
+        showPlainReport(String(e), true);
+        appendLog(String(e));
+      } finally {
+        setBusy(false);
+      }
+    },
+  );
+
   $<HTMLButtonElement>("btn-analyze")?.addEventListener("click", async () => {
     const input = $<HTMLInputElement>("analyze-input")?.value.trim() ?? "";
     const db = $<HTMLInputElement>("db")?.value.trim() || "features.sqlite";
@@ -344,6 +430,7 @@ window.addEventListener("DOMContentLoaded", async () => {
     const policyHints = $<HTMLInputElement>("policy-hints")?.value.trim() || null;
     const transitionModel =
       $<HTMLInputElement>("transition-model")?.value.trim() || null;
+    const db = $<HTMLInputElement>("db")?.value.trim() || null;
     const preserveOrder =
       $<HTMLInputElement>("preserve-order")?.checked ?? false;
     const playlistName =
@@ -367,20 +454,13 @@ window.addEventListener("DOMContentLoaded", async () => {
           genre,
           policyHints,
           transitionModel,
+          db,
           preserveOrder,
           playlistName,
           deterministic,
         },
       });
-      renderMixReport(report, deterministic);
-      const autoplay = $<HTMLInputElement>("autoplay")?.checked ?? true;
-      const playPath = report.out?.trim() || out;
-      await loadMixPlayer(playPath, autoplay);
-      appendLog(
-        autoplay
-          ? `mix complete — playing ${basename(playPath)}`
-          : `mix complete — loaded ${basename(playPath)} (autoplay off)`,
-      );
+      await finishMixReport(report, out, deterministic);
     } catch (e) {
       showPlainReport(String(e), true);
       appendLog(String(e));

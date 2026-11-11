@@ -1,6 +1,6 @@
 # autodj-app (Tauri 2)
 
-Desktop shell: browse a playlist JSON or Rekordbox XML, run analyze/mix via `autodj-cli`, watch progress, and **listen** to the continuous Automix in-app (`<audio>` + Autoplay after mix). Softmax + solver pick order when Preserve-order is off; the report panel lists **Set order (AutoDJ)**. Output WAV must be under `/tmp` or `$HOME` (asset protocol scope).
+Desktop shell: **Automix folder** scans a library directory for `wav`/`flac`, Softmax-solves order, renders, and **listens** in-app (`<audio>` + Autoplay after mix). JSON/Rekordbox playlists remain under Advanced. Softmax + solver pick order when Preserve-order is off; the report panel lists **Set order (AutoDJ)**. Output WAV must be under `/tmp` or `$HOME` (asset protocol scope). Feature DB is passed to `mix --db` after folder analyze.
 
 **UI language:** AutoDJ’s own (not RouteFinder GlassmorphicModifiers).
 
@@ -17,7 +17,7 @@ npm install
 npm run tauri dev
 ```
 
-Use **Browse…** for playlist (`.json` / `.xml`) and output WAV. For `testdata/rekordbox/gold_playlist.xml`, enable preserve-order and set playlist name `Gold Set` if desired.
+Use **Browse…** for a library folder (e.g. `testdata/gold`) and output WAV, then **Automix folder**. For Rekordbox XML, open Advanced → playlist picker; enable preserve-order and set playlist name `Gold Set` if desired.
 
 Resolution order for the CLI:
 

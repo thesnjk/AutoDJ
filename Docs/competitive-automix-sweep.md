@@ -122,10 +122,11 @@ Formula note: `(competitor best − AutoDJ) × persona weight × mix_impact`. Be
 | **P76** | Thesis-grade writeup + data contracts | **Shipped** — REQ register; `data-contracts.md`; pair_cost model; Softmax metrics; failure/ops matrices |
 | **P78** | UI busy-lock honesty + offline polish | **Shipped** — report-panel/timeline busy lock; `aria-busy`; no Google Fonts CDN |
 | **P80** | Multi-root Radio libraries + Feature DB index | **Shipped** — Tauri roots list (localStorage); `analyze_libraries`; `automix_folder` unions roots; [`full-auto-roadmap.md`](full-auto-roadmap.md) |
-| **P81** | Continuous radio mode | **Shipped** — Start/Stop radio; −12s last-join lookahead → Softmax top-1 → `remix_queue_next` → seek handoff; multi-root Matching via symlink stage |
+| **P81** | Continuous radio mode | **Shipped** — Start/Stop radio; Softmax top-1 → `remix_queue_next` → seek handoff; multi-root Matching via symlink stage |
+| **P82** | Transition timing depth | **Shipped** — upcoming-join −20s prerender; `remix --horizon 3`; hold-then-swap at handoff (±0.15s) |
 | Later | Stems / live dual-deck; neural phrase ML | gated / user-owned audio |
-| Next | **P82** transition timing depth | full-auto ladder |
+| Next | **P83** set-length + vibe | full-auto ladder |
 
 ## Re-rank bias
 
-Competitive ungated matrix closed after P0–P78. **Full-auto North Star** continues: ship **P82 → P83** per [`full-auto-roadmap.md`](full-auto-roadmap.md)—**never** idle while those phases remain, **never** pick-lists, **never** start stems without a user-owned stem path. Stems / live dual-deck / neural phrase ML / streaming OAuth / open-web scrape remain Later/gated.
+Competitive ungated matrix closed after P0–P78. **Full-auto North Star** continues: ship **P83** per [`full-auto-roadmap.md`](full-auto-roadmap.md)—**never** idle while those phases remain, **never** pick-lists, **never** start stems without a user-owned stem path. Stems / live dual-deck / neural phrase ML / streaming OAuth / open-web scrape remain Later/gated.

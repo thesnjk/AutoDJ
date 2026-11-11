@@ -15,7 +15,7 @@ Living gap matrix. Updated 2026-11-09 after Firecrawl research (raw notes in loc
 | Library prep (Rekordbox XML) | Rekordbox playlist export → DJ.Studio | Parity-path | `rekordbox.rs` + `--playlist` `.xml`; BPM/key/grid; Type 1/2 → absolute mix windows; `--preserve-order`; CI `--golden rekordbox` / `rekordbox_cue_overrides`; Automix Editor **Save playlist…** JSON export |
 | Stems-aware transitions | Serato Stems (vocal / melody / bass / drums pads) | Gap | no stem DSP; deferred v2 |
 | Phrase sync | Rekordbox phrase analysis / djay BPM+Beats sync | Parity-path | per-track `bars_per_phrase` + LCM join snap + measured `cue_phrase_aligned` + Softmax v3 phrase bars/mismatch; Automix Editor 4/8/16 pin |
-| Learning from setcraft | Mixonset / tracklist research tools | Parity-path | SoftmaxLogReg v3 15-dim + **8 classes** (incl. dissolve); `autodj-train eval` ≥ 0.90; CI `--golden transition_model` / `policy_hints`; Tauri Browse + Load demo for `demo_policy_hints.json` |
+| Learning from setcraft | Mixonset / tracklist research tools | Parity-path | SoftmaxLogReg v3 15-dim + **8 classes** (incl. dissolve); `autodj-train eval` ≥ 0.90; CI `--golden transition_model` / `policy_hints`; Tauri Browse + Load demo for hints + Softmax model |
 | Live / controller | VirtualDJ / Serato dual-deck; djay Automix play / Mix Now | Parity-path (desktop shell) | Tauri Folder Automix + Mix & Listen + Mix Now seek (`join_timeline_secs`); Automix Editor seeded from MixReport cues/transitions; live dual-deck still Later |
 | Loudness / broadcast | EBU R 128 (−23 LUFS integrated; true-peak limits); radio-style continuous sets | Parity-path (measure+norm shipped) | `loudness.rs` + CLI `--lufs`; golden gate ±2 LU (`Docs/mix-quality-rubric.md`) |
 | Tempo blend | djay Sync + Tempo Blend | Parity-path | `stretch.rs` WSOLA `tempo_blend_head` + `tempo_blend_tail` (bidirectional); MixReport `tempo_blend_applied` + `tempo_stretch_gate_pass`; solver `stretch_clamp_excess` cost |
@@ -107,9 +107,10 @@ Formula note: `(competitor best − AutoDJ) × persona weight × mix_impact`. Be
 | **P60** | Export Automix Editor playlist JSON | **Shipped** — Save playlist… → CLI-compatible JSON |
 | **P61** | Tauri MixReport sidecar reveal | **Shipped** — log + Reveal MixReport… (`revealItemInDir`) |
 | **P62** | Load editor playlist into Advanced | **Shipped** — Save playlist… fills `#playlist` + preserve-order |
-| Next | Advanced Softmax model Browse | mirror policy-hints Browse for transition model |
+| **P63** | Advanced Softmax model Browse | **Shipped** — Browse… + Load committed → `transition_model.json` |
+| Next | Analyze input Browse | file/folder picker for `#analyze-input` |
 | Later | Stems / live dual-deck; neural phrase ML | gated / user-owned audio |
 
 ## Re-rank bias
 
-Prefer agent-doable product code that closes remaining mix-quality gaps before brochure fluff. P0–P62 are in place; stems remain gated.
+Prefer agent-doable product code that closes remaining mix-quality gaps before brochure fluff. P0–P63 are in place; stems remain gated.

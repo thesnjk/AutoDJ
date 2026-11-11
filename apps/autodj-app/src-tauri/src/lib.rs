@@ -21,7 +21,7 @@ enum AutodjLaunch {
 }
 
 /// Locate committed Softmax artifact; omit from CLI args when missing (preferred_transition fallback).
-fn resolve_committed_transition_model() -> Result<String, String> {
+fn resolve_committed_transition_model_path() -> Result<String, String> {
     let rel = Path::new("python/autodj_train/models/artifacts/transition_model.json");
     let mut candidates = Vec::new();
     if let Ok(root) = find_repo_root() {
@@ -37,7 +37,9 @@ fn resolve_committed_transition_model() -> Result<String, String> {
             return Ok(c.canonicalize().unwrap_or(c).to_string_lossy().into_owned());
         }
     }
-    Err("committed transition_model.json not found".into())
+    Err(
+        "committed transition_model.json not found (dev checkout or set AUTODJ_REPO_ROOT)".into(),
+    )
 }
 
 /// Locate committed demo policy-hints JSON for Advanced → Load demo.
@@ -421,7 +423,7 @@ fn run_mix_cli(
         owned.push("--transition-model".into());
         owned.push(m.into());
     } else {
-        resolved_default = resolve_committed_transition_model().ok();
+        resolved_default = resolve_committed_transition_model_path().ok();
         if let Some(ref path) = resolved_default {
             owned.push("--transition-model".into());
             owned.push(path.clone());
@@ -543,7 +545,7 @@ fn suggest_matches(app: AppHandle, args: SuggestMatchesArgs) -> Result<serde_jso
         owned.push("--transition-model".into());
         owned.push(m);
     } else {
-        resolved_default = resolve_committed_transition_model().ok();
+        resolved_default = resolve_committed_transition_model_path().ok();
         if let Some(ref path) = resolved_default {
             owned.push("--transition-model".into());
             owned.push(path.clone());
@@ -607,7 +609,7 @@ fn remix_queue_next(app: AppHandle, args: RemixQueueArgs) -> Result<serde_json::
         owned.push("--transition-model".into());
         owned.push(m);
     } else {
-        resolved_default = resolve_committed_transition_model().ok();
+        resolved_default = resolve_committed_transition_model_path().ok();
         if let Some(ref path) = resolved_default {
             owned.push("--transition-model".into());
             owned.push(path.clone());
@@ -800,6 +802,12 @@ fn resolve_demo_policy_hints() -> Result<String, String> {
     resolve_demo_policy_hints_path()
 }
 
+/// Absolute path to committed Softmax `transition_model.json` (dev checkout).
+#[tauri::command]
+fn resolve_committed_transition_model() -> Result<String, String> {
+    resolve_committed_transition_model_path()
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -816,7 +824,8 @@ pub fn run() {
             mix_editor_remix,
             export_editor_playlist,
             path_exists,
-            resolve_demo_policy_hints
+            resolve_demo_policy_hints,
+            resolve_committed_transition_model
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -128,7 +128,11 @@
           </label>
           <label class="optional">
             Transition model (optional; default: committed Softmax)
-            <input id="transition-model" type="text" spellcheck="false" placeholder="default: committed Softmax" />
+            <span class="path-row">
+              <input id="transition-model" type="text" spellcheck="false" placeholder="…/transition_model.json" />
+              <button type="button" id="btn-browse-transition-model" class="browse">Browse…</button>
+              <button type="button" id="btn-load-committed-transition-model" class="browse">Load committed</button>
+            </span>
           </label>
           <div class="actions">
             <button type="button" id="btn-analyze">Analyze</button>

@@ -1261,6 +1261,26 @@ async function loadDemoPolicyHints() {
   appendLog(`policy hints: loaded demo ${basename(path)}`);
 }
 
+async function browseTransitionModel() {
+  const selected = await open({
+    multiple: false,
+    directory: false,
+    title: "Select transition model JSON",
+    filters: [{ name: "Transition model", extensions: ["json"] }],
+  });
+  if (typeof selected === "string") {
+    const el = $<HTMLInputElement>("transition-model");
+    if (el) el.value = selected;
+  }
+}
+
+async function loadCommittedTransitionModel() {
+  const path = await invoke<string>("resolve_committed_transition_model");
+  const el = $<HTMLInputElement>("transition-model");
+  if (el) el.value = path;
+  appendLog(`transition model: loaded committed ${basename(path)}`);
+}
+
 async function finishMixReport(
   report: MixReport,
   out: string,
@@ -1485,6 +1505,30 @@ window.addEventListener("DOMContentLoaded", async () => {
     async () => {
       try {
         await loadDemoPolicyHints();
+      } catch (e) {
+        showPlainReport(String(e), true);
+        appendLog(String(e));
+      }
+    },
+  );
+
+  $<HTMLButtonElement>("btn-browse-transition-model")?.addEventListener(
+    "click",
+    async () => {
+      try {
+        await browseTransitionModel();
+      } catch (e) {
+        showPlainReport(String(e), true);
+        appendLog(String(e));
+      }
+    },
+  );
+
+  $<HTMLButtonElement>("btn-load-committed-transition-model")?.addEventListener(
+    "click",
+    async () => {
+      try {
+        await loadCommittedTransitionModel();
       } catch (e) {
         showPlainReport(String(e), true);
         appendLog(String(e));

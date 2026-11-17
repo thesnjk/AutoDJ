@@ -2,6 +2,10 @@
 
 AutoDJ learns setcraft from **lawful, attributable** sources and **user-owned** audio. It is not a pirate training corpus.
 
+## Ownership
+
+Copyright: **Jacob Hackett (2026)**. Public MIT license — see `LICENSE` and `NOTICE`. Trademarks and unpaid commercial support are not granted beyond MIT. Commercial packaging and paid pilots are founder-led; do not invent customer commitments in Docs.
+
 ## Allowed
 
 - User library analysis on-device / local cache.

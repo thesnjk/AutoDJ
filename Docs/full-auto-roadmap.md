@@ -24,7 +24,7 @@ This is **not** “pick one folder → one-shot mix.” That flow remains as a p
 | **P83** | Optional set-length + energy/vibe targets on top of radio | **Shipped** |
 | **Later / gated** | Stems (need path); streaming OAuth (need secrets); open-web sourcing (out of OSS) | Gated |
 
-**North Star ladder P80–P83 is complete.** Remaining work is Later/gated only (or Docs honesty from git evidence)—never idle-ask pick-lists.
+**North Star ladder P80–P83 is complete.** Remaining engineering is Later/gated only (skip without assets). Commercial Next lives in [`../product/backlog.md`](../product/backlog.md) and [`project-charter.md`](project-charter.md) (NARROW / validation-first)—never idle-ask pick-lists.
 
 ## Non-goals
 

@@ -873,3 +873,4 @@ Do not document these as shipped. Personas in §1.3 are product weights, **not**
 - **2026-11-17 — B12:** Aligned finance/pricing.md hypotheses with pilot-brief (GBP 150–300 ex VAT band labelled not-an-offer; fee blank for founder). Backlog B12 done; Next B13.
 - **2026-11-17 — B13:** Cross-linked getting-started to charter NARROW + discovery programme (+ pilot-brief fee blank). Backlog B13 done; Next B14.
 - **2026-11-17 — B14:** Wired scorecard Retention / Support / Founder capacity Evidence paths to pilot-brief + risk-register (Actuals blank); B15–B18 appended. Backlog B14 done; Next B15.
+- **2026-11-17 — B15:** Wired scorecard Recurring problem → interview-synthesis; Repeat usage → pilot-brief (Actuals blank). Backlog B15 done; Next B16.

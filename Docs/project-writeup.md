@@ -880,3 +880,4 @@ Do not document these as shipped. Personas in §1.3 are product weights, **not**
 - **2026-11-17 — B19:** Wired scorecard Contribution margin Evidence path to finance/financial-model.md + finance/pricing.md (Actuals blank). Backlog B19 done; Next B20.
 - **2026-11-17 — B20:** Added customer discovery programme to developer-map Docs pointers. Backlog B20 done; Next B21.
 - **2026-11-17 — B21:** Cross-linked founder-os-audit freshness to backlog Next (no invented gaps). Backlog B21 done; Next B22.
+- **2026-11-17 — B22:** Pointed scorecard Recommendation rationale at discovery programme + pilot-brief (kept NARROW); B23–B26 appended. Backlog B22 done; Next B23.

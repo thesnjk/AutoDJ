@@ -37,7 +37,7 @@ Founder decision thresholds below are **not** validated industry benchmarks — 
 |-------|-------|
 | Final recommendation | **NARROW** |
 | Date | 2026-11-17 |
-| Rationale | Engineering North Star shipped; commercial evidence absent. Validate O1 via discovery + concierge pilot before SaaS or broad packaging spend. |
+| Rationale | Engineering North Star shipped; commercial evidence absent. Validate O1 via [`research/customer-discovery-programme.md`](customer-discovery-programme.md) + concierge [`research/templates/pilot-brief.md`](templates/pilot-brief.md) before SaaS or broad packaging spend. |
 | Label | Working assumption |
 
 Allowed recommendations only: **GO** / **NARROW** / **PIVOT** / **STOP**. No silent pivots — update charter in the same PR as any posture change.

@@ -1,5 +1,7 @@
 # Getting started
 
+Engineering quickstart for local-first AutoDJ. Commercial posture is **NARROW** — private paid intent; no production SaaS spend until validation thresholds. See [`project-charter.md`](project-charter.md), discovery index [`../research/customer-discovery-programme.md`](../research/customer-discovery-programme.md), and pilot brief ([`../research/templates/pilot-brief.md`](../research/templates/pilot-brief.md); fee blank for founder). Do not invent customer Actuals from this doc.
+
 ## Prerequisites
 
 - **Primary platform:** macOS Apple Silicon (`aarch64-apple-darwin`). Offline DSP is pure Rust (EQ, WSOLA tempo blend, R128 — no Linux-only audio backends).

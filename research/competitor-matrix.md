@@ -16,10 +16,13 @@ This file tracks **buyer job**, pricing posture, and distribution—not automix 
 
 ## Pricing observations
 
-Canonical sheet: [`research/templates/competitive-pricing-observations.md`](templates/competitive-pricing-observations.md).
+Canonical sheet: [`research/templates/competitive-pricing-observations.md`](templates/competitive-pricing-observations.md) (**filled 2026-11-17**, Firecrawl live + App Store GB).
 
-| Vendor | Observation | Date | Label |
-|--------|-------------|------|-------|
-| *(pending backlog B4)* | — | — | — |
+| Vendor | Observation (summary) | Date | Label |
+|--------|----------------------|------|-------|
+| rekordbox | GB plan page: Professional £36/mo or £30/mo equiv. yearly; Creative/Core lower | 2026-11-17 | Verified fact |
+| VirtualDJ | GB buy page: Home £4/mo, PRO £17/mo, Business £90/mo | 2026-11-17 | Verified fact |
+| DJ.Studio | GBP lifetime Studio £99 / Pro £129; promo Pro+Stems £149 / Ultimate £189; sub £29/mo | 2026-11-17 | Verified fact (promo caveat) |
+| djay | App Store GB IAP Full Access to PRO £6.99 / £48.99 (period labels limited in scrape) | 2026-11-17 | Verified fact / partial Unresolved |
 
-Date-stamp public pricing pages only; do not infer undocumented features or invent prices.
+Date-stamp public pricing pages only; do not infer undocumented features or invent prices. Re-scrape before external claims.

@@ -3,6 +3,8 @@
 **Date:** 2026-11-17 (reconcile on `main` after #170)  
 **Evidence labels:** Verified fact (repo state) · Working assumption (founder defaults) · Proposed experiment (validation backlog)
 
+**Freshness:** Audit date above is the reconcile event (Verified fact for that tip). **Current Next** = first unfinished row in [`../product/backlog.md`](../product/backlog.md) — do not hardcode a B-id here. Do not invent new gaps or Actuals in this audit; Continuous improvement appends backlog rows instead. Direction: charter **NARROW** ([`project-charter.md`](project-charter.md)); discovery index [`../research/customer-discovery-programme.md`](../research/customer-discovery-programme.md).
+
 ## A. Findings
 
 | Area | Status | Label |

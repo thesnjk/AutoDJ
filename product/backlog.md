@@ -20,7 +20,11 @@ Ordered, self-service. On bare `continue` / master-prompt attach: take the **fir
 | B11 | done | Thin root stubs `research/interview-guide.md`, `assumption-register.md`, `negative-findings.md` to pointers at `templates/` | Link hygiene | `research/*.md` stubs |
 | B12 | done | Align `finance/pricing.md` hypothesis labels with pilot-brief (not an offered price) | Price honesty | `finance/pricing.md` |
 | B13 | done | Cross-link `Docs/getting-started.md` to charter NARROW + discovery programme (commercial readers) | Docs discovery path | `Docs/getting-started.md` |
-| B14 | todo | Scorecard Retention / Support effort Evidence paths to pilot-brief + risk-register (Actuals blank) | Scorecard completeness | `research/validation-scorecard.md` |
+| B14 | done | Scorecard Retention / Support effort Evidence paths to pilot-brief + risk-register (Actuals blank) | Scorecard completeness | `research/validation-scorecard.md` |
+| B15 | todo | Scorecard Recurring problem → interview-synthesis; Repeat usage → pilot-brief (Actuals blank) | Scorecard completeness | `research/validation-scorecard.md` |
+| B16 | todo | Align `finance/financial-model.md` with `templates/financial-model-24m.md` gate (no invented numbers) | Finance gate honesty | `finance/financial-model.md` |
+| B17 | todo | Point Existing-alternative inadequacy Evidence path at competitive-pricing-observations + competitor-matrix | Scorecard completeness | `research/validation-scorecard.md` |
+| B18 | todo | Add `Docs/developer-map.md` one-liner to charter + `product/backlog.md` Next | Agent orientation | `Docs/developer-map.md` |
 
 ## Completed engineering ledger (do not renumber)
 

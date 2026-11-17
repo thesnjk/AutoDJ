@@ -1,11 +1,5 @@
 # Named accounts
 
-Founder-led list before bulk outreach.
+**Canonical path:** [`research/templates/crm-named-accounts.md`](../research/templates/crm-named-accounts.md).
 
-| Company | Buyer title | Why fit | Trigger | Angle | Tool hypothesis | Referral | Status | Next action |
-|---------|-------------|---------|---------|-------|-----------------|----------|--------|-------------|
-| — | — | — | — | — | — | — | Target | — |
-
-## CRM stages
-
-Target → Contacted → Replied → Discovery booked → Discovery held → Pilot offered → Pilot agreed → Pilot active → Continuation → Customer → Lost/DQ
+This file is a pointer kept for links from #170-era Docs. Edit the CRM template only. Do not invent accounts.

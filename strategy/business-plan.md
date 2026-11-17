@@ -1,30 +1,24 @@
 # Business plan (hypothesis)
 
-One-page living hypothesis only. **Not a forecast.** Financial model deferred until credible buyer + pricing evidence (`finance/financial-model.md`).
+**Source of truth:** [`Docs/project-charter.md`](../Docs/project-charter.md).  
+**Portfolio:** [`research/opportunity-portfolio.md`](../research/opportunity-portfolio.md).  
+**Pricing hypotheses:** [`finance/pricing.md`](../finance/pricing.md).
+
+One-page living hypothesis only — not a forecast. Financial model deferred until credible buyer + pricing evidence.
 
 ## Thesis
 
-AutoDJ turns a lawful local music library into a finished, genre-aware offline mix with automated QA—faster than manual prep in generic DJ software, without uploading libraries to the cloud.
+AutoDJ turns a lawful local music library into continuous or timed, genre-aware mixes with automated MixReport QA—without uploading libraries to the cloud.
 
 ## Who pays
 
-Bedroom DJs and content creators on macOS with owned WAV/FLAC libraries (**Working assumption**). See [Project charter](../Docs/project-charter.md#customer).
-
-## Why now
-
-Offline automix parity is table stakes in closed apps (**Reasoned inference** from `Docs/competitive-automix-sweep.md`); open, inspectable MixReport + MIT core may matter to creators who want exportable evidence and no lock-in (**Proposed experiment**).
+UK mobile/club DJs and small event operators with owned local libraries (**Working assumption**). Backup: bedroom producers / podcast editors.
 
 ## How we make money (hypothesis)
 
 1. Paid concierge pilot (fixed scope).
-2. Desktop license or light subscription only after pilot retention proves support economics.
-
-Details: `finance/pricing.md`.
+2. Private paid packaging / support only after pilot retention proves support economics. MIT code stays public.
 
 ## What we are not doing
 
-See charter exclusions: no SaaS, no marketplace, no enterprise integrations until validation GO.
-
-## Source of truth
-
-[Docs/project-charter.md](../Docs/project-charter.md)
+See charter exclusions: no production SaaS, marketplace, stems/streaming/open-web scrape before validation GO.

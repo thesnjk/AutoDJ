@@ -1,10 +1,5 @@
 # Financial model
 
-**Not started.**
+**Canonical path:** [`research/templates/financial-model-24m.md`](../research/templates/financial-model-24m.md).
 
-Preconditions (founder master prompt §14):
-
-- Credible buyer evidence
-- Pricing hypothesis validated in discovery
-
-Until then, use `finance/pricing.md` hypotheses only.
+**Not started** until credible buyer + pricing evidence exist. Until then use [`finance/pricing.md`](pricing.md) hypotheses only.

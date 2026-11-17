@@ -1,7 +1,5 @@
-# Interview / recruitment grid
+# Interview grid
 
-| ID | Company / handle | Segment | Channel | Stage | Scheduled | Held | Pilot offered | Notes |
-|----|------------------|---------|---------|-------|-----------|------|---------------|-------|
-| — | — | — | — | Target | — | — | — | — |
+Use [`research/templates/interview-synthesis.md`](templates/interview-synthesis.md) and [`research/templates/recruitment-tracker.md`](templates/recruitment-tracker.md).
 
-**Stages:** Target → Contacted → Replied → Discovery booked → Discovery held → Pilot offered → Pilot agreed → Lost/DQ
+Do not invent interview rows.

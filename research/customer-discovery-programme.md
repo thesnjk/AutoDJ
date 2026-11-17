@@ -1,27 +1,12 @@
 # Customer discovery programme
 
-**Status:** Planned — no interviews completed (*Verified fact*).
+**Sources of truth**
 
-## Objective
+- Charter: [`Docs/project-charter.md`](../Docs/project-charter.md)
+- Interview guide: [`research/templates/interview-guide.md`](templates/interview-guide.md)
+- Recruitment: [`research/templates/recruitment-tracker.md`](templates/recruitment-tracker.md)
+- Observation: [`research/templates/observation-checklist.md`](templates/observation-checklist.md)
+- Synthesis: [`research/templates/interview-synthesis.md`](templates/interview-synthesis.md)
+- Scorecard: [`research/validation-scorecard.md`](validation-scorecard.md)
 
-Validate recurring job, substitute inadequacy, and willingness to pay for a **defined paid pilot** (not a demo download).
-
-## Recruitment (max 15 conversations)
-
-| Channel | Target | Status |
-|---------|--------|--------|
-| Warm network DJs / creators | 5 | Not started |
-| Small podcast/radio operators | 5 | Not started |
-| Online communities (rules-compliant, no spam) | 5 | Not started |
-
-## Artefacts
-
-- `interview-guide.md`
-- `interview-grid.md` (recruitment + schedule)
-- Synthesis: add `interview-synthesis-template.md` when row 2 completes
-
-## Rules
-
-- Recent behaviour only; ask to see real playlists/files where lawful.
-- No fabricated quotes in this repo.
-- Redacted synthetic fixtures for product tests live in `testdata/` only.
+Founder-led discovery only. Agents may refine templates; they must not invent interviews, quotations, or willingness-to-pay.

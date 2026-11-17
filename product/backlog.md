@@ -1,15 +1,19 @@
-# Self-service backlog
+# Product backlog — AutoDJ
 
-Ordered for agent/human execution. Rows must produce **evidence**, reduce risk, or advance validated workflows—not feature demos.
+Ordered, self-service. On bare `continue` / master-prompt attach: take the **first unfinished** row, implement on a feature branch, open PR, mark done **in the same PR**. If empty after completion, append 3–5 agent-doable evidence-producing rows (never filler, never gated stems/streaming/scrape without assets).
 
-Status: `[ ]` open · `[x]` done (link PR in the same change that completes the row).
+**Row must:** produce evidence, reduce risk, improve conversion/retention/maintainability, or advance a validated workflow.  
+**Forbid:** generic Docs-only fluff, premature SaaS scaffolding, speculative features, unvalidated integrations, renumber-only PRs, tracked agent master prompts.
 
-| # | Status | Row | Deliverable |
-|---|--------|-----|-------------|
-| 1 | `[ ]` | Complete validation scorecard baseline | `research/validation-scorecard.md` scored honestly (engineering-only ≠ commercial GO) |
-| 2 | `[ ]` | Customer discovery pack | `interview-guide.md`, `interview-grid.md`, programme + synthesis template cross-links |
-| 3 | `[ ]` | Commercial pilot offer one-pager | `commercial/pilot-offer.md` fixed scope per founder §9 |
-| 4 | `[ ]` | Competitor commercial pass | `research/competitor-matrix.md` buyer-job gaps with dated public pricing notes |
-| 5 | `[ ]` | Risk register + pre-mortem | `research/risk-register.md` + 12-month failure narrative |
+| ID | Status | Action | Why | Evidence produced |
+|----|--------|--------|-----|-------------------|
+| B1 | done | Reconcile founder OS on main: delete `Docs/founder-master-prompt.md`, sole-owner LICENSE/NOTICE, charter/backlog/scorecard/risk/templates, thin #170 stubs to pointers | One validation-first OS; never-idle Next | `Docs/project-charter.md`, `product/backlog.md`, `research/*`, `NOTICE` |
+| B2 | todo | Sync `research/templates/assumption-register.md` Actuals/status from charter after each discovery block (labelled); no invented interviews | Make assumptions greppable | Updated assumption register |
+| B3 | todo | Refine DJ buyer interview guide + recruitment tracker for UK mobile/club ICP (templates only; no invented accounts) | Enable founder discovery | `research/templates/interview-guide.md`, `recruitment-tracker.md` |
+| B4 | todo | Competitive pricing observation sheet: dated GBP public-page rows only (or explicit blanks + tool limitations) | Price honesty | `research/templates/competitive-pricing-observations.md` |
+| B5 | todo | Complete paid concierge pilot brief fields agents can fill without fees; leave fee/waiver for founder | Pilot readiness | `research/templates/pilot-brief.md` |
+| B6 | todo | Keep CRM named-account tracker skeleton honest (blank Actuals); link scorecard acquisition row | Founder-led sales prep | `research/templates/crm-named-accounts.md` |
 
-**Not on backlog:** new automix P-rows, auth/DB SaaS, cloud deploy, filler PRs.
+## Completed engineering ledger (do not renumber)
+
+Historical P0–P86 remain in `Docs/project-writeup.md` and the local master prompt shipment index. North Star P80–P83 complete. Do not re-open as pick-lists.

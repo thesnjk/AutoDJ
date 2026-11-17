@@ -1,13 +1,5 @@
-# Negative findings log
+# Negative findings
 
-Record refusals, disqualifications, and evidence **against** the thesis. Enthusiasm is not purchase intent.
+**Canonical path:** [`research/templates/negative-findings-log.md`](templates/negative-findings-log.md).
 
-| Date | Source | Finding | Implication |
-|------|--------|---------|-------------|
-| *(empty)* | — | — | — |
-
-## How to use
-
-1. Log every “not interested”, “already solved”, or “won’t pay”.
-2. Tag: **Verified fact** (what they said/did) vs **Reasoned inference** (what it means).
-3. Review weekly; trigger NARROW / PIVOT / STOP per charter.
+This file is a pointer kept for links from #170-era Docs. Edit the template only.

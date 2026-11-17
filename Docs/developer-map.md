@@ -64,6 +64,7 @@ cd apps/autodj-app && npm install && cargo check --manifest-path src-tauri/Cargo
 - Project charter (direction): `Docs/project-charter.md`
 - Backlog (agent Next): `product/backlog.md`
 - Validation scorecard: `research/validation-scorecard.md`
+- Customer discovery programme: `research/customer-discovery-programme.md`
 - Opportunity portfolio: `research/opportunity-portfolio.md`
 - Risk register: `research/risk-register.md`
 - Project writeup (Analysis→Evaluation + ledger): `Docs/project-writeup.md`

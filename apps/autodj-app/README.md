@@ -2,6 +2,8 @@
 
 Desktop shell for AutoDJ’s **full-auto private DJ** path (P80–P83). Deep user guide: [`Docs/getting-started.md`](../../Docs/getting-started.md). North Star ladder: [`Docs/full-auto-roadmap.md`](../../Docs/full-auto-roadmap.md).
 
+Commercial posture **NARROW** — see [`Docs/project-charter.md`](../../Docs/project-charter.md); radio/timed-set flow details in the getting-started Desktop section.
+
 **Primary flow — continuous radio**
 
 1. **Radio libraries** — Add one or more local folders you own (`wav`/`flac`); list persists in `localStorage`.

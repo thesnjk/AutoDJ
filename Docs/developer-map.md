@@ -2,6 +2,8 @@
 
 Thin index for humans and agents. Prefer linking one Doc at a time.
 
+For direction and Next action, read [`project-charter.md`](project-charter.md) (**NARROW**) then take the first unfinished row in [`../product/backlog.md`](../product/backlog.md).
+
 ## Layout
 
 | Path | Role |

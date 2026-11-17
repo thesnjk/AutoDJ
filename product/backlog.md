@@ -25,7 +25,7 @@ Ordered, self-service. On bare `continue` / master-prompt attach: take the **fir
 | B16 | done | Align `finance/financial-model.md` with `templates/financial-model-24m.md` gate (no invented numbers) | Finance gate honesty | `finance/financial-model.md` |
 | B17 | done | Point Existing-alternative inadequacy Evidence path at competitive-pricing-observations + competitor-matrix | Scorecard completeness | `research/validation-scorecard.md` |
 | B18 | done | Add `Docs/developer-map.md` one-liner to charter + `product/backlog.md` Next | Agent orientation | `Docs/developer-map.md` |
-| B19 | todo | Scorecard Contribution margin Evidence path → `finance/financial-model.md`; `finance/pricing.md` (Actuals blank) | Scorecard completeness | `research/validation-scorecard.md` |
+| B19 | done | Scorecard Contribution margin Evidence path → `finance/financial-model.md`; `finance/pricing.md` (Actuals blank) | Scorecard completeness | `research/validation-scorecard.md` |
 | B20 | todo | Add discovery programme to developer-map Docs pointers | Agent orientation | `Docs/developer-map.md` |
 | B21 | todo | Cross-link `Docs/founder-os-audit.md` status date to current backlog Next (no invented gaps) | Audit freshness | `Docs/founder-os-audit.md` |
 | B22 | todo | Point scorecard Recommendation rationale at discovery programme index (keep NARROW) | Scorecard completeness | `research/validation-scorecard.md` |

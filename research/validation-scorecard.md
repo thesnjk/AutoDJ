@@ -27,7 +27,7 @@ Founder decision thresholds below are **not** validated industry benchmarks — 
 | Retention | ≥2 continue paying | — | — | Unresolved question |
 | Support effort | Hours per pilot customer | — | — | Unresolved question |
 | Contribution margin | Revenue − variable delivery cost (GBP ex-VAT) | — | — | Unresolved question |
-| Repeatable acquisition | Named-account → discovery without ads | — | CRM tracker | Unresolved question |
+| Repeatable acquisition | Named-account → discovery without ads | — | `research/templates/crm-named-accounts.md` | Unresolved question |
 | Founder capacity fit | Solo-survivable support load | — | Risk register | Working assumption |
 
 ## Recommendation

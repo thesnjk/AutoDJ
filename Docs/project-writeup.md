@@ -864,3 +864,4 @@ Do not document these as shipped. Personas in §1.3 are product weights, **not**
 - **2026-11-17 — B3:** Refined UK DJ ICP interview guide (screening, leave-alone job, MixReport probe, assumption map) + recruitment tracker (ICP fit, source, DQ; blank Actuals). Backlog B3 done; Next B4.
 - **2026-11-17 — B4:** Dated GBP competitive pricing observations (rekordbox, VirtualDJ, DJ.Studio, djay App Store GB) via Firecrawl live scrapes; explicit limitations; no invented prices. Backlog B4 done; Next B5.
 - **2026-11-17 — B5:** Completed concierge pilot brief defaults (14-day duration, volume limits, baseline/success/data-handling); fee/waiver left blank for founder; hypothesis GBP 150–300 ex VAT not offered. Backlog B5 done; Next B6.
+- **2026-11-17 — B6:** Honest CRM named-account skeleton (ICP L/U/R/N, source channels, blank Actuals); scorecard acquisition Evidence path wired; backlog B7–B10 appended. Backlog B6 done; Next B7.

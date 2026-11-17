@@ -12,7 +12,11 @@ Ordered, self-service. On bare `continue` / master-prompt attach: take the **fir
 | B3 | done | Refine DJ buyer interview guide + recruitment tracker for UK mobile/club ICP (templates only; no invented accounts) | Enable founder discovery | `research/templates/interview-guide.md`, `recruitment-tracker.md` |
 | B4 | done | Competitive pricing observation sheet: dated GBP public-page rows only (or explicit blanks + tool limitations) | Price honesty | `research/templates/competitive-pricing-observations.md` (2026-11-17) |
 | B5 | done | Complete paid concierge pilot brief fields agents can fill without fees; leave fee/waiver for founder | Pilot readiness | `research/templates/pilot-brief.md` |
-| B6 | todo | Keep CRM named-account tracker skeleton honest (blank Actuals); link scorecard acquisition row | Founder-led sales prep | `research/templates/crm-named-accounts.md` |
+| B6 | done | Keep CRM named-account tracker skeleton honest (blank Actuals); link scorecard acquisition row | Founder-led sales prep | `research/templates/crm-named-accounts.md` |
+| B7 | todo | Refine observation checklist for radio/timed-set shadowing; link scorecard workflow-evidence row | Workflow evidence capture | `research/templates/observation-checklist.md` |
+| B8 | todo | Align interview-synthesis + negative-findings-log with O1 stages/labels (blank Actuals) | Discovery synthesis hygiene | `research/templates/interview-synthesis.md`, `negative-findings-log.md` |
+| B9 | todo | Index `customer-discovery-programme.md` to all live templates (CRM, pilot-brief, assumptions) | Single discovery index | `research/customer-discovery-programme.md` |
+| B10 | todo | Risk-register cross-links to scorecard gates + pilot-brief fee field (no invented residual scores) | Risk ↔ validation wiring | `research/risk-register.md` |
 
 ## Completed engineering ledger (do not renumber)
 

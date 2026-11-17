@@ -11,7 +11,7 @@ Ordered, self-service. On bare `continue` / master-prompt attach: take the **fir
 | B2 | done | Sync `research/templates/assumption-register.md` from charter/portfolio (labelled; no invented interviews/Actuals) | Make assumptions greppable | `research/templates/assumption-register.md` A1–A20 |
 | B3 | done | Refine DJ buyer interview guide + recruitment tracker for UK mobile/club ICP (templates only; no invented accounts) | Enable founder discovery | `research/templates/interview-guide.md`, `recruitment-tracker.md` |
 | B4 | done | Competitive pricing observation sheet: dated GBP public-page rows only (or explicit blanks + tool limitations) | Price honesty | `research/templates/competitive-pricing-observations.md` (2026-11-17) |
-| B5 | todo | Complete paid concierge pilot brief fields agents can fill without fees; leave fee/waiver for founder | Pilot readiness | `research/templates/pilot-brief.md` |
+| B5 | done | Complete paid concierge pilot brief fields agents can fill without fees; leave fee/waiver for founder | Pilot readiness | `research/templates/pilot-brief.md` |
 | B6 | todo | Keep CRM named-account tracker skeleton honest (blank Actuals); link scorecard acquisition row | Founder-led sales prep | `research/templates/crm-named-accounts.md` |
 
 ## Completed engineering ledger (do not renumber)

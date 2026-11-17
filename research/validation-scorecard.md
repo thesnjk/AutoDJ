@@ -22,8 +22,8 @@ Founder decision thresholds below are **not** validated industry benchmarks — 
 | Recurring problem evidence | Same pain in ≥6/10 interviews | — | — | Unresolved question |
 | Workflow evidence | ≥3 businesses share recent set-prep / radio behaviour or docs | — | `research/templates/observation-checklist.md` | Unresolved question |
 | Existing-alternative inadequacy | Named tools fail specific jobs | — | Competitive sweep (engineering only today) | Unresolved question |
-| Paid pilot conversion | ≥3 agree to defined pilot | — | — | Unresolved question |
-| Measured value delivered | Baseline vs pilot metrics | — | Pilot brief | Unresolved question |
+| Paid pilot conversion | ≥3 agree to defined pilot | — | `research/templates/pilot-brief.md` | Unresolved question |
+| Measured value delivered | Baseline vs pilot metrics | — | `research/templates/pilot-brief.md` | Unresolved question |
 | Repeat usage | Multi-session use in pilot | — | — | Unresolved question |
 | Retention | ≥2 continue paying | — | — | Unresolved question |
 | Support effort | Hours per pilot customer | — | — | Unresolved question |

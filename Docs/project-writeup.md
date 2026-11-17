@@ -868,3 +868,4 @@ Do not document these as shipped. Personas in §1.3 are product weights, **not**
 - **2026-11-17 — B7:** Refined observation checklist for O1 radio/timed-set shadowing (blank Actuals); scorecard Workflow evidence criterion + Evidence path. Backlog B7 done; Next B8.
 - **2026-11-17 — B8:** Aligned interview-synthesis + negative-findings-log with O1 stages/ICP/WTP fields (blank Actuals). Backlog B8 done; Next B9.
 - **2026-11-17 — B9:** Expanded customer-discovery-programme.md into single index of live templates + discovery flow. Backlog B9 done; Next B10.
+- **2026-11-17 — B10:** Risk-register Evidence/link map to scorecard gates + pilot-brief fee field; scorecard pilot Evidence paths wired; B11–B14 appended. Backlog B10 done; Next B11.

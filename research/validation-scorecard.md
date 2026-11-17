@@ -25,11 +25,11 @@ Founder decision thresholds below are **not** validated industry benchmarks — 
 | Paid pilot conversion | ≥3 agree to defined pilot | — | `research/templates/pilot-brief.md` | Unresolved question |
 | Measured value delivered | Baseline vs pilot metrics | — | `research/templates/pilot-brief.md` | Unresolved question |
 | Repeat usage | Multi-session use in pilot | — | — | Unresolved question |
-| Retention | ≥2 continue paying | — | — | Unresolved question |
-| Support effort | Hours per pilot customer | — | — | Unresolved question |
+| Retention | ≥2 continue paying | — | `research/templates/pilot-brief.md`; `research/risk-register.md` | Unresolved question |
+| Support effort | Hours per pilot customer | — | `research/templates/pilot-brief.md`; `research/risk-register.md` | Unresolved question |
 | Contribution margin | Revenue − variable delivery cost (GBP ex-VAT) | — | — | Unresolved question |
 | Repeatable acquisition | Named-account → discovery without ads | — | `research/templates/crm-named-accounts.md` | Unresolved question |
-| Founder capacity fit | Solo-survivable support load | — | Risk register | Working assumption |
+| Founder capacity fit | Solo-survivable support load | — | `research/risk-register.md` | Working assumption |
 
 ## Recommendation
 

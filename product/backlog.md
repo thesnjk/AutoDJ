@@ -16,7 +16,11 @@ Ordered, self-service. On bare `continue` / master-prompt attach: take the **fir
 | B7 | done | Refine observation checklist for radio/timed-set shadowing; link scorecard workflow-evidence row | Workflow evidence capture | `research/templates/observation-checklist.md` |
 | B8 | done | Align interview-synthesis + negative-findings-log with O1 stages/labels (blank Actuals) | Discovery synthesis hygiene | `research/templates/interview-synthesis.md`, `negative-findings-log.md` |
 | B9 | done | Index `customer-discovery-programme.md` to all live templates (CRM, pilot-brief, assumptions) | Single discovery index | `research/customer-discovery-programme.md` |
-| B10 | todo | Risk-register cross-links to scorecard gates + pilot-brief fee field (no invented residual scores) | Risk ↔ validation wiring | `research/risk-register.md` |
+| B10 | done | Risk-register cross-links to scorecard gates + pilot-brief fee field (no invented residual scores) | Risk ↔ validation wiring | `research/risk-register.md` |
+| B11 | todo | Thin root stubs `research/interview-guide.md`, `assumption-register.md`, `negative-findings.md` to pointers at `templates/` | Link hygiene | `research/*.md` stubs |
+| B12 | todo | Align `finance/pricing.md` hypothesis labels with pilot-brief (not an offered price) | Price honesty | `finance/pricing.md` |
+| B13 | todo | Cross-link `Docs/getting-started.md` to charter NARROW + discovery programme (commercial readers) | Docs discovery path | `Docs/getting-started.md` |
+| B14 | todo | Scorecard Retention / Support effort Evidence paths to pilot-brief + risk-register (Actuals blank) | Scorecard completeness | `research/validation-scorecard.md` |
 
 ## Completed engineering ledger (do not renumber)
 

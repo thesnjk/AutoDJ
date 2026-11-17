@@ -859,3 +859,4 @@ Do not document these as shipped. Personas in §1.3 are product weights, **not**
 - **2026-11-11 — P84:** Docs honesty — `apps/autodj-app/README.md` + developer-map aligned to Radio libraries / continuous radio / set-length + vibe.
 - **2026-11-11 — P85:** Docs honesty — `data-contracts.md` normative suggest/remix CLI (`--position`/`--set-len`/`--horizon`).
 - **2026-11-11 — P86:** Docs honesty — getting-started suggest `--position`/`--set-len` examples; writeup flag spelling `--set-len`.
+- **2026-11-17 — Founder OS reconcile:** Deleted tracked `Docs/founder-master-prompt.md` (#170 Cursor Agent venture prompt); sole-owner `LICENSE`/`NOTICE` (Jacob Hackett); AutoDJ charter (NARROW / private paid); `product/backlog.md` as Next; portfolio, scorecard, risk register, `research/templates/*`; #170 stubs thinned to pointers. Engineering thesis and P0–P86 unchanged; no invented interviews/pilots. See `Docs/founder-os-audit.md`.

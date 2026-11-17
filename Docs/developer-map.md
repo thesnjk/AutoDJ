@@ -13,10 +13,16 @@ Thin index for humans and agents. Prefer linking one Doc at a time.
 | `python/autodj_train/` | Synthetic transitions, Softmax train/eval |
 | `apps/autodj-app/` | Tauri 2 shell — Radio libraries, continuous radio (horizon prerender), set-length + vibe; see app README + getting-started |
 | `Docs/full-auto-roadmap.md` | North Star + P80–P83 phase ladder |
+| `Docs/project-charter.md` | Current commercial direction (NARROW); source of truth for posture |
+| `Docs/founder-os-audit.md` | Founder OS upgrade audit (preserve / gaps / contradictions) |
+| `product/backlog.md` | Ordered self-service backlog (agent Next) |
+| `research/` | Portfolio, scorecard, risk register, discovery/pilot templates |
 | `testdata/gold/` | Royalty-free synthetic WAV + `loop_a_128.flac` fixtures |
 | `Docs/` | Specs, legal, rubrics |
 | `Docs/project-writeup.md` | Thesis-grade writeup + living capability ledger |
 | `Docs/data-contracts.md` | Normative playlist / MixReport / Softmax / SQLite / hints / suggest+remix CLI shapes |
+| `LICENSE` / `NOTICE` | MIT; sole copyright Jacob Hackett |
+| ~~`Docs/founder-master-prompt.md`~~ | **Removed** — do not restore; operating rules are local `Docs/autoDJ-master-prompt.md` only |
 
 ## Platform
 
@@ -53,6 +59,11 @@ cd apps/autodj-app && npm install && cargo check --manifest-path src-tauri/Cargo
 
 ## Docs pointers
 
+- Project charter (direction): `Docs/project-charter.md`
+- Backlog (agent Next): `product/backlog.md`
+- Validation scorecard: `research/validation-scorecard.md`
+- Opportunity portfolio: `research/opportunity-portfolio.md`
+- Risk register: `research/risk-register.md`
 - Project writeup (Analysis→Evaluation + ledger): `Docs/project-writeup.md`
 - Data contracts: `Docs/data-contracts.md`
 - Architecture: `Docs/architecture.md`
@@ -61,3 +72,4 @@ cd apps/autodj-app && npm install && cargo check --manifest-path src-tauri/Cargo
 - Genre defaults: `Docs/genre-policy.md`
 - Competitive sweep: `Docs/competitive-automix-sweep.md`
 - Getting started: `Docs/getting-started.md`
+- Founder OS audit: `Docs/founder-os-audit.md`

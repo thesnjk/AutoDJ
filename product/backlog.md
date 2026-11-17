@@ -8,7 +8,7 @@ Ordered, self-service. On bare `continue` / master-prompt attach: take the **fir
 | ID | Status | Action | Why | Evidence produced |
 |----|--------|--------|-----|-------------------|
 | B1 | done | Reconcile founder OS on main: delete `Docs/founder-master-prompt.md`, sole-owner LICENSE/NOTICE, charter/backlog/scorecard/risk/templates, thin #170 stubs to pointers | One validation-first OS; never-idle Next | `Docs/project-charter.md`, `product/backlog.md`, `research/*`, `NOTICE` |
-| B2 | todo | Sync `research/templates/assumption-register.md` Actuals/status from charter after each discovery block (labelled); no invented interviews | Make assumptions greppable | Updated assumption register |
+| B2 | done | Sync `research/templates/assumption-register.md` from charter/portfolio (labelled; no invented interviews/Actuals) | Make assumptions greppable | `research/templates/assumption-register.md` A1–A20 |
 | B3 | todo | Refine DJ buyer interview guide + recruitment tracker for UK mobile/club ICP (templates only; no invented accounts) | Enable founder discovery | `research/templates/interview-guide.md`, `recruitment-tracker.md` |
 | B4 | todo | Competitive pricing observation sheet: dated GBP public-page rows only (or explicit blanks + tool limitations) | Price honesty | `research/templates/competitive-pricing-observations.md` |
 | B5 | todo | Complete paid concierge pilot brief fields agents can fill without fees; leave fee/waiver for founder | Pilot readiness | `research/templates/pilot-brief.md` |

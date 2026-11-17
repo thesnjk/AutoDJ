@@ -876,3 +876,4 @@ Do not document these as shipped. Personas in §1.3 are product weights, **not**
 - **2026-11-17 — B15:** Wired scorecard Recurring problem → interview-synthesis; Repeat usage → pilot-brief (Actuals blank). Backlog B15 done; Next B16.
 - **2026-11-17 — B16:** Aligned finance/financial-model.md with 24m template gate (Not started; unchecked preconditions; no invented numbers). Backlog B16 done; Next B17.
 - **2026-11-17 — B17:** Pointed scorecard Existing-alternative Evidence path at competitive-pricing-observations + competitor-matrix (Actuals blank). Backlog B17 done; Next B18.
+- **2026-11-17 — B18:** Added developer-map one-liner to charter NARROW + backlog Next; B19–B22 appended. Backlog B18 done; Next B19.

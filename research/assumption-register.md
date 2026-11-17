@@ -1,5 +1,5 @@
 # Assumption register
 
-**Canonical path:** [`research/templates/assumption-register.md`](templates/assumption-register.md).
+**Canonical path:** [`templates/assumption-register.md`](templates/assumption-register.md).
 
-This file is a pointer kept for links from #170-era Docs. Edit the template only.
+Legacy #170-era path pointer — edit the template only. Discovery index: [`customer-discovery-programme.md`](customer-discovery-programme.md).

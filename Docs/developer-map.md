@@ -17,6 +17,23 @@ Thin index for humans and agents. Prefer linking one Doc at a time.
 | `Docs/` | Specs, legal, rubrics |
 | `Docs/project-writeup.md` | Thesis-grade writeup + living capability ledger |
 | `Docs/data-contracts.md` | Normative playlist / MixReport / Softmax / SQLite / hints / suggest+remix CLI shapes |
+| `strategy/` | Venture hypothesis (`business-plan.md`) |
+| `research/` | Validation scorecard, discovery, assumptions (evidence-first) |
+| `product/` | Self-service backlog (`backlog.md`) |
+| `commercial/` | Named accounts, pilot offer (as created) |
+| `finance/` | Pricing hypotheses; model deferred |
+| `operations/` | Validation-phase KPIs |
+
+## Founder ops
+
+| Doc | Role |
+|-----|------|
+| `Docs/founder-master-prompt.md` | Standing orders for venture work |
+| `Docs/project-charter.md` | Source of truth for direction (NARROW posture) |
+| `product/backlog.md` | Next evidence-producing tasks |
+| `research/validation-scorecard.md` | Commercial GO thresholds |
+
+Engineering build prompt `Docs/autoDJ-master-prompt.md` remains **local-only** (`.git/info/exclude`) if present.
 
 ## Platform
 
@@ -46,7 +63,8 @@ cd apps/autodj-app && npm install && cargo check --manifest-path src-tauri/Cargo
 
 - No heap alloc / blocking I/O on future real-time audio paths.
 - Never commit copyrighted commercial audio or scraped full DJ sets.
-- Master prompt `Docs/autoDJ-master-prompt.md` is local-only (`.git/info/exclude`).
+- Venture sessions: attach `Docs/founder-master-prompt.md`; read charter + backlog before acting.
+- Engineering master prompt `Docs/autoDJ-master-prompt.md` is local-only (`.git/info/exclude`) when used.
 - Prefer issue → branch → PR.
 - Keep offline DSP portable (Mac-first, Linux CI); do not introduce Linux-only audio backends.
 - `apps/autodj-app/src-tauri` is **excluded** from the workspace Cargo members.
@@ -61,3 +79,5 @@ cd apps/autodj-app && npm install && cargo check --manifest-path src-tauri/Cargo
 - Genre defaults: `Docs/genre-policy.md`
 - Competitive sweep: `Docs/competitive-automix-sweep.md`
 - Getting started: `Docs/getting-started.md`
+- Project charter: `Docs/project-charter.md`
+- Founder standing orders: `Docs/founder-master-prompt.md`

@@ -1,5 +1,5 @@
 # Interview guide
 
-**Canonical path:** [`research/templates/interview-guide.md`](templates/interview-guide.md).
+**Canonical path:** [`templates/interview-guide.md`](templates/interview-guide.md).
 
-This file is a pointer kept for links from #170-era Docs. Edit the template only.
+Legacy #170-era path pointer — edit the template only. Discovery index: [`customer-discovery-programme.md`](customer-discovery-programme.md).

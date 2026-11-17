@@ -29,7 +29,7 @@ Ordered, self-service. On bare `continue` / master-prompt attach: take the **fir
 | B20 | done | Add discovery programme to developer-map Docs pointers | Agent orientation | `Docs/developer-map.md` |
 | B21 | done | Cross-link `Docs/founder-os-audit.md` status date to current backlog Next (no invented gaps) | Audit freshness | `Docs/founder-os-audit.md` |
 | B22 | done | Point scorecard Recommendation rationale at discovery programme index (keep NARROW) | Scorecard completeness | `research/validation-scorecard.md` |
-| B23 | todo | Getting-started Desktop: short Stop / leave-alone authority + local-libraries-only callout | O1 workflow clarity | `Docs/getting-started.md` |
+| B23 | done | Getting-started Desktop: short Stop / leave-alone authority + local-libraries-only callout | O1 workflow clarity | `Docs/getting-started.md` |
 | B24 | todo | Link MixReport gates in getting-started to `Docs/mix-quality-rubric.md` | Docs honesty | `Docs/getting-started.md` |
 | B25 | todo | Point `apps/autodj-app/README.md` at charter NARROW + getting-started radio flow | App orientation | `apps/autodj-app/README.md` |
 | B26 | todo | Add Softmax eval verify one-liner to `Docs/developer-map.md` Tests section | DX / verify | `Docs/developer-map.md` |

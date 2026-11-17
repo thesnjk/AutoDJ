@@ -882,3 +882,4 @@ Do not document these as shipped. Personas in §1.3 are product weights, **not**
 - **2026-11-17 — B21:** Cross-linked founder-os-audit freshness to backlog Next (no invented gaps). Backlog B21 done; Next B22.
 - **2026-11-17 — B22:** Pointed scorecard Recommendation rationale at discovery programme + pilot-brief (kept NARROW); B23–B26 appended. Backlog B22 done; Next B23.
 - **2026-11-17 — B23:** Getting-started Desktop callout for Stop / leave-alone authority + local-libraries-only. Backlog B23 done; Next B24.
+- **2026-11-17 — B24:** Linked MixReport gates in getting-started to mix-quality-rubric. Backlog B24 done; Next B25.

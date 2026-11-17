@@ -870,3 +870,4 @@ Do not document these as shipped. Personas in §1.3 are product weights, **not**
 - **2026-11-17 — B9:** Expanded customer-discovery-programme.md into single index of live templates + discovery flow. Backlog B9 done; Next B10.
 - **2026-11-17 — B10:** Risk-register Evidence/link map to scorecard gates + pilot-brief fee field; scorecard pilot Evidence paths wired; B11–B14 appended. Backlog B10 done; Next B11.
 - **2026-11-17 — B11:** Normalized research root stubs (interview-guide, assumption-register, negative-findings, interview-grid) to uniform templates/ pointers. Backlog B11 done; Next B12.
+- **2026-11-17 — B12:** Aligned finance/pricing.md hypotheses with pilot-brief (GBP 150–300 ex VAT band labelled not-an-offer; fee blank for founder). Backlog B12 done; Next B13.
